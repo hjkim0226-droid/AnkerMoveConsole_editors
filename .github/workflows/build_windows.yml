@@ -31,34 +31,8 @@ jobs:
         # Copy CEP panel
         xcopy /E /I /Y cep release\AnchorGrid\cep
         
-        # Create Install Script (Easy one-click install)
-        echo @echo off > release\AnchorGrid\install.bat
-        echo echo ========================================== >> release\AnchorGrid\install.bat
-        echo echo Installing Anchor Grid Plugin... >> release\AnchorGrid\install.bat
-        echo echo ========================================== >> release\AnchorGrid\install.bat
-        echo. >> release\AnchorGrid\install.bat
-        echo echo 1. Installing Plugin (.aex)... >> release\AnchorGrid\install.bat
-        echo mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2^>nul >> release\AnchorGrid\install.bat
-        echo copy /Y plugin\AnchorRadialMenu.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\" >> release\AnchorGrid\install.bat
-        echo. >> release\AnchorGrid\install.bat
-        echo echo 2. Installing CEP Panel... >> release\AnchorGrid\install.bat
-        echo mkdir "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" 2^>nul >> release\AnchorGrid\install.bat
-        echo xcopy /E /I /Y cep "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" >> release\AnchorGrid\install.bat
-        echo. >> release\AnchorGrid\install.bat
-        echo echo 3. Enabling Debug Mode (Registry)... >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.10" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.11" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.13" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.14" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.15" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo reg add "HKCU\Software\Adobe\CSXS.16" /v PlayerDebugMode /t REG_SZ /d 1 /f ^>nul >> release\AnchorGrid\install.bat
-        echo. >> release\AnchorGrid\install.bat
-        echo echo ========================================== >> release\AnchorGrid\install.bat
-        echo echo Installation Complete!! >> release\AnchorGrid\install.bat
-        echo echo Please restart After Effects. >> release\AnchorGrid\install.bat
-        echo echo ========================================== >> release\AnchorGrid\install.bat
-        echo pause >> release\AnchorGrid\install.bat
+        # Copy Install Script
+        copy install_windows.bat release\AnchorGrid\install.bat
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
