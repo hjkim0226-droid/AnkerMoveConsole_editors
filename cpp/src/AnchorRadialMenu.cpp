@@ -144,29 +144,38 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
   LogDebug("AnchorRadialMenu: EntryPointFunc Called! Plugin ID: %d",
            aegp_plugin_id);
 
-  AEGP_SuiteHandler suites(pica_basicP);
+  try {
+    AEGP_SuiteHandler suites(pica_basicP);
 
-  // Store global references
-  g_globals.plugin_id = aegp_plugin_id;
-  g_globals.pica_basicP = pica_basicP;
-  g_globals.menu_visible = false;
-  g_globals.key_was_held = false;
+    // Store global references
+    g_globals.plugin_id = aegp_plugin_id;
+    g_globals.pica_basicP = pica_basicP;
+    g_globals.menu_visible = false;
+    g_globals.key_was_held = false;
 
-  *global_refconP = (AEGP_GlobalRefcon)&g_globals;
+    *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 
-  // Register IdleHook for keyboard monitoring
-  ERR(suites.RegisterSuite5()->AEGP_RegisterIdleHook(
-      aegp_plugin_id, IdleHook, (AEGP_IdleRefcon)&g_globals));
+    // Register IdleHook for keyboard monitoring
+    ERR(suites.RegisterSuite5()->AEGP_RegisterIdleHook(
+        aegp_plugin_id, IdleHook, (AEGP_IdleRefcon)&g_globals));
 
-  if (!err) {
-    LogDebug("AnchorRadialMenu: IdleHook Registered Successfully");
-  } else {
-    LogDebug("AnchorRadialMenu: Failed to register IdleHook. Err: %d", err);
+    if (!err) {
+      LogDebug("AnchorRadialMenu: IdleHook Registered Successfully");
+    } else {
+      LogDebug("AnchorRadialMenu: Failed to register IdleHook. Err: %d", err);
+    }
+
+    // Initialize CEP communication bridge
+    CEPBridge::Initialize();
+    LogDebug("AnchorRadialMenu: CEPBridge Initialized");
+
+  } catch (const std::exception &e) {
+    LogDebug("CRITICAL ERROR: Exception in EntryPointFunc: %s", e.what());
+    err = A_Err_GENERIC;
+  } catch (...) {
+    LogDebug("CRITICAL ERROR: Unknown exception in EntryPointFunc");
+    err = A_Err_GENERIC;
   }
-
-  // Initialize CEP communication bridge
-  CEPBridge::Initialize();
-  LogDebug("AnchorRadialMenu: CEPBridge Initialized");
 
   return err;
 }
