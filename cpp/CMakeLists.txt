@@ -102,8 +102,11 @@ if(WIN32)
         WIN32
     )
     
-    # Add resource file (PiPL)
-    target_sources(${PROJECT_NAME} PRIVATE resources/win/AnchorRadialMenu.rc)
+    # Add resource file (PiPL) and Module Definition file (.def)
+    target_sources(${PROJECT_NAME} PRIVATE 
+        resources/win/AnchorRadialMenu.rc
+        resources/win/AnchorRadialMenu.def
+    )
     
     # AE Plugins need to be linked with specific flags on Windows
     # They are essentially DLLs renamed to .aex
