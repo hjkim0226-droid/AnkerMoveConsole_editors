@@ -1,11 +1,15 @@
 /*****************************************************************************
  * KeyboardMonitor.cpp
  *
- * OS-level keyboard state monitoring implementation for macOS
- * Uses CoreGraphics CGEventSourceKeyState for real-time key state
+ * OS-level keyboard state monitoring implementation
+ * Uses CoreGraphics on macOS, Win32 API on Windows
  *****************************************************************************/
 
 #include "KeyboardMonitor.h"
+
+#ifdef MSWindows
+#include <windows.h>
+#endif
 
 namespace KeyboardMonitor {
 
@@ -48,7 +52,6 @@ void GetMousePosition(int *x, int *y) {
 
 #else
 // Windows implementation
-#include <windows.h>
 
 bool IsKeyHeld(KeyCode keyCode) {
   // GetAsyncKeyState checks if key is currently up or down

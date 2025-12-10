@@ -2,7 +2,7 @@
 <ExtensionManifest Version="7.0" ExtensionBundleId="com.anchor.grid" ExtensionBundleVersion="0.0.1"
                    ExtensionBundleName="Anchor Grid" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.anchor.grid.panel" Version="1.0.0"/>
+        <Extension Id="com.anchor.grid.panel" Version="0.0.1"/>
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>

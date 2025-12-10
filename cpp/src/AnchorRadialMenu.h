@@ -12,7 +12,7 @@
 
 // Plugin identification
 #define PLUGIN_NAME "Anchor Radial Menu"
-#define PLUGIN_VERSION "1.0.0"
+#define PLUGIN_VERSION "0.0.1"
 
 #ifdef MSWindows
 #define DllExport __declspec(dllexport)

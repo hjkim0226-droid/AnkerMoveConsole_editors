@@ -112,9 +112,9 @@ void ApplyAnchorSelection(int gridX, int gridY) {
  * EntryPointFunc
  * Main plugin entry point - called when After Effects loads the plugin
  *****************************************************************************/
-// Debug Logging Helper
+// Debug Logging Helper (only active in Debug builds on Windows)
 void LogDebug(const char *fmt, ...) {
-#ifdef MSWindows
+#if defined(MSWindows) && defined(_DEBUG)
   char path[1024];
   if (const char *home = getenv("USERPROFILE")) {
     snprintf(path, sizeof(path), "%s\\Desktop\\AnchorDebug.txt", home);
@@ -131,6 +131,8 @@ void LogDebug(const char *fmt, ...) {
     fprintf(fp, "\n");
     fclose(fp);
   }
+#else
+  (void)fmt; // Suppress unused parameter warning
 #endif
 }
 

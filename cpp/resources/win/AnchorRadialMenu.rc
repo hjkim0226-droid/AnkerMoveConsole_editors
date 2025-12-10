@@ -32,57 +32,112 @@ BEGIN
     END
 END
 
-// PiPL Resource
-// CRITICAL: All values must appear as Big Endian in memory.
-// We use Little Endian compiler, so we must swap bytes in the .rc definition.
-// Length 4 -> Memory: 00 00 00 04. RC: 0x0000, 0x0400.
+// ============================================================================
+// PiPL Resource for AEGP Plugin
+// ============================================================================
+// IMPORTANT: Adobe PiPL uses BIG ENDIAN byte order.
+// Windows .rc files compile 16-bit WORDs in LITTLE ENDIAN.
+// To get correct Big Endian in memory, we must byte-swap each WORD.
+//
+// Example: 'AEGP' = 0x41 0x45 0x47 0x50
+//   In Big Endian memory: 41 45 47 50
+//   As 16-bit WORDs: [0x4145] [0x4750]
+//   But RC compiler swaps bytes, so we write: 0x4541, 0x5047
+//
+// For integers (32-bit):
+//   Value 4 = Big Endian: 00 00 00 04
+//   As 16-bit WORDs: [0x0000] [0x0004]
+//   RC compiler swaps, so we write: 0x0000, 0x0400
+// ============================================================================
+
 16000  PiPL  DISCARDABLE
 BEGIN
-	0x0001, 		// Reserved
-	0x0000, 		// kAEGP_PiPL_Version
-	0x0400, 		// Property count: 4 (Memory: 00 04 -> 0x0400 in RC)
-	
-	// ----------------------------------------------------------
-	// 1. Kind: 'AEGP'
-	// Type: 'Kind' -> Memory: 4b 69 6e 64
-	0x694b, 0x646e,
-	// Flags: 0
-	0x0000, 0x0000,
-	// Length: 4 -> Memory: 00 00 00 04
-	0x0000, 0x0400,
-	// Data: 'AEGP' -> Memory: 45 41 47 50
-	0x4145, 0x5047,
-	
-	// ----------------------------------------------------------
-	// 2. Name: "AnchorGrid"
-	// Type: 'Name' -> Memory: 4e 61 6d 65
-	0x614e, 0x656d,
-	// Flags: 0
-	0x0000, 0x0000,
-	// Length: 12 (0x0C) -> Memory: 00 00 00 0c
-	0x0000, 0x0c00,
-	// Data: "AnchorGrid\0\0"
-	0x6e41, 0x6863, 0x726f, 0x7247, 0x6469, 0x0000,
-
-	// ----------------------------------------------------------
-	// 3. Category: "General"
-	// Type: 'Catg' -> Memory: 43 61 74 67
-	0x6143, 0x6774,
-	// Flags: 0
-	0x0000, 0x0000,
-	// Length: 8 -> Memory: 00 00 00 08
-	0x0000, 0x0800,
-	// Data: "General\0"
-	0x6547, 0x656e, 0x6172, 0x006c,
-
-	// ----------------------------------------------------------
-	// 4. Code: "EntryPointFunc"
-	// Type: 'Cd64' -> Memory: 43 64 36 34
-	0x6443, 0x3436,
-	// Flags: 0
-	0x0000, 0x0000,
-	// Length: 16 (0x10) -> Memory: 00 00 00 10
-	0x0000, 0x1000,
-	// Data: "EntryPointFunc\0\0"
-	0x6e45, 0x7274, 0x5079, 0x696f, 0x746e, 0x7546, 0x636e, 0x0000
+    // ---- PiPL Header ----
+    0x0001,         // Reserved (always 1)
+    0x0000,         // kPiPL_Version (always 0)
+    0x0400,         // Property count = 4 (BE: 00 04 -> RC: 04 00)
+    
+    // ================================================================
+    // Property 1: Kind = 'AEgp' (AEGP type identifier)
+    // ================================================================
+    // Type: 'Kind' = 0x4B696E64
+    //   BE memory: 4B 69 6E 64
+    //   Words: [4B69] [6E64] -> RC swapped: 0x694B, 0x646E
+    0x694B, 0x646E,
+    // Flags: 0
+    0x0000, 0x0000,
+    // Length: 4 bytes (BE: 00 00 00 04 -> RC: 0x0000, 0x0400)
+    0x0000, 0x0400,
+    // Data: 'AEgp' = 0x41456770
+    //   BE memory: 41 45 67 70
+    //   Words: [4145] [6770] -> RC swapped: 0x4541, 0x7067
+    0x4541, 0x7067,
+    
+    // ================================================================
+    // Property 2: Name = "AnchorGrid"
+    // ================================================================
+    // Type: 'Name' = 0x4E616D65
+    //   BE memory: 4E 61 6D 65
+    //   Words: [4E61] [6D65] -> RC swapped: 0x614E, 0x656D
+    0x614E, 0x656D,
+    // Flags: 0
+    0x0000, 0x0000,
+    // Length: 12 bytes (string + padding)
+    //   BE: 00 00 00 0C -> RC: 0x0000, 0x0C00
+    0x0000, 0x0C00,
+    // Data: "AnchorGrid\0\0" (12 bytes, null-terminated + padding)
+    //   'An' = 41 6E -> [416E] -> RC: 0x6E41
+    //   'ch' = 63 68 -> [6368] -> RC: 0x6863
+    //   'or' = 6F 72 -> [6F72] -> RC: 0x726F
+    //   'Gr' = 47 72 -> [4772] -> RC: 0x7247
+    //   'id' = 69 64 -> [6964] -> RC: 0x6469
+    //   '\0\0' = 00 00 -> [0000] -> RC: 0x0000
+    0x6E41, 0x6863, 0x726F, 0x7247, 0x6469, 0x0000,
+    
+    // ================================================================
+    // Property 3: Category = "General Plugin"
+    // ================================================================
+    // Type: 'Catg' = 0x43617467
+    //   BE memory: 43 61 74 67
+    //   Words: [4361] [7467] -> RC swapped: 0x6143, 0x6774
+    0x6143, 0x6774,
+    // Flags: 0
+    0x0000, 0x0000,
+    // Length: 16 bytes
+    //   BE: 00 00 00 10 -> RC: 0x0000, 0x1000
+    0x0000, 0x1000,
+    // Data: "General Plugin\0\0" (16 bytes)
+    //   'Ge' = 47 65 -> RC: 0x6547
+    //   'ne' = 6E 65 -> RC: 0x656E
+    //   'ra' = 72 61 -> RC: 0x6172
+    //   'l ' = 6C 20 -> RC: 0x206C
+    //   'Pl' = 50 6C -> RC: 0x6C50
+    //   'ug' = 75 67 -> RC: 0x6775
+    //   'in' = 69 6E -> RC: 0x6E69
+    //   '\0\0' = 00 00 -> RC: 0x0000
+    0x6547, 0x656E, 0x6172, 0x206C, 0x6C50, 0x6775, 0x6E69, 0x0000,
+    
+    // ================================================================
+    // Property 4: EntryPoint = "EntryPointFunc" (Win64 code entry)
+    // ================================================================
+    // Type: 'ePKT' = Windows 64-bit entry point key
+    //   Note: Adobe SDK uses 'ePKT' (0x65504B54) for Win64
+    //   BE memory: 65 50 4B 54
+    //   Words: [6550] [4B54] -> RC swapped: 0x5065, 0x544B
+    0x5065, 0x544B,
+    // Flags: 0
+    0x0000, 0x0000,
+    // Length: 16 bytes
+    //   BE: 00 00 00 10 -> RC: 0x0000, 0x1000
+    0x0000, 0x1000,
+    // Data: "EntryPointFunc\0\0" (16 bytes)
+    //   'En' = 45 6E -> RC: 0x6E45
+    //   'tr' = 74 72 -> RC: 0x7274
+    //   'yP' = 79 50 -> RC: 0x5079
+    //   'oi' = 6F 69 -> RC: 0x696F
+    //   'nt' = 6E 74 -> RC: 0x746E
+    //   'Fu' = 46 75 -> RC: 0x7546
+    //   'nc' = 6E 63 -> RC: 0x636E
+    //   '\0\0' = 00 00 -> RC: 0x0000
+    0x6E45, 0x7274, 0x5079, 0x696F, 0x746E, 0x7546, 0x636E, 0x0000
 END
