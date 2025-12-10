@@ -32,38 +32,74 @@ BEGIN
     END
 END
 
-// PiPL Resource (Critical for AE Loading)
-// Simplified names to ensure 4-byte alignment matches exactly
+// PiPL Resource
+// CRITICAL: All values are Little Endian. Strings must be byte-swapped per WORD.
+// Flags and Lengths are 32-bit (2 WORDs).
 16000  PiPL  DISCARDABLE
 BEGIN
 	0x0001, 		// Reserved
 	0x0000, 		// kAEGP_PiPL_Version
 	0x0004, 		// Property count: 4
 	
-	// 1. Kind: AEGP (Total 8 bytes data+flags+len is separate)
-	0x4b69, 0x6e64, // 'Kind'
-	0x0000,			// flags
-	0x0004,			// length (4 bytes)
-	0x4145, 0x47, 0x50, // 'AEGP'
+	// ----------------------------------------------------------
+	// 1. Kind: 'AEGP'
+	// Type: 'Kind' -> 0x694b 0x646e
+	0x694b, 0x646e,
+	// Flags: 0 (32-bit)
+	0x0000, 0x0000,
+	// Length: 4 (32-bit)
+	0x0004, 0x0000,
+	// Data: 'AEGP' -> 0x4541 0x5047
+	0x4541, 0x5047,
 	
-	// 2. Name: "AnchorGrid" (10 chars + 1 null + 1 pad = 12 bytes)
-	0x4e61, 0x6d65, // 'Name'
-	0x0000, 
-	0x000c,         // Length: 12 bytes
-	// "AnchorGrid\0\0"
-	0x416e, 0x6368, 0x6f72, 0x4772, 0x6964, 0x0000,
+	// ----------------------------------------------------------
+	// 2. Name: "AnchorGrid"
+	// Type: 'Name' -> 0x614e, 0x656d
+	0x614e, 0x656d,
+	// Flags: 0
+	0x0000, 0x0000,
+	// Length: 12 (0x0C)
+	0x000c, 0x0000,
+	// Data: "AnchorGrid\0\0"
+	// 'An' 41 6e -> 6e41
+	// 'ch' 63 68 -> 6863
+	// 'or' 6f 72 -> 726f
+	// 'Gr' 47 72 -> 7247
+	// 'id' 69 64 -> 6469
+	// '\0\0'     -> 0000
+	0x6e41, 0x6863, 0x726f, 0x7247, 0x6469, 0x0000,
 
-	// 3. Category: "General" (7 chars + 1 null = 8 bytes)
-	0x4361, 0x7467, // 'Catg'
-	0x0000,
-	0x0008,			// Length: 8 bytes
-	// "General\0"
-	0x4765, 0x6e65, 0x7261, 0x6c00, 
+	// ----------------------------------------------------------
+	// 3. Category: "General"
+	// Type: 'Catg' -> 0x6143, 0x6774
+	0x6143, 0x6774,
+	// Flags: 0
+	0x0000, 0x0000,
+	// Length: 8
+	0x0008, 0x0000,
+	// Data: "General\0"
+	// 'Ge' 47 65 -> 6547
+	// 'ne' 6e 65 -> 656e
+	// 'ra' 72 61 -> 6172
+	// 'l\0' 6c 00 -> 006c
+	0x6547, 0x656e, 0x6172, 0x006c,
 
-	// 4. Code: "EntryPointFunc" (14 chars + 1 null + 1 pad = 16 bytes)
-	0x4364, 0x3634, // 'Cd64'
-	0x0000,
-	0x0010,			// Length: 16 bytes
-	// "EntryPointFunc\0\0"
-	0x456e, 0x7472, 0x7950, 0x6f69, 0x6e74, 0x4675, 0x6e63, 0x0000
+	// ----------------------------------------------------------
+	// 4. Code: "EntryPointFunc"
+	// Type: 'Cd64' -> 0x6443 0x3436
+	0x6443, 0x3436,
+	// Flags: 0
+	0x0000, 0x0000,
+	// Length: 16 (0x10)
+	0x0010, 0x0000,
+	// Data: "EntryPointFunc\0\0"
+	// 'En' 45 6e -> 6e45
+	// 'tr' 74 72 -> 7274
+	// 'yP' 79 50 -> 5079
+	// 'oi' 6f 69 -> 696f
+	// 'nt' 6e 74 -> 746e
+	// 'Fu' 46 75 -> 7546
+	// 'nc' 6e 63 -> 636e
+	// '\0\0'     -> 0000
+	0x6e45, 0x7274, 0x5079, 0x696f, 0x746e, 0x7546, 0x636e, 0x0000
 END
