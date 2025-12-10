@@ -8,6 +8,7 @@
 #include "AnchorRadialMenu.h"
 #include "CEPBridge.h"
 #include "KeyboardMonitor.h"
+#include <cstdarg>
 #include <cstdio>
 #include <stdexcept>
 
@@ -111,12 +112,37 @@ void ApplyAnchorSelection(int gridX, int gridY) {
  * EntryPointFunc
  * Main plugin entry point - called when After Effects loads the plugin
  *****************************************************************************/
+// Debug Logging Helper
+void LogDebug(const char *fmt, ...) {
+#ifdef MSWindows
+  char path[1024];
+  if (const char *home = getenv("USERPROFILE")) {
+    snprintf(path, sizeof(path), "%s\\Desktop\\AnchorDebug.txt", home);
+  } else {
+    return;
+  }
+
+  FILE *fp = fopen(path, "a");
+  if (fp) {
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(fp, fmt, args);
+    va_end(args);
+    fprintf(fp, "\n");
+    fclose(fp);
+  }
+#endif
+}
+
 extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
                                           A_long major_versionL,
                                           A_long minor_versionL,
                                           AEGP_PluginID aegp_plugin_id,
                                           AEGP_GlobalRefcon *global_refconP) {
   A_Err err = A_Err_NONE;
+
+  LogDebug("AnchorRadialMenu: EntryPointFunc Called! Plugin ID: %d",
+           aegp_plugin_id);
 
   AEGP_SuiteHandler suites(pica_basicP);
 
@@ -132,8 +158,15 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
   ERR(suites.RegisterSuite5()->AEGP_RegisterIdleHook(
       aegp_plugin_id, IdleHook, (AEGP_IdleRefcon)&g_globals));
 
+  if (!err) {
+    LogDebug("AnchorRadialMenu: IdleHook Registered Successfully");
+  } else {
+    LogDebug("AnchorRadialMenu: Failed to register IdleHook. Err: %d", err);
+  }
+
   // Initialize CEP communication bridge
   CEPBridge::Initialize();
+  LogDebug("AnchorRadialMenu: CEPBridge Initialized");
 
   return err;
 }
