@@ -1,0 +1,60 @@
+# Anchor Grid Plugin - Windows Build Guide
+
+이 가이드는 Windows 환경에서 플러그인을 빌드하고 설치하는 방법을 설명합니다.
+
+## 1. 요구 사항
+
+- **Visual Studio 2022** (C++ 데스크톱 개발 워크로드 설치 필요)
+- **CMake** (Visual Studio Installer에서 선택하거나 별도 설치)
+- **After Effects** 설치됨
+
+## 2. 프로젝트 준비
+
+이 프로젝트 폴더 전체를 Windows PC로 복사합니다.
+`SDK` 관련 파일들이 `cpp/include/AE_SDK`에 이미 포함되어 있으므로 별도 SDK 다운로드는 필요 없습니다.
+
+## 3. 빌드 방법
+
+### 방법 A: Visual Studio 열기 (권장)
+
+1. Visual Studio 2022 실행
+2. `파일 > 열기 > 폴더` 선택 후 `ae-anchor-radial-menu` 폴더 열기
+3. Visual Studio가 자동으로 `CMakeLists.txt`를 인식하고 구성합니다.
+4. 상단 메뉴에서 `빌드 > 모두 빌드` 선택
+
+### 방법 B: Command Line
+
+PowerShell에서 프로젝트 폴더로 이동 후:
+
+```powershell
+cd cpp
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
+## 4. 설치
+
+### C++ 플러그인 (.aex)
+빌드된 `AnchorRadialMenu.aex` 파일을 다음 경로로 복사:
+`C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\`
+
+### CEP 패널
+`cep` 폴더 전체를 다음 경로로 복사:
+`C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\com.anchor.grid\`
+(폴더가 없으면 생성)
+
+### 레지스트리 설정 (Debug Mode)
+CEP 패널이 서명되지 않았으므로 레지스트리 편집이 필요합니다.
+
+1. `Win + R` -> `regedit` 실행
+2. 다음 경로로 이동:
+   `HKEY_CURRENT_USER\Software\Adobe\CSXS.11` (버전에 따라 10, 11, 12 등)
+3. 우클릭 -> 새로 만들기 -> 문자열 값(String Value)
+4. 이름: `PlayerDebugMode`, 값: `1`
+
+## 5. 실행 확인
+
+After Effects 실행 후 `Window -> Extensions -> Anchor Grid` 메뉴가 보이면 성공!
+레이어 선택 후 `Y` 키를 눌러보세요.

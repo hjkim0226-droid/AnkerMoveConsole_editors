@@ -1,0 +1,16 @@
+# Build directories
+build/
+cpp/build/
+release/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# SDK (We MUST include SDK headers for GitHub Actions to work)
+# But exclude large zip files or temporary extractions
+SDK/
+!cpp/include/AE_SDK/
