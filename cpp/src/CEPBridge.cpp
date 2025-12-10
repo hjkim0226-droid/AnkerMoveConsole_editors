@@ -43,8 +43,8 @@ std::string GetIPCDirectory() {
     s_ipc_directory = "/tmp/AnchorRadialMenu/";
   }
 #else
-  // Windows: Use %APPDATA%\AnchorRadialMenu\
-    const char* appdata = getenv("APPDATA");
+  // Windows: Use %APPDATA%\AnchorRadialMenu
+  const char *appdata = getenv("APPDATA");
   if (appdata) {
     s_ipc_directory = std::string(appdata) + "\\AnchorRadialMenu\\";
   } else {
