@@ -1,13 +1,44 @@
 @echo off
+setlocal
+cd /d "%~dp0"
+
 echo ==========================================
 echo Installing Anchor Grid Plugin...
 echo ==========================================
 
+:: Check for Administrator privileges
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    echo Admin privileges confirmed.
+) else (
+    echo ==========================================
+    echo ERROR: ADMIN PRIVILEGES REQUIRED
+    echo ==========================================
+    echo Please right-click 'install.bat' and select
+    echo 'Run as Administrator'.
+    echo ==========================================
+    pause
+    exit /b
+)
+
 echo 1. Installing Plugin (.aex)...
+if not exist "plugin\AnchorRadialMenu.aex" (
+    echo ERROR: Source file 'plugin\AnchorRadialMenu.aex' not found!
+    echo Please extract the ZIP file completely before running this script.
+    pause
+    exit /b
+)
+
 mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2>nul
 copy /Y plugin\AnchorRadialMenu.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
 
 echo 2. Installing CEP Panel...
+if not exist "cep" (
+    echo ERROR: Source folder 'cep' not found!
+    pause
+    exit /b
+)
+
 mkdir "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" 2>nul
 xcopy /E /I /Y cep "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
 
@@ -19,6 +50,8 @@ reg add "HKCU\Software\Adobe\CSXS.13" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
 reg add "HKCU\Software\Adobe\CSXS.14" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
 reg add "HKCU\Software\Adobe\CSXS.15" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
 reg add "HKCU\Software\Adobe\CSXS.16" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
+reg add "HKCU\Software\Adobe\CSXS.17" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
+reg add "HKCU\Software\Adobe\CSXS.18" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
 
 echo ==========================================
 echo Installation Complete!!
