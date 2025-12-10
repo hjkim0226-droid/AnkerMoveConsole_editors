@@ -14,8 +14,6 @@ jobs:
     
     - name: Generate PiPL Resource
       run: |
-        # Run PiPLtool to convert .r to .rc format
-        # PiPLtool.exe <input.r> <output_temp.rc>
         cpp\resources\PiPLtool.exe cpp\resources\AnchorRadialMenu_PiPL.r cpp\resources\win\AnchorRadialMenu_PiPL_temp.rc
         
     - name: Configure CMake
@@ -29,13 +27,9 @@ jobs:
         mkdir release
         mkdir release\AnchorGrid
         mkdir release\AnchorGrid\plugin
-        mkdir release\AnchorGrid\cep
         
-        # Copy compiled plugin (CMake outputs .aex directly as per CMakeLists.txt)
+        # Copy compiled plugin
         copy cpp\build\Release\AnchorRadialMenu.aex release\AnchorGrid\plugin\AnchorRadialMenu.aex
-        
-        # Copy CEP panel
-        xcopy /E /I /Y cep release\AnchorGrid\cep
         
         # Copy Install Script
         copy install_windows.bat release\AnchorGrid\install.bat

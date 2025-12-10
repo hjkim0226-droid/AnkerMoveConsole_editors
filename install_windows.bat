@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo ==========================================
-echo Installing Anchor Grid Plugin...
+echo Installing Anchor Grid Plugin (ScriptUI)
 echo ==========================================
 
 :: Check for Administrator privileges
@@ -26,10 +26,6 @@ if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorRadialMenu.ae
     echo - Removing old plugin...
     del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorRadialMenu.aex"
 )
-if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" (
-    echo - Removing old CEP extension...
-    rmdir /s /q "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
-)
 
 echo 2. Installing Plugin (.aex)...
 if not exist "plugin\AnchorRadialMenu.aex" (
@@ -42,29 +38,15 @@ if not exist "plugin\AnchorRadialMenu.aex" (
 mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2>nul
 copy /Y plugin\AnchorRadialMenu.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
 
-echo 3. Installing CEP Panel...
-if not exist "cep" (
-    echo ERROR: Source folder 'cep' not found!
-    pause
-    exit /b
-)
-
-mkdir "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" 2>nul
-xcopy /E /I /Y cep "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
-
-echo 4. Enabling Debug Mode (Registry)...
-reg add "HKCU\Software\Adobe\CSXS.10" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.11" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.13" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.14" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.15" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.16" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.17" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Adobe\CSXS.18" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
-
 echo ==========================================
-echo Installation Complete!!
+echo Installation Complete!
+echo ==========================================
+echo.
+echo Usage:
+echo   - Press Y key to show anchor grid
+echo   - Click a position to set anchor point
+echo   - Press ESC to cancel
+echo.
 echo Please restart After Effects.
 echo ==========================================
 pause
