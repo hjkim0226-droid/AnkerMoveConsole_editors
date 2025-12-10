@@ -26,6 +26,10 @@ if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorRadialMenu.ae
     echo - Removing old plugin...
     del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorRadialMenu.aex"
 )
+if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" (
+    echo - Removing old CEP extension...
+    rmdir /s /q "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
+)
 
 echo 2. Installing Plugin (.aex)...
 if not exist "plugin\AnchorRadialMenu.aex" (
