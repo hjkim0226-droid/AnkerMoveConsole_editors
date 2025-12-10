@@ -11,11 +11,13 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <vector>
 
 #ifdef MAC_ENV
 #include <CoreFoundation/CoreFoundation.h>
+#include <unistd.h>
 #endif
 
 namespace CEPBridge {

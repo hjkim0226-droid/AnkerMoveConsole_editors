@@ -8,6 +8,8 @@
 #include "AnchorRadialMenu.h"
 #include "CEPBridge.h"
 #include "KeyboardMonitor.h"
+#include <cstdio>
+#include <stdexcept>
 
 #include "AEGP_SuiteHandler.h"
 #include "AE_GeneralPlug.h"
