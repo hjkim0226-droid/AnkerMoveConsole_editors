@@ -25,8 +25,8 @@ jobs:
         mkdir release\AnchorGrid\plugin
         mkdir release\AnchorGrid\cep
         
-        # Copy compiled plugin (Rename .dll to .aex)
-        copy cpp\build\Release\AnchorRadialMenu.dll release\AnchorGrid\plugin\AnchorRadialMenu.aex
+        # Copy compiled plugin (CMake outputs .aex directly as per CMakeLists.txt)
+        copy cpp\build\Release\AnchorRadialMenu.aex release\AnchorGrid\plugin\AnchorRadialMenu.aex
         
         # Copy CEP panel
         xcopy /E /I /Y cep release\AnchorGrid\cep
