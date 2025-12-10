@@ -61,7 +61,7 @@ jobs:
         echo pause >> release\AnchorGrid\install.bat
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: AnchorGrid_Windows_Installer
         path: release/AnchorGrid
