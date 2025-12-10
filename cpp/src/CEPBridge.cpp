@@ -18,6 +18,8 @@
 #ifdef MAC_ENV
 #include <CoreFoundation/CoreFoundation.h>
 #include <unistd.h>
+#else
+#include <direct.h> // for _mkdir
 #endif
 
 namespace CEPBridge {
