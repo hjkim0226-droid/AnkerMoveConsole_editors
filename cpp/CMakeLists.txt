@@ -93,6 +93,24 @@ if(APPLE)
 endif()
 
 # ============================================================================
+# Windows Configuration
+# ============================================================================
+if(WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        MSWindows
+        _WINDOWS
+        WIN32
+    )
+    
+    # AE Plugins need to be linked with specific flags on Windows
+    # They are essentially DLLs renamed to .aex
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        SUFFIX ".aex"
+        PREFIX ""
+    )
+endif()
+
+# ============================================================================
 # Compiler Flags
 # ============================================================================
 target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -100,6 +118,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     $<$<PLATFORM_ID:Darwin>:MAC_ENV>
 )
 
-target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<CXX_COMPILER_ID:AppleClang>:-Wall -Wextra>
-)
+if(APPLE)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<CXX_COMPILER_ID:AppleClang>:-Wall -Wextra>
+    )
+endif()

@@ -16,7 +16,7 @@ jobs:
       run: cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
       
     - name: Build Plugin
-      run: cmake --build cpp/build --config Release
+      run: cmake --build cpp/build --config Release --verbose
       
     - name: Prepare Artifacts & Installer
       run: |
