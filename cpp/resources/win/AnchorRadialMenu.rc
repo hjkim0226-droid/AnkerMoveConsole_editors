@@ -1,0 +1,71 @@
+#include <windows.h>
+
+// Version Information
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "FileDescription", "Anchor Grid Plugin"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "AnchorRadialMenu"
+            VALUE "LegalCopyright", "Copyright (C) 2025"
+            VALUE "OriginalFilename", "AnchorRadialMenu.aex"
+            VALUE "ProductName", "Anchor Grid"
+            VALUE "ProductVersion", "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+// PiPL Resource (Critical for AE Loading)
+// ID: 16000 (standard for AE)
+// Type: PiPL
+16000  PiPL  DISCARDABLE
+BEGIN
+	0x0001, 		// Reserved
+	0x0000, 		// kAEGP_PiPL_Version
+	0x0004, 		// Property count: 4 (Kind, Name, Category, Code)
+	
+	// 1. AEGP_Kind
+	0x4b69, 0x6e64, // 'Kind'
+	0x0000,			// flags
+	0x0004,			// length (4 bytes)
+	0x4145, 0x47, 0x50, // 'AEGP'
+	
+	// 2. AEGP_Name "AnchorRadialMenu"
+	0x4e61, 0x6d65, // 'Name'
+	0x0000, 
+	0x0014,         // Length: 20 bytes (16 chars + null + padding)
+	// "AnchorRadialMenu\0\0\0"
+	0x416e, 0x6368, 0x6f72, 0x5261, 0x6469, 0x616c, 0x4d65, 0x6e75, 0x0000, 0x0000,
+
+	// 3. Category "General Plugin"
+	0x4361, 0x7467, // 'Catg'
+	0x0000,
+	0x0010,			// Length: 16 bytes (14 chars + null + padding)
+	// "General Plugin\0\0"
+	0x4765, 0x6e65, 0x7261, 0x6c20, 0x506c, 0x7567, 0x696e, 0x0000, 
+
+	// 4. CodeWin64X86 "EntryPointFunc"
+	0x4364, 0x3634, // 'Cd64' (CodeWin64)
+	0x0000,
+	0x0010,			// Length: 16 bytes (14 chars + null + padding)
+	// "EntryPointFunc\0\0"
+	0x456e, 0x7472, 0x7950, 0x6f69, 0x6e74, 0x4675, 0x6e63, 0x0000
+END
