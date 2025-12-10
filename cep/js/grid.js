@@ -187,7 +187,11 @@ class AnchorGrid {
         const csInterface = new CSInterface();
         const script = `setLayerAnchor(${gridX}, ${gridY}, ${this.gridSize})`;
 
+        // Debug: Show what coordinates are being sent
+        console.log('Applying anchor:', gridX, gridY, 'gridSize:', this.gridSize);
+
         csInterface.evalScript(script, (result) => {
+            console.log('ExtendScript result:', result);
             if (result === 'EvalScript error.') {
                 console.error('Failed to apply anchor point');
             } else {

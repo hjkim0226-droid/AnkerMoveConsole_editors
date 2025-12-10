@@ -12,6 +12,9 @@
  */
 function setLayerAnchor(gridX, gridY, gridSize) {
     try {
+        // Debug: Log received parameters
+        $.writeln("setLayerAnchor called with gridX=" + gridX + ", gridY=" + gridY + ", gridSize=" + gridSize);
+
         var comp = app.project.activeItem;
 
         if (!comp || !(comp instanceof CompItem)) {
