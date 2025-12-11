@@ -46,7 +46,6 @@ endif()
 set(PLUGIN_SOURCES
     src/AnchorRadialMenu.cpp
     src/KeyboardMonitor.cpp
-    src/CEPBridge.cpp
     src/NativeUI.cpp
     ${AE_SDK_PATH}/Util/AEGP_SuiteHandler.cpp
 )
@@ -54,7 +53,6 @@ set(PLUGIN_SOURCES
 set(PLUGIN_HEADERS
     src/AnchorRadialMenu.h
     src/KeyboardMonitor.h
-    src/CEPBridge.h
     src/NativeUI.h
 )
 

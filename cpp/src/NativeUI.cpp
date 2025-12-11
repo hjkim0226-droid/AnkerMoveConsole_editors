@@ -9,23 +9,22 @@
 
 #ifdef MSWindows
 
-// Windows headers MUST come first before any STL headers
+// Include Windows SDK first
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 
-// Now include other headers
 #include <string>
 
 // Window class name
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
-// Colors (BGR format for Windows GDI)
-static const COLORREF COLOR_BACKGROUND = 0x001E1E1E;  // Dark gray
-static const COLORREF COLOR_CELL_NORMAL = 0x003C3C3C; // Medium gray
-static const COLORREF COLOR_CELL_HOVER = 0x00CC6633;  // Blue highlight
-static const COLORREF COLOR_BORDER = 0x00505050;      // Border
+// Use #define for colors to avoid const initialization issues with SDK headers
+#define COLOR_BG RGB(30, 30, 30)
+#define COLOR_NORMAL RGB(60, 60, 60)
+#define COLOR_HOVER RGB(51, 102, 204)
+#define COLOR_BORD RGB(80, 80, 80)
 
 // Global state
 static HWND g_gridWnd = NULL;
@@ -58,7 +57,7 @@ bool Initialize() {
   wc.lpfnWndProc = GridWndProc;
   wc.hInstance = g_hInstance;
   wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-  wc.hbrBackground = CreateSolidBrush(COLOR_BACKGROUND);
+  wc.hbrBackground = CreateSolidBrush(COLOR_BG);
   wc.lpszClassName = GRID_CLASS_NAME;
 
   if (!RegisterClassExW(&wc)) {
@@ -178,9 +177,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 
 // Draw the grid
 static void DrawGrid(HDC hdc) {
-  HBRUSH brushNormal = CreateSolidBrush(COLOR_CELL_NORMAL);
-  HBRUSH brushHover = CreateSolidBrush(COLOR_CELL_HOVER);
-  HPEN penBorder = CreatePen(PS_SOLID, 1, COLOR_BORDER);
+  HBRUSH brushNormal = CreateSolidBrush(COLOR_NORMAL);
+  HBRUSH brushHover = CreateSolidBrush(COLOR_HOVER);
+  HPEN penBorder = CreatePen(PS_SOLID, 1, COLOR_BORD);
 
   SelectObject(hdc, penBorder);
 
@@ -220,7 +219,7 @@ static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
     HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
     SelectObject(memDC, memBitmap);
 
-    HBRUSH bgBrush = CreateSolidBrush(COLOR_BACKGROUND);
+    HBRUSH bgBrush = CreateSolidBrush(COLOR_BG);
     FillRect(memDC, &rect, bgBrush);
     DeleteObject(bgBrush);
 
