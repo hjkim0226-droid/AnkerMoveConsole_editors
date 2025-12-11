@@ -550,23 +550,28 @@ static void DrawGrid(HDC hdc) {
       }
       DeleteObject(linePen);
 
-      // Draw small anchor circle at each position
+      // Determine anchor circle position: at mark vertex/intersection
+      int anchorX = (isCorner || isEdge) ? markX : cx;
+      int anchorY = (isCorner || isEdge) ? markY : cy;
+
+      // Draw small anchor circle at mark intersection/vertex
       HPEN circlePen = CreatePen(PS_SOLID, 1, lineColor);
       HBRUSH circleBrush = CreateSolidBrush(lineColor);
       SelectObject(hdc, circlePen);
       SelectObject(hdc, circleBrush);
-      Ellipse(hdc, cx - radius, cy - radius, cx + radius, cy + radius);
+      Ellipse(hdc, anchorX - radius, anchorY - radius, anchorX + radius,
+              anchorY + radius);
       DeleteObject(circlePen);
       DeleteObject(circleBrush);
 
-      // Draw glow effect when hovering
+      // Draw glow effect when hovering (at anchor position)
       if (isHover) {
         HPEN glowPen3 = CreatePen(PS_SOLID, 1, glowOuter);
         HBRUSH glowBrush3 = CreateSolidBrush(glowOuter);
         SelectObject(hdc, glowPen3);
         SelectObject(hdc, glowBrush3);
-        Ellipse(hdc, cx - hoverRadius * 2, cy - hoverRadius * 2,
-                cx + hoverRadius * 2, cy + hoverRadius * 2);
+        Ellipse(hdc, anchorX - hoverRadius * 2, anchorY - hoverRadius * 2,
+                anchorX + hoverRadius * 2, anchorY + hoverRadius * 2);
         DeleteObject(glowPen3);
         DeleteObject(glowBrush3);
 
@@ -574,8 +579,8 @@ static void DrawGrid(HDC hdc) {
         HBRUSH glowBrush2 = CreateSolidBrush(glowMid);
         SelectObject(hdc, glowPen2);
         SelectObject(hdc, glowBrush2);
-        Ellipse(hdc, cx - hoverRadius - 3, cy - hoverRadius - 3,
-                cx + hoverRadius + 3, cy + hoverRadius + 3);
+        Ellipse(hdc, anchorX - hoverRadius - 3, anchorY - hoverRadius - 3,
+                anchorX + hoverRadius + 3, anchorY + hoverRadius + 3);
         DeleteObject(glowPen2);
         DeleteObject(glowBrush2);
 
@@ -583,8 +588,8 @@ static void DrawGrid(HDC hdc) {
         HBRUSH glowBrush1 = CreateSolidBrush(glowInner);
         SelectObject(hdc, glowPen1);
         SelectObject(hdc, glowBrush1);
-        Ellipse(hdc, cx - hoverRadius, cy - hoverRadius, cx + hoverRadius,
-                cy + hoverRadius);
+        Ellipse(hdc, anchorX - hoverRadius, anchorY - hoverRadius,
+                anchorX + hoverRadius, anchorY + hoverRadius);
         DeleteObject(glowPen1);
         DeleteObject(glowBrush1);
       }
