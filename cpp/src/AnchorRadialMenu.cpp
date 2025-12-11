@@ -152,7 +152,7 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
 
 /*****************************************************************************
  * HideAndApplyAnchor
- * Close the grid and apply anchor based on mouse position
+ * Close the grid and apply anchor or handle extended menu option
  *****************************************************************************/
 void HideAndApplyAnchor() {
   int mouseX = 0, mouseY = 0;
@@ -160,6 +160,34 @@ void HideAndApplyAnchor() {
 
   NativeUI::GridResult result = NativeUI::HideGrid(mouseX, mouseY);
 
+  // Handle extended menu options
+  if (result.extendedOption != NativeUI::OPT_NONE) {
+    switch (result.extendedOption) {
+    case NativeUI::OPT_SELECTION_MODE:
+      // Toggle Selection/Comp mode
+      NativeUI::GetSettings().useCompMode =
+          !NativeUI::GetSettings().useCompMode;
+      break;
+    case NativeUI::OPT_TRANSPARENT:
+      // Toggle transparent mode
+      NativeUI::GetSettings().transparentMode =
+          !NativeUI::GetSettings().transparentMode;
+      break;
+    case NativeUI::OPT_SETTINGS:
+      // Open settings (CEP panel) - placeholder
+      ExecuteScript("alert('Settings panel - coming soon');");
+      break;
+    case NativeUI::OPT_CUSTOM_ANCHOR:
+      // Custom anchor input - placeholder
+      ExecuteScript("alert('Custom anchor - coming soon');");
+      break;
+    default:
+      break;
+    }
+    return;
+  }
+
+  // Normal grid selection
   if (!result.cancelled && result.gridX >= 0 && result.gridY >= 0) {
     ApplyAnchorToLayers(result.gridX, result.gridY);
   }
