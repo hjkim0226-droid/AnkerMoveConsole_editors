@@ -23,9 +23,10 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
 #define COLOR_BG RGB(0, 0, 0)         // Transparent (color keyed out)
-#define COLOR_CELL_BG RGB(40, 40, 40) // Cell background (~50% opacity effect)
-#define COLOR_GRID_LINE RGB(60, 100, 120)  // Teal grid lines / marks
-#define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
+#define COLOR_CELL_BG RGB(20, 20, 20) // Cell background (~30% opacity effect)
+#define COLOR_GRID_LINE                                                        \
+  RGB(90, 140, 170)                  // Brighter teal marks (when not hovering)
+#define COLOR_CIRCLE RGB(42, 74, 90) // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
 #define COLOR_GLOW_MID RGB(42, 122, 154)   // Medium glow
 #define COLOR_GLOW_OUTER RGB(42, 90, 110)  // Outer glow
