@@ -22,7 +22,8 @@
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
-#define COLOR_BG RGB(26, 26, 26)           // Dark background
+#define COLOR_BG RGB(0, 0, 0)              // Transparent (will be keyed out)
+#define COLOR_CELL_BG RGB(20, 30, 35)      // Semi-transparent cell background
 #define COLOR_GRID_LINE RGB(42, 74, 90)    // Dark teal grid lines
 #define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
@@ -33,7 +34,8 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 #define COLOR_EXT_TEXT RGB(120, 160, 180)  // Extended option text
 
 // Color palette - Comp Mode (Orange/Warm)
-#define COLOR_GRID_LINE_COMP RGB(90, 70, 42)    // Warm orange grid lines
+#define COLOR_CELL_BG_COMP RGB(35, 25, 15)   // Semi-transparent cell bg (warm)
+#define COLOR_GRID_LINE_COMP RGB(90, 70, 42) // Warm orange grid lines
 #define COLOR_GLOW_INNER_COMP RGB(255, 180, 74) // Bright orange glow
 #define COLOR_GLOW_MID_COMP RGB(154, 100, 42)   // Medium orange glow
 #define COLOR_GLOW_OUTER_COMP RGB(110, 80, 42)  // Outer orange glow
@@ -116,21 +118,25 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_windowX = mouseX - windowSize / 2;
   g_windowY = mouseY - windowSize / 2;
 
-  // Transparency: 255 = opaque, lower = more transparent
-  BYTE alpha = g_settings.transparentMode ? 180 : 255;
+  // Transparency: use color-key for background (black = transparent)
+  // LWA_COLORKEY makes COLOR_BG (black) transparent
+  BYTE alpha = g_settings.transparentMode ? 200 : 255;
 
   // Create or reposition window
   if (g_gridWnd) {
     SetWindowPos(g_gridWnd, HWND_TOPMOST, g_windowX, g_windowY, windowSize,
                  windowSize, SWP_SHOWWINDOW);
-    SetLayeredWindowAttributes(g_gridWnd, 0, alpha, LWA_ALPHA);
+    // Use color key for transparent background + alpha for overall transparency
+    SetLayeredWindowAttributes(g_gridWnd, COLOR_BG, alpha,
+                               LWA_COLORKEY | LWA_ALPHA);
   } else {
     g_gridWnd = CreateWindowExW(
         WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, GRID_CLASS_NAME, NULL,
         WS_POPUP | WS_VISIBLE, g_windowX, g_windowY, windowSize, windowSize,
         NULL, NULL, g_hInstance, NULL);
 
-    SetLayeredWindowAttributes(g_gridWnd, 0, alpha, LWA_ALPHA);
+    SetLayeredWindowAttributes(g_gridWnd, COLOR_BG, alpha,
+                               LWA_COLORKEY | LWA_ALPHA);
   }
 
   UpdateHoverFromMouse(mouseX, mouseY);
@@ -416,12 +422,28 @@ static void DrawGrid(HDC hdc) {
   int hoverRadius = g_config.cellSize / 4; // Larger hover radius
   int len = cellTotal / 3;                 // Mark length
 
-  // Select colors based on mode
+  // Select colors based on mode (marks and dots change color)
   bool compMode = g_settings.useCompMode;
+  COLORREF cellBgColor = compMode ? COLOR_CELL_BG_COMP : COLOR_CELL_BG;
   COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
   COLORREF glowInner = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
   COLORREF glowMid = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
   COLORREF glowOuter = compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER;
+
+  // First pass: draw cell backgrounds (50% opacity effect)
+  for (int y = 0; y < g_config.gridSize; y++) {
+    for (int x = 0; x < g_config.gridSize; x++) {
+      int cellLeft = margin + x * cellTotal;
+      int cellTop = margin + y * cellTotal;
+      RECT cellRect = {cellLeft, cellTop, cellLeft + cellTotal,
+                       cellTop + cellTotal};
+      HBRUSH cellBrush = CreateSolidBrush(cellBgColor);
+      FillRect(hdc, &cellRect, cellBrush);
+      DeleteObject(cellBrush);
+    }
+  }
+
+  // Second pass: draw marks and dots (100% opacity)
 
   for (int y = 0; y < g_config.gridSize; y++) {
     for (int x = 0; x < g_config.gridSize; x++) {
