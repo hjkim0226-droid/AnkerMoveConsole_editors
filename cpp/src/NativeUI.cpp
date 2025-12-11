@@ -230,8 +230,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
     for (int x = 0; x < g_config.gridSize; x++) {
       int cellLeft = x * cellTotal;
       int cellTop = y * cellTotal;
-      int cellRight = cellLeft + g_config.cellSize;
-      int cellBottom = cellTop + g_config.cellSize;
+      // Use cellTotal to include spacing in hover area (prevents flicker)
+      int cellRight = cellLeft + cellTotal;
+      int cellBottom = cellTop + cellTotal;
 
       if (relX >= cellLeft && relX < cellRight && relY >= cellTop &&
           relY < cellBottom) {
