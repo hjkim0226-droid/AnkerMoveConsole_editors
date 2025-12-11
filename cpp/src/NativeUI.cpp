@@ -479,7 +479,9 @@ static void DrawGrid(HDC hdc) {
           markY += edgeOffset;
       }
 
-      HPEN linePen = CreatePen(PS_SOLID, 2, lineColor);
+      // Use glow color for marks when hovering
+      COLORREF markColor = isHover ? glowInner : lineColor;
+      HPEN linePen = CreatePen(PS_SOLID, 2, markColor);
       SelectObject(hdc, linePen);
       SelectObject(hdc, GetStockObject(NULL_BRUSH));
 
