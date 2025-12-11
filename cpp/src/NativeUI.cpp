@@ -116,17 +116,21 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_windowX = mouseX - windowSize / 2;
   g_windowY = mouseY - windowSize / 2;
 
+  // Transparency: 255 = opaque, lower = more transparent
+  BYTE alpha = g_settings.transparentMode ? 180 : 255;
+
   // Create or reposition window
   if (g_gridWnd) {
     SetWindowPos(g_gridWnd, HWND_TOPMOST, g_windowX, g_windowY, windowSize,
                  windowSize, SWP_SHOWWINDOW);
+    SetLayeredWindowAttributes(g_gridWnd, 0, alpha, LWA_ALPHA);
   } else {
     g_gridWnd = CreateWindowExW(
         WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, GRID_CLASS_NAME, NULL,
         WS_POPUP | WS_VISIBLE, g_windowX, g_windowY, windowSize, windowSize,
         NULL, NULL, g_hInstance, NULL);
 
-    SetLayeredWindowAttributes(g_gridWnd, 0, 255, LWA_ALPHA);
+    SetLayeredWindowAttributes(g_gridWnd, 0, alpha, LWA_ALPHA);
   }
 
   UpdateHoverFromMouse(mouseX, mouseY);
@@ -267,22 +271,68 @@ static void DrawCornerMark(HDC hdc, int cx, int cy, int size, int corner) {
   DeleteObject(pen);
 }
 
-// Draw extended menu options
+// Draw extended menu options with X-shape boundary lines
 static void DrawExtendedMenu(HDC hdc, int windowSize) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridPixels = g_config.gridSize * cellTotal;
   int extOffset = g_extThreshold;
   int gridStart = g_config.margin + extOffset;
+  int gridEnd = gridStart + gridPixels;
   int center = windowSize / 2;
 
+  // Mode-specific line color
+  bool compMode = g_settings.useCompMode;
+  COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
+
+  // Draw X-shape boundary lines from corners
+  HPEN xPen = CreatePen(PS_SOLID, 1, lineColor);
+  SelectObject(hdc, xPen);
+
+  // Top-left corner to top-center (diagonal going up-left to option)
+  MoveToEx(hdc, gridStart, gridStart, NULL);
+  LineTo(hdc, center, 0);
+
+  // Top-right corner to top-center
+  MoveToEx(hdc, gridEnd, gridStart, NULL);
+  LineTo(hdc, center, 0);
+
+  // Bottom-left corner to bottom-center
+  MoveToEx(hdc, gridStart, gridEnd, NULL);
+  LineTo(hdc, center, windowSize);
+
+  // Bottom-right corner to bottom-center
+  MoveToEx(hdc, gridEnd, gridEnd, NULL);
+  LineTo(hdc, center, windowSize);
+
+  // Left corners to left-center
+  MoveToEx(hdc, gridStart, gridStart, NULL);
+  LineTo(hdc, 0, center);
+  MoveToEx(hdc, gridStart, gridEnd, NULL);
+  LineTo(hdc, 0, center);
+
+  // Right corners to right-center
+  MoveToEx(hdc, gridEnd, gridStart, NULL);
+  LineTo(hdc, windowSize, center);
+  MoveToEx(hdc, gridEnd, gridEnd, NULL);
+  LineTo(hdc, windowSize, center);
+
+  DeleteObject(xPen);
+
   SetBkMode(hdc, TRANSPARENT);
+
+  // Select font for extended menu
+  HFONT hFont =
+      CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                  OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                  DEFAULT_PITCH, L"Segoe UI");
+  HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
   // Top: Selection Mode
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE);
     COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
-    const wchar_t *text = g_settings.useCompMode ? L"Comp" : L"Layer";
+    const wchar_t *text = g_settings.useCompMode ? L"COMP" : L"LAYER";
     RECT rc = {0, 5, windowSize, gridStart - 5};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
@@ -292,8 +342,8 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
     bool hover = (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR);
     COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
-    RECT rc = {0, gridStart + gridPixels + 5, windowSize, windowSize - 5};
-    DrawTextW(hdc, L"Custom", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    RECT rc = {0, gridEnd + 5, windowSize, windowSize - 5};
+    DrawTextW(hdc, L"CUSTOM", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
   // Left: Settings
@@ -301,7 +351,7 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SETTINGS);
     COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
-    RECT rc = {5, gridStart, gridStart - 5, gridStart + gridPixels};
+    RECT rc = {5, gridStart, gridStart - 5, gridEnd};
     DrawTextW(hdc, L"SET", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
@@ -310,11 +360,13 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
     bool hover = (g_hoverExtOption == NativeUI::OPT_TRANSPARENT);
     COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
-    const wchar_t *text = g_settings.transparentMode ? L"[T]" : L"T";
-    RECT rc = {gridStart + gridPixels + 5, gridStart, windowSize - 5,
-               gridStart + gridPixels};
+    const wchar_t *text = g_settings.transparentMode ? L"[◉]" : L"◉";
+    RECT rc = {gridEnd + 5, gridStart, windowSize - 5, gridEnd};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
+
+  SelectObject(hdc, oldFont);
+  DeleteObject(hFont);
 }
 
 // Draw the grid with circles and glow (mode-specific colors)
