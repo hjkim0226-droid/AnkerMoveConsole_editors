@@ -9,13 +9,12 @@
 
 #ifdef MSWindows
 
-// GDI+ requires includes in specific order:
-// 1. windows.h first (provides META_*, BOOL, etc.)
-// 2. objidl.h (provides IStream)
-// 3. gdiplus.h last
+// GDI+ requires Windows headers BEFORE gdiplus.h:
+// windows.h and wingdi.h provide META_*, BOOL, IStream, etc.
 #include <gdiplus.h>
 #include <objidl.h>
 #include <windows.h>
+#include <wingdi.h>
 #pragma comment(lib, "gdiplus.lib")
 
 #include <string>
