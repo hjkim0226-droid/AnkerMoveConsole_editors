@@ -8,10 +8,6 @@
 #ifndef NATIVEUI_H
 #define NATIVEUI_H
 
-#ifdef MSWindows
-#include <windows.h>
-#endif
-
 namespace NativeUI {
 
 // Grid configuration
@@ -35,8 +31,7 @@ bool Initialize();
 // Cleanup native UI system
 void Cleanup();
 
-// Show grid at mouse position, returns selected cell
-// Window stays open until HideGrid() is called
+// Show grid at mouse position
 void ShowGrid(int mouseX, int mouseY, const GridConfig &config);
 
 // Hide grid and get the result based on current mouse position
