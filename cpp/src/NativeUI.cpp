@@ -9,9 +9,12 @@
 
 #ifdef MSWindows
 
-// Include full Windows SDK (not lean - GDI+ needs COM headers)
-#include <gdiplus.h> // GDI+ for anti-aliasing
-#include <objidl.h>  // IStream for GDI+
+// GDI+ requires includes in specific order:
+// 1. windows.h first (provides META_*, BOOL, etc.)
+// 2. objidl.h (provides IStream)
+// 3. gdiplus.h last
+#include <gdiplus.h>
+#include <objidl.h>
 #include <windows.h>
 #pragma comment(lib, "gdiplus.lib")
 
