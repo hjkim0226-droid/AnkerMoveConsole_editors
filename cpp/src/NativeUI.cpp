@@ -9,23 +9,23 @@
 
 #ifdef MSWindows
 
+// Windows headers MUST come first before any STL headers
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <string>
 #include <windows.h>
+
+// Now include other headers
+#include <string>
 
 // Window class name
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
-// Colors (using explicit values to avoid macro issues)
-static const COLORREF COLOR_BACKGROUND =
-    0x001E1E1E; // Dark gray (BGR: 30,30,30)
-static const COLORREF COLOR_CELL_NORMAL =
-    0x003C3C3C; // Medium gray (BGR: 60,60,60)
-static const COLORREF COLOR_CELL_HOVER =
-    0x00CC6633; // Blue highlight (BGR: 204,102,51)
-static const COLORREF COLOR_BORDER = 0x00505050; // Border (BGR: 80,80,80)
+// Colors (BGR format for Windows GDI)
+static const COLORREF COLOR_BACKGROUND = 0x001E1E1E;  // Dark gray
+static const COLORREF COLOR_CELL_NORMAL = 0x003C3C3C; // Medium gray
+static const COLORREF COLOR_CELL_HOVER = 0x00CC6633;  // Blue highlight
+static const COLORREF COLOR_BORDER = 0x00505050;      // Border
 
 // Global state
 static HWND g_gridWnd = NULL;
@@ -107,7 +107,7 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
         WS_POPUP | WS_VISIBLE, g_windowX, g_windowY, windowSize, windowSize,
         NULL, NULL, g_hInstance, NULL);
 
-    // Make window opaque but with no shadow
+    // Make window opaque
     SetLayeredWindowAttributes(g_gridWnd, 0, 255, LWA_ALPHA);
   }
 
@@ -120,13 +120,11 @@ GridResult HideGrid(int mouseX, int mouseY) {
   GridResult result;
 
   if (g_gridWnd) {
-    // Calculate which cell was under the mouse
     UpdateHoverFromMouse(mouseX, mouseY);
     result.gridX = g_hoverCellX;
     result.gridY = g_hoverCellY;
     result.cancelled = (g_hoverCellX < 0 || g_hoverCellY < 0);
 
-    // Hide window (don't destroy, reuse later)
     ShowWindow(g_gridWnd, SW_HIDE);
   } else {
     result.cancelled = true;
@@ -143,7 +141,6 @@ void UpdateHover(int mouseX, int mouseY) {
     int oldY = g_hoverCellY;
     UpdateHoverFromMouse(mouseX, mouseY);
 
-    // Redraw if hover changed
     if (oldX != g_hoverCellX || oldY != g_hoverCellY) {
       InvalidateRect(g_gridWnd, NULL, TRUE);
     }
@@ -169,7 +166,6 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   int cellX = relX / cellTotal;
   int cellY = relY / cellTotal;
 
-  // Check if within grid bounds
   if (cellX >= 0 && cellX < g_config.gridSize && cellY >= 0 &&
       cellY < g_config.gridSize && relX >= 0 && relY >= 0) {
     g_hoverCellX = cellX;
@@ -182,7 +178,6 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 
 // Draw the grid
 static void DrawGrid(HDC hdc) {
-  // Create brushes
   HBRUSH brushNormal = CreateSolidBrush(COLOR_CELL_NORMAL);
   HBRUSH brushHover = CreateSolidBrush(COLOR_CELL_HOVER);
   HPEN penBorder = CreatePen(PS_SOLID, 1, COLOR_BORDER);
@@ -198,17 +193,14 @@ static void DrawGrid(HDC hdc) {
       int right = left + g_config.cellSize;
       int bottom = top + g_config.cellSize;
 
-      // Select brush based on hover state
       HBRUSH brush =
           (x == g_hoverCellX && y == g_hoverCellY) ? brushHover : brushNormal;
       SelectObject(hdc, brush);
 
-      // Draw cell rectangle
       Rectangle(hdc, left, top, right, bottom);
     }
   }
 
-  // Cleanup
   DeleteObject(brushNormal);
   DeleteObject(brushHover);
   DeleteObject(penBorder);
@@ -222,25 +214,20 @@ static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
 
-    // Double buffer to avoid flicker
     RECT rect;
     GetClientRect(hwnd, &rect);
     HDC memDC = CreateCompatibleDC(hdc);
     HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
     SelectObject(memDC, memBitmap);
 
-    // Fill background
     HBRUSH bgBrush = CreateSolidBrush(COLOR_BACKGROUND);
     FillRect(memDC, &rect, bgBrush);
     DeleteObject(bgBrush);
 
-    // Draw grid
     DrawGrid(memDC);
 
-    // Copy to screen
     BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
 
-    // Cleanup
     DeleteObject(memBitmap);
     DeleteDC(memDC);
 
