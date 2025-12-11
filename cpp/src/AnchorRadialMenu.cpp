@@ -113,7 +113,7 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
  * Apply anchor point to selected layers based on grid position
  *****************************************************************************/
 void ApplyAnchorToLayers(int gridX, int gridY) {
-  char script[3000];
+  char script[5000];
   snprintf(
       script, sizeof(script),
       "(function(){"
@@ -124,7 +124,29 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "app.beginUndoGroup('Set Anchor');"
       "for(var i=0;i<c.selectedLayers.length;i++){"
       "var L=c.selectedLayers[i];"
-      "var b=L.sourceRectAtTime(c.time,false);"
+      // Function to get mask bounds
+      "function getMaskBounds(layer){"
+      "var masks=layer.property('ADBE Mask Parade');"
+      "if(!masks||masks.numProperties==0)return null;"
+      "var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;"
+      "for(var m=1;m<=masks.numProperties;m++){"
+      "var mask=masks.property(m);"
+      "var path=mask.property('ADBE Mask Shape').valueAtTime(c.time,false);"
+      "if(!path||!path.vertices)continue;"
+      "var verts=path.vertices;"
+      "for(var v=0;v<verts.length;v++){"
+      "var pt=verts[v];"
+      "if(pt[0]<minX)minX=pt[0];"
+      "if(pt[0]>maxX)maxX=pt[0];"
+      "if(pt[1]<minY)minY=pt[1];"
+      "if(pt[1]>maxY)maxY=pt[1];"
+      "}}"
+      "if(minX==Infinity)return null;"
+      "return{left:minX,top:minY,width:maxX-minX,height:maxY-minY};"
+      "}"
+      // Check for masks first, then fall back to sourceRectAtTime
+      "var b=getMaskBounds(L);"
+      "if(!b)b=L.sourceRectAtTime(c.time,false);"
       "if(!b||b.width<=0||b.height<=0)continue;"
       "var px=gx/(gridSize-1),py=gy/(gridSize-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
