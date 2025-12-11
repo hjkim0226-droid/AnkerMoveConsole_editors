@@ -24,7 +24,7 @@ static int g_mouseStartX = 0;
 static int g_mouseStartY = 0;
 static std::chrono::steady_clock::time_point g_keyPressTime;
 static bool g_waitingForHold = false;
-static const int HOLD_DELAY_MS = 500; // 0.5 seconds
+static const int HOLD_DELAY_MS = 400; // 0.4 seconds
 
 // Define MissingSuiteError for AEGP_SuiteHandler
 void AEGP_SuiteHandler::MissingSuiteError() const {
@@ -124,7 +124,7 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "app.beginUndoGroup('Set Anchor');"
       "for(var i=0;i<c.selectedLayers.length;i++){"
       "var L=c.selectedLayers[i];"
-      "var b=L.sourceRectAtTime(c.time,true);"
+      "var b=L.sourceRectAtTime(c.time,false);"
       "if(!b||b.width<=0||b.height<=0)continue;"
       "var px=gx/(gridSize-1),py=gy/(gridSize-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
