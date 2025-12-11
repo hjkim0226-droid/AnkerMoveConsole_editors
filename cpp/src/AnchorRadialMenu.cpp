@@ -97,36 +97,46 @@ bool HasSelectedLayers() {
 
 /*****************************************************************************
  * ShowAnchorGrid
- * Show the anchor grid at specified position (no spacing between cells)
+ * Show the anchor grid at specified position with polished UI
  *****************************************************************************/
 void ShowAnchorGrid(int mouseX, int mouseY) {
-  char script[4096];
+  char script[8192];
   int gridSize = 3;
-  int cellSize = 50;
+  int cellSize = 40;
   int winSize = gridSize * cellSize;
 
   snprintf(
       script, sizeof(script),
       "(function(){"
-      "var gridSize=3,cellSize=50;"
+      "var gridSize=3,cellSize=40;"
       "var w=new Window('palette','',undefined,{borderless:true});"
-      "w.orientation='column';w.margins=0;w.spacing=0;"
+      "w.graphics.backgroundColor=w.graphics.newBrush(w.graphics.BrushType."
+      "SOLID_COLOR,[0.15,0.15,0.15]);"
+      "w.orientation='column';w.margins=2;w.spacing=1;"
+      // Store buttons for hover detection
+      "var btns=[];"
       "for(var y=0;y<gridSize;y++){"
       "var "
-      "row=w.add('group');row.orientation='row';row.spacing=0;row.margins=0;"
+      "row=w.add('group');row.orientation='row';row.spacing=1;row.margins=0;"
       "for(var x=0;x<gridSize;x++){"
-      "var "
-      "b=row.add('button',undefined,'');b.preferredSize=[cellSize,cellSize];"
+      "var b=row.add('button',undefined,'');"
+      "b.preferredSize=[cellSize,cellSize];"
       "b.gx=x;b.gy=y;"
+      // Custom dark button styling
+      "b.graphics.backgroundColor=b.graphics.newBrush(b.graphics.BrushType."
+      "SOLID_COLOR,[0.25,0.25,0.25]);"
+      "btns.push(b);"
       "b.onClick=function(){$.global.anchorGridResult={x:this.gx,y:this.gy};w."
       "close();};"
       "}}"
       "$.global.anchorGridResult=null;"
       "$.global.anchorGridWindow=w;"
+      "$.global.anchorGridButtons=btns;"
+      // Don't set active to prevent center focus
       "w.location=[%d,%d];"
       "w.show();"
       "})();",
-      mouseX - winSize / 2, mouseY - winSize / 2);
+      mouseX - winSize / 2 - 2, mouseY - winSize / 2 - 2);
 
   ExecuteScript(script);
 }
@@ -140,19 +150,21 @@ void HideAndApplyAnchor() {
   int mouseX = 0, mouseY = 0;
   KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
 
-  // Calculate which grid cell the mouse is over (no spacing now)
+  // Calculate which grid cell the mouse is over
   int gridSize = 3;
-  int cellSize = 50;
-  int winSize = gridSize * cellSize;
+  int cellSize = 40; // Must match ShowAnchorGrid
+  int spacing = 1;
+  int margin = 2;
+  int winSize = gridSize * cellSize + (gridSize - 1) * spacing + margin * 2;
   int winX = g_mouseStartX - winSize / 2;
   int winY = g_mouseStartY - winSize / 2;
 
-  // Calculate grid cell from mouse position
-  int relX = mouseX - winX;
-  int relY = mouseY - winY;
+  // Calculate grid cell from mouse position (account for margin)
+  int relX = mouseX - winX - margin;
+  int relY = mouseY - winY - margin;
 
-  int gridX = relX / cellSize;
-  int gridY = relY / cellSize;
+  int gridX = relX / (cellSize + spacing);
+  int gridY = relY / (cellSize + spacing);
 
   // Clamp to valid grid range
   if (gridX < 0)
