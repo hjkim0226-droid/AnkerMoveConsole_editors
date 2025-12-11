@@ -22,8 +22,8 @@
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
-#define COLOR_BG RGB(0, 0, 0)              // Transparent (color keyed out)
-#define COLOR_CELL_BG RGB(80, 80, 80)      // Cell background (neutral gray)
+#define COLOR_BG RGB(0, 0, 0)         // Transparent (color keyed out)
+#define COLOR_CELL_BG RGB(40, 40, 40) // Cell background (~50% opacity effect)
 #define COLOR_GRID_LINE RGB(60, 100, 120)  // Teal grid lines / marks
 #define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
@@ -230,9 +230,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
     for (int x = 0; x < g_config.gridSize; x++) {
       int cellLeft = x * cellTotal;
       int cellTop = y * cellTotal;
-      // Use cellTotal to include spacing in hover area (prevents flicker)
-      int cellRight = cellLeft + cellTotal;
-      int cellBottom = cellTop + cellTotal;
+      // Hover area extends 2px on each side (cellSize + 4)
+      int cellRight = cellLeft + g_config.cellSize + 4;
+      int cellBottom = cellTop + g_config.cellSize + 4;
 
       if (relX >= cellLeft && relX < cellRight && relY >= cellTop &&
           relY < cellBottom) {

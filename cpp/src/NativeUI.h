@@ -14,7 +14,7 @@ namespace NativeUI {
 struct GridConfig {
   int gridSize = 3;  // 3x3, 5x5, or 7x7
   int cellSize = 40; // pixels per cell
-  int spacing = 5;   // pixels between cells (5px gap)
+  int spacing = 4;   // pixels between cells (4px gap)
   int margin = 2;    // window margin
 };
 
