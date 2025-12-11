@@ -23,7 +23,7 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
 #define COLOR_BG RGB(0, 0, 0)              // Transparent (color keyed out)
-#define COLOR_CELL_BG RGB(70, 90, 105)     // Cell background (brighter)
+#define COLOR_CELL_BG RGB(80, 80, 80)      // Cell background (neutral gray)
 #define COLOR_GRID_LINE RGB(60, 100, 120)  // Teal grid lines / marks
 #define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
@@ -276,141 +276,48 @@ static void DrawCornerMark(HDC hdc, int cx, int cy, int size, int corner) {
   DeleteObject(pen);
 }
 
-// Draw extended menu options with X-shape boundary lines
+// Draw extended menu options (text only, no X-lines or circles)
 static void DrawExtendedMenu(HDC hdc, int windowSize) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridPixels = g_config.gridSize * cellTotal;
   int extOffset = g_extThreshold;
   int gridStart = g_config.margin + extOffset;
   int gridEnd = gridStart + gridPixels;
-  int center = windowSize / 2;
 
-  // Mode-specific colors
+  // Mode-specific colors for text
   bool compMode = g_settings.useCompMode;
   COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
   COLORREF glowColor = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
 
-  // Draw X-shape boundary lines from grid corners to window edges
-  HPEN xPen = CreatePen(PS_SOLID, 1, lineColor);
-  SelectObject(hdc, xPen);
-
-  // Top: lines from grid corners to top center
-  MoveToEx(hdc, gridStart, gridStart, NULL);
-  LineTo(hdc, center, 0);
-  MoveToEx(hdc, gridEnd, gridStart, NULL);
-  LineTo(hdc, center, 0);
-
-  // Bottom: lines from grid corners to bottom center
-  MoveToEx(hdc, gridStart, gridEnd, NULL);
-  LineTo(hdc, center, windowSize);
-  MoveToEx(hdc, gridEnd, gridEnd, NULL);
-  LineTo(hdc, center, windowSize);
-
-  // Left: lines from grid corners to left center
-  MoveToEx(hdc, gridStart, gridStart, NULL);
-  LineTo(hdc, 0, center);
-  MoveToEx(hdc, gridStart, gridEnd, NULL);
-  LineTo(hdc, 0, center);
-
-  // Right: lines from grid corners to right center
-  MoveToEx(hdc, gridEnd, gridStart, NULL);
-  LineTo(hdc, windowSize, center);
-  MoveToEx(hdc, gridEnd, gridEnd, NULL);
-  LineTo(hdc, windowSize, center);
-
-  DeleteObject(xPen);
-
-  // Draw hover highlight circles for extended options
-  int optRadius = 12;
-
-  if (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE) {
-    HBRUSH hBrush = CreateSolidBrush(glowColor);
-    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
-    SelectObject(hdc, hPen);
-    SelectObject(hdc, hBrush);
-    Ellipse(hdc, center - optRadius, 3, center + optRadius, 3 + optRadius * 2);
-    DeleteObject(hBrush);
-    DeleteObject(hPen);
-  }
-
-  if (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR) {
-    HBRUSH hBrush = CreateSolidBrush(glowColor);
-    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
-    SelectObject(hdc, hPen);
-    SelectObject(hdc, hBrush);
-    Ellipse(hdc, center - optRadius, windowSize - 3 - optRadius * 2,
-            center + optRadius, windowSize - 3);
-    DeleteObject(hBrush);
-    DeleteObject(hPen);
-  }
-
-  if (g_hoverExtOption == NativeUI::OPT_SETTINGS) {
-    HBRUSH hBrush = CreateSolidBrush(glowColor);
-    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
-    SelectObject(hdc, hPen);
-    SelectObject(hdc, hBrush);
-    Ellipse(hdc, 3, center - optRadius, 3 + optRadius * 2, center + optRadius);
-    DeleteObject(hBrush);
-    DeleteObject(hPen);
-  }
-
-  if (g_hoverExtOption == NativeUI::OPT_TRANSPARENT) {
-    HBRUSH hBrush = CreateSolidBrush(glowColor);
-    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
-    SelectObject(hdc, hPen);
-    SelectObject(hdc, hBrush);
-    Ellipse(hdc, windowSize - 3 - optRadius * 2, center - optRadius,
-            windowSize - 3, center + optRadius);
-    DeleteObject(hBrush);
-    DeleteObject(hPen);
-  }
-
   SetBkMode(hdc, TRANSPARENT);
 
-  // Font for horizontal labels (top/bottom) - 2x larger
+  // Font for labels
   HFONT hFont =
-      CreateFontW(22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      CreateFontW(18, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                   DEFAULT_PITCH, L"Segoe UI");
-
-  // Font for left label (rotated 90° CCW = 900 tenths of degree)
-  HFONT hFontLeft =
-      CreateFontW(22, 0, 900, 900, FW_BOLD, FALSE, FALSE, FALSE,
-                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                  CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
-
-  // Font for right label (rotated 90° CW = 2700 tenths of degree, or -900)
-  HFONT hFontRight =
-      CreateFontW(22, 0, 2700, 2700, FW_BOLD, FALSE, FALSE, FALSE,
-                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                  CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
-
   HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
-  // Top: Current Mode (Selection or Composition)
+  // Top: Current Mode (Selection or Composition) - text highlight on hover
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE);
-    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
+    SetTextColor(hdc, hover ? glowColor : lineColor);
     const wchar_t *text =
         g_settings.useCompMode ? L"Composition" : L"Selection";
     RECT rc = {0, 2, windowSize, gridStart - 2};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
-  // Bottom: Setting
+  // Bottom: Setting - text highlight on hover
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SETTINGS);
-    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
+    SetTextColor(hdc, hover ? glowColor : lineColor);
     RECT rc = {0, gridEnd + 2, windowSize, windowSize - 2};
     DrawTextW(hdc, L"Setting", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
-  // Left and Right: removed (no labels)
-
   SelectObject(hdc, oldFont);
   DeleteObject(hFont);
-  DeleteObject(hFontLeft);
-  DeleteObject(hFontRight);
 }
 
 // Draw the grid with L/T/+ marks and glow (mode-specific colors)
