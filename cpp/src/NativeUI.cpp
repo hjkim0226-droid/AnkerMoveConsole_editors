@@ -271,7 +271,7 @@ static void DrawCornerMark(HDC hdc, int cx, int cy, int size, int corner) {
   DeleteObject(pen);
 }
 
-// Draw extended menu options with X-shape boundary lines and radial gradient
+// Draw extended menu options with X-shape boundary lines
 static void DrawExtendedMenu(HDC hdc, int windowSize) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridPixels = g_config.gridSize * cellTotal;
@@ -285,56 +285,29 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
   COLORREF glowColor = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
 
-  // Draw radial gradient (multiple concentric circles from center outward)
-  // Center is darkest, edges fade to nothing (simulated gradient)
-  int numRings = 6;
-  for (int i = numRings; i >= 0; i--) {
-    int alpha = 255 - (i * 40); // Fade from dark to transparent
-    if (alpha < 0)
-      alpha = 0;
-
-    // Calculate color with reduced intensity for outer rings
-    int r = GetRValue(COLOR_BG) * alpha / 255;
-    int g = GetGValue(COLOR_BG) * alpha / 255;
-    int b = GetBValue(COLOR_BG) * alpha / 255;
-    COLORREF ringColor = RGB(r, g, b);
-
-    int ringRadius = (windowSize / 2) - (i * extOffset / 2);
-    if (ringRadius > 0) {
-      HBRUSH ringBrush = CreateSolidBrush(ringColor);
-      HPEN ringPen = CreatePen(PS_SOLID, 1, ringColor);
-      SelectObject(hdc, ringPen);
-      SelectObject(hdc, ringBrush);
-      Ellipse(hdc, center - ringRadius, center - ringRadius,
-              center + ringRadius, center + ringRadius);
-      DeleteObject(ringBrush);
-      DeleteObject(ringPen);
-    }
-  }
-
-  // Draw X-shape boundary lines from corners
+  // Draw X-shape boundary lines from grid corners to window edges
   HPEN xPen = CreatePen(PS_SOLID, 1, lineColor);
   SelectObject(hdc, xPen);
 
-  // Top: lines from top-left and top-right corners to top-center
+  // Top: lines from grid corners to top center
   MoveToEx(hdc, gridStart, gridStart, NULL);
   LineTo(hdc, center, 0);
   MoveToEx(hdc, gridEnd, gridStart, NULL);
   LineTo(hdc, center, 0);
 
-  // Bottom: lines from bottom-left and bottom-right corners to bottom-center
+  // Bottom: lines from grid corners to bottom center
   MoveToEx(hdc, gridStart, gridEnd, NULL);
   LineTo(hdc, center, windowSize);
   MoveToEx(hdc, gridEnd, gridEnd, NULL);
   LineTo(hdc, center, windowSize);
 
-  // Left: lines to left-center
+  // Left: lines from grid corners to left center
   MoveToEx(hdc, gridStart, gridStart, NULL);
   LineTo(hdc, 0, center);
   MoveToEx(hdc, gridStart, gridEnd, NULL);
   LineTo(hdc, 0, center);
 
-  // Right: lines to right-center
+  // Right: lines from grid corners to right center
   MoveToEx(hdc, gridEnd, gridStart, NULL);
   LineTo(hdc, windowSize, center);
   MoveToEx(hdc, gridEnd, gridEnd, NULL);
@@ -343,59 +316,55 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   DeleteObject(xPen);
 
   // Draw hover highlight circles for extended options
-  int optRadius = 15;
+  int optRadius = 12;
 
-  // Top option hover
   if (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE) {
     HBRUSH hBrush = CreateSolidBrush(glowColor);
     HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
     SelectObject(hdc, hPen);
     SelectObject(hdc, hBrush);
-    Ellipse(hdc, center - optRadius, 5, center + optRadius, 5 + optRadius * 2);
+    Ellipse(hdc, center - optRadius, 3, center + optRadius, 3 + optRadius * 2);
     DeleteObject(hBrush);
     DeleteObject(hPen);
   }
 
-  // Bottom option hover
   if (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR) {
     HBRUSH hBrush = CreateSolidBrush(glowColor);
     HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
     SelectObject(hdc, hPen);
     SelectObject(hdc, hBrush);
-    Ellipse(hdc, center - optRadius, windowSize - 5 - optRadius * 2,
-            center + optRadius, windowSize - 5);
+    Ellipse(hdc, center - optRadius, windowSize - 3 - optRadius * 2,
+            center + optRadius, windowSize - 3);
     DeleteObject(hBrush);
     DeleteObject(hPen);
   }
 
-  // Left option hover
   if (g_hoverExtOption == NativeUI::OPT_SETTINGS) {
     HBRUSH hBrush = CreateSolidBrush(glowColor);
     HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
     SelectObject(hdc, hPen);
     SelectObject(hdc, hBrush);
-    Ellipse(hdc, 5, center - optRadius, 5 + optRadius * 2, center + optRadius);
+    Ellipse(hdc, 3, center - optRadius, 3 + optRadius * 2, center + optRadius);
     DeleteObject(hBrush);
     DeleteObject(hPen);
   }
 
-  // Right option hover
   if (g_hoverExtOption == NativeUI::OPT_TRANSPARENT) {
     HBRUSH hBrush = CreateSolidBrush(glowColor);
     HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
     SelectObject(hdc, hPen);
     SelectObject(hdc, hBrush);
-    Ellipse(hdc, windowSize - 5 - optRadius * 2, center - optRadius,
-            windowSize - 5, center + optRadius);
+    Ellipse(hdc, windowSize - 3 - optRadius * 2, center - optRadius,
+            windowSize - 3, center + optRadius);
     DeleteObject(hBrush);
     DeleteObject(hPen);
   }
 
   SetBkMode(hdc, TRANSPARENT);
 
-  // Select font for extended menu
+  // Font for labels
   HFONT hFont =
-      CreateFontW(12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      CreateFontW(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                   DEFAULT_PITCH, L"Segoe UI");
   HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
@@ -403,38 +372,34 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   // Top: Selection Mode
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE);
-    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
-    SetTextColor(hdc, color);
+    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
     const wchar_t *text = g_settings.useCompMode ? L"COMP" : L"LAYER";
-    RECT rc = {0, 5, windowSize, gridStart - 5};
+    RECT rc = {0, 2, windowSize, gridStart - 2};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
   // Bottom: Custom Anchor
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR);
-    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
-    SetTextColor(hdc, color);
-    RECT rc = {0, gridEnd + 5, windowSize, windowSize - 5};
+    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
+    RECT rc = {0, gridEnd + 2, windowSize, windowSize - 2};
     DrawTextW(hdc, L"CUSTOM", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
   // Left: Settings
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SETTINGS);
-    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
-    SetTextColor(hdc, color);
-    RECT rc = {5, gridStart, gridStart - 5, gridEnd};
+    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
+    RECT rc = {2, gridStart, gridStart - 2, gridEnd};
     DrawTextW(hdc, L"SET", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
   // Right: Transparent
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_TRANSPARENT);
-    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
-    SetTextColor(hdc, color);
+    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
     const wchar_t *text = g_settings.transparentMode ? L"[T]" : L"T";
-    RECT rc = {gridEnd + 5, gridStart, windowSize - 5, gridEnd};
+    RECT rc = {gridEnd + 2, gridStart, windowSize - 2, gridEnd};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
