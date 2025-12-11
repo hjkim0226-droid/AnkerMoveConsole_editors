@@ -182,10 +182,10 @@ void HideAndApplyAnchor() {
       "app.beginUndoGroup('Set Anchor');"
       "for(var i=0;i<c.selectedLayers.length;i++){"
       "var L=c.selectedLayers[i];"
-      // Get source rect - may be empty for some layers
-      "var b=L.sourceRectAtTime(c.time,false);"
-      // Skip if no valid bounds
-      "if(!b||b.width==0||b.height==0)continue;"
+      // Get source rect - use extentsOnly=true for shape layers
+      "var b=L.sourceRectAtTime(c.time,true);"
+      // If bounds invalid, skip this layer
+      "if(!b||b.width<=0||b.height<=0)continue;"
       "var px=gx/(gridSize-1),py=gy/(gridSize-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
       "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
