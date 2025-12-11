@@ -23,7 +23,7 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
 #define COLOR_BG RGB(0, 0, 0)              // Transparent (will be keyed out)
-#define COLOR_CELL_BG RGB(20, 30, 35)      // Semi-transparent cell background
+#define COLOR_CELL_BG RGB(30, 45, 55)      // Cell background (~50% visible)
 #define COLOR_GRID_LINE RGB(42, 74, 90)    // Dark teal grid lines
 #define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
@@ -387,45 +387,25 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
 
   HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
-  // Top: Selection Mode
+  // Top: Current Mode (Selection or Composition)
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE);
     SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
-    const wchar_t *text = g_settings.useCompMode ? L"COMP" : L"LAYER";
+    const wchar_t *text =
+        g_settings.useCompMode ? L"Composition" : L"Selection";
     RECT rc = {0, 2, windowSize, gridStart - 2};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
-  // Bottom: Custom Anchor
+  // Bottom: Setting
   {
-    bool hover = (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR);
-    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
-    RECT rc = {0, gridEnd + 2, windowSize, windowSize - 2};
-    DrawTextW(hdc, L"CUSTOM", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-  }
-
-  // Left: Settings (rotated 90° CCW)
-  {
-    SelectObject(hdc, hFontLeft);
     bool hover = (g_hoverExtOption == NativeUI::OPT_SETTINGS);
     SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
-    // For rotated text, use TextOut at center position
-    int tx = gridStart / 2;
-    int ty = center + 20; // Offset for text height
-    TextOutW(hdc, tx, ty, L"SET", 3);
+    RECT rc = {0, gridEnd + 2, windowSize, windowSize - 2};
+    DrawTextW(hdc, L"Setting", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
-  // Right: Transparent (rotated 90° CW)
-  {
-    SelectObject(hdc, hFontRight);
-    bool hover = (g_hoverExtOption == NativeUI::OPT_TRANSPARENT);
-    SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
-    const wchar_t *text = g_settings.transparentMode ? L"[T]" : L"T";
-    int textLen = g_settings.transparentMode ? 3 : 1;
-    int tx = windowSize - gridStart / 2;
-    int ty = center - 20; // Offset for text height
-    TextOutW(hdc, tx, ty, text, textLen);
-  }
+  // Left and Right: removed (no labels)
 
   SelectObject(hdc, oldFont);
   DeleteObject(hFont);
