@@ -7,6 +7,7 @@
 
 #include "AnchorRadialMenu.h"
 #include "KeyboardMonitor.h"
+#include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -20,6 +21,9 @@
 static AnchorRadialMenuGlobals g_globals = {0, NULL, false, false, false};
 static int g_mouseStartX = 0;
 static int g_mouseStartY = 0;
+static std::chrono::steady_clock::time_point g_keyPressTime;
+static bool g_waitingForHold = false;
+static const int HOLD_DELAY_MS = 500; // 0.5 seconds
 
 // Define MissingSuiteError for AEGP_SuiteHandler
 void AEGP_SuiteHandler::MissingSuiteError() const {
@@ -28,9 +32,10 @@ void AEGP_SuiteHandler::MissingSuiteError() const {
 
 /*****************************************************************************
  * ExecuteScript
- * Execute ExtendScript using AEGP_ExecuteScript
+ * Execute ExtendScript using AEGP_ExecuteScript, returns result string
  *****************************************************************************/
-A_Err ExecuteScript(const char *script) {
+A_Err ExecuteScript(const char *script, char *resultBuf = NULL,
+                    size_t bufSize = 0) {
   A_Err err = A_Err_NONE;
 
   try {
@@ -41,6 +46,17 @@ A_Err ExecuteScript(const char *script) {
 
     err = suites.UtilitySuite6()->AEGP_ExecuteScript(
         g_globals.plugin_id, script, TRUE, &resultH, &errorH);
+
+    // Get result if requested
+    if (resultBuf && bufSize > 0 && resultH) {
+      A_char *resultStr = NULL;
+      suites.MemorySuite1()->AEGP_LockMemHandle(resultH, (void **)&resultStr);
+      if (resultStr) {
+        strncpy(resultBuf, resultStr, bufSize - 1);
+        resultBuf[bufSize - 1] = '\0';
+      }
+      suites.MemorySuite1()->AEGP_UnlockMemHandle(resultH);
+    }
 
     if (resultH) {
       suites.MemorySuite1()->AEGP_FreeMemHandle(resultH);
@@ -57,19 +73,37 @@ A_Err ExecuteScript(const char *script) {
 }
 
 /*****************************************************************************
+ * HasSelectedLayers
+ * Check if there are selected layers in active comp
+ *****************************************************************************/
+bool HasSelectedLayers() {
+  char result[64] = {0};
+  ExecuteScript("(function(){var c=app.project.activeItem;"
+                "if(!c||!(c instanceof CompItem))return 0;"
+                "return c.selectedLayers.length;})();",
+                result, sizeof(result));
+  return atoi(result) > 0;
+}
+
+/*****************************************************************************
  * ShowAnchorGrid
- * Show the anchor grid at specified position
+ * Show the anchor grid at specified position (no spacing between cells)
  *****************************************************************************/
 void ShowAnchorGrid(int mouseX, int mouseY) {
   char script[4096];
+  int gridSize = 3;
+  int cellSize = 50;
+  int winSize = gridSize * cellSize;
+
   snprintf(
       script, sizeof(script),
       "(function(){"
       "var gridSize=3,cellSize=50;"
       "var w=new Window('palette','',undefined,{borderless:true});"
-      "w.orientation='column';w.margins=10;"
+      "w.orientation='column';w.margins=0;w.spacing=0;"
       "for(var y=0;y<gridSize;y++){"
-      "var row=w.add('group');row.orientation='row';row.spacing=4;"
+      "var "
+      "row=w.add('group');row.orientation='row';row.spacing=0;row.margins=0;"
       "for(var x=0;x<gridSize;x++){"
       "var "
       "b=row.add('button',undefined,'');b.preferredSize=[cellSize,cellSize];"
@@ -79,10 +113,10 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
       "}}"
       "$.global.anchorGridResult=null;"
       "$.global.anchorGridWindow=w;"
-      "w.location=[%d-%d/2,%d-%d/2];" // Position at mouse
+      "w.location=[%d,%d];"
       "w.show();"
       "})();",
-      mouseX, 3 * 50 + 20, mouseY, 3 * 50 + 20); // Offset by half window size
+      mouseX - winSize / 2, mouseY - winSize / 2);
 
   ExecuteScript(script);
 }
@@ -96,19 +130,19 @@ void HideAndApplyAnchor() {
   int mouseX = 0, mouseY = 0;
   KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
 
-  // Calculate which grid cell the mouse is over
+  // Calculate which grid cell the mouse is over (no spacing now)
   int gridSize = 3;
   int cellSize = 50;
-  int winSize = gridSize * cellSize + 20;
+  int winSize = gridSize * cellSize;
   int winX = g_mouseStartX - winSize / 2;
   int winY = g_mouseStartY - winSize / 2;
 
   // Calculate grid cell from mouse position
-  int relX = mouseX - winX - 10; // 10 = margin
-  int relY = mouseY - winY - 10;
+  int relX = mouseX - winX;
+  int relY = mouseY - winY;
 
-  int gridX = relX / (cellSize + 4); // 4 = spacing
-  int gridY = relY / (cellSize + 4);
+  int gridX = relX / cellSize;
+  int gridY = relY / cellSize;
 
   // Clamp to valid grid range
   if (gridX < 0)
@@ -121,7 +155,7 @@ void HideAndApplyAnchor() {
     gridY = gridSize - 1;
 
   // Close window and apply anchor
-  char script[2048];
+  char script[3000];
   snprintf(
       script, sizeof(script),
       "(function(){"
@@ -171,16 +205,35 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool y_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_Y);
   bool alt_held = KeyboardMonitor::IsAltHeld();
 
-  // Y key just pressed - show grid at mouse position
+  // Y key just pressed - start waiting for hold duration
   if (y_key_held && !g_globals.key_was_held && !alt_held) {
-    KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
-    ShowAnchorGrid(g_mouseStartX, g_mouseStartY);
-    g_globals.menu_visible = true;
+    if (HasSelectedLayers()) {
+      g_keyPressTime = std::chrono::steady_clock::now();
+      g_waitingForHold = true;
+      KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
+    }
   }
-  // Y key just released - apply anchor and close
-  else if (!y_key_held && g_globals.key_was_held && g_globals.menu_visible) {
-    HideAndApplyAnchor();
-    g_globals.menu_visible = false;
+  // Y key still held - check if hold duration reached
+  else if (y_key_held && g_waitingForHold && !g_globals.menu_visible) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - g_keyPressTime)
+                       .count();
+    if (elapsed >= HOLD_DELAY_MS) {
+      // Update mouse position to current
+      KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
+      ShowAnchorGrid(g_mouseStartX, g_mouseStartY);
+      g_globals.menu_visible = true;
+      g_waitingForHold = false;
+    }
+  }
+  // Y key just released
+  else if (!y_key_held && g_globals.key_was_held) {
+    if (g_globals.menu_visible) {
+      HideAndApplyAnchor();
+      g_globals.menu_visible = false;
+    }
+    g_waitingForHold = false;
   }
 
   g_globals.key_was_held = y_key_held;
