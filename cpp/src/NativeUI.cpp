@@ -407,18 +407,18 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   DeleteObject(hFont);
 }
 
-// Draw the grid with circles and glow (mode-specific colors)
+// Draw the grid with L/T/+ marks and glow (mode-specific colors)
 static void DrawGrid(HDC hdc) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int extOffset = g_extThreshold;
   int margin = g_config.margin + extOffset;
   int radius = g_config.cellSize / 6;      // Small circle radius
   int hoverRadius = g_config.cellSize / 4; // Larger hover radius
+  int len = cellTotal / 3;                 // Mark length
 
   // Select colors based on mode
   bool compMode = g_settings.useCompMode;
   COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
-  COLORREF cornerColor = compMode ? COLOR_CORNER_COMP : COLOR_CORNER;
   COLORREF glowInner = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
   COLORREF glowMid = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
   COLORREF glowOuter = compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER;
@@ -427,43 +427,66 @@ static void DrawGrid(HDC hdc) {
     for (int x = 0; x < g_config.gridSize; x++) {
       int cx = margin + x * cellTotal + cellTotal / 2;
       int cy = margin + y * cellTotal + cellTotal / 2;
-      int len = cellTotal / 3;
 
       bool isHover = (x == g_hoverCellX && y == g_hoverCellY);
-      bool isCorner = (x == 0 || x == g_config.gridSize - 1) &&
-                      (y == 0 || y == g_config.gridSize - 1);
 
-      // Draw L-corners or cross marks
-      HPEN linePen = CreatePen(PS_SOLID, 2, isCorner ? cornerColor : lineColor);
+      // Determine mark type: corner, edge, or center
+      bool isLeft = (x == 0);
+      bool isRight = (x == g_config.gridSize - 1);
+      bool isTop = (y == 0);
+      bool isBottom = (y == g_config.gridSize - 1);
+      bool isCorner = (isLeft || isRight) && (isTop || isBottom);
+      bool isEdge = (isLeft || isRight || isTop || isBottom) && !isCorner;
+      bool isCenter = !isCorner && !isEdge;
+
+      HPEN linePen = CreatePen(PS_SOLID, 2, lineColor);
       SelectObject(hdc, linePen);
       SelectObject(hdc, GetStockObject(NULL_BRUSH));
 
       if (isCorner) {
-        int corner = (y == 0 ? 0 : 2) + (x == g_config.gridSize - 1 ? 1 : 0);
-        int cLen = cellTotal / 3;
-        switch (corner) {
-        case 0:
-          MoveToEx(hdc, cx, cy + cLen, NULL);
+        // L-mark for 4 corners
+        if (isTop && isLeft) { // Top-left: ┌
+          MoveToEx(hdc, cx, cy + len, NULL);
           LineTo(hdc, cx, cy);
-          LineTo(hdc, cx + cLen, cy);
-          break;
-        case 1:
-          MoveToEx(hdc, cx - cLen, cy, NULL);
+          LineTo(hdc, cx + len, cy);
+        } else if (isTop && isRight) { // Top-right: ┐
+          MoveToEx(hdc, cx - len, cy, NULL);
           LineTo(hdc, cx, cy);
-          LineTo(hdc, cx, cy + cLen);
-          break;
-        case 2:
-          MoveToEx(hdc, cx, cy - cLen, NULL);
+          LineTo(hdc, cx, cy + len);
+        } else if (isBottom && isLeft) { // Bottom-left: └
+          MoveToEx(hdc, cx, cy - len, NULL);
           LineTo(hdc, cx, cy);
-          LineTo(hdc, cx + cLen, cy);
-          break;
-        case 3:
-          MoveToEx(hdc, cx - cLen, cy, NULL);
+          LineTo(hdc, cx + len, cy);
+        } else { // Bottom-right: ┘
+          MoveToEx(hdc, cx - len, cy, NULL);
           LineTo(hdc, cx, cy);
-          LineTo(hdc, cx, cy - cLen);
-          break;
+          LineTo(hdc, cx, cy - len);
+        }
+      } else if (isEdge) {
+        // T-mark for 4 edges
+        if (isTop) { // Top edge: ┬
+          MoveToEx(hdc, cx - len, cy, NULL);
+          LineTo(hdc, cx + len, cy);
+          MoveToEx(hdc, cx, cy, NULL);
+          LineTo(hdc, cx, cy + len);
+        } else if (isBottom) { // Bottom edge: ┴
+          MoveToEx(hdc, cx - len, cy, NULL);
+          LineTo(hdc, cx + len, cy);
+          MoveToEx(hdc, cx, cy - len, NULL);
+          LineTo(hdc, cx, cy);
+        } else if (isLeft) { // Left edge: ├
+          MoveToEx(hdc, cx, cy - len, NULL);
+          LineTo(hdc, cx, cy + len);
+          MoveToEx(hdc, cx, cy, NULL);
+          LineTo(hdc, cx + len, cy);
+        } else { // Right edge: ┤
+          MoveToEx(hdc, cx, cy - len, NULL);
+          LineTo(hdc, cx, cy + len);
+          MoveToEx(hdc, cx - len, cy, NULL);
+          LineTo(hdc, cx, cy);
         }
       } else {
+        // Cross mark for center: ┼
         MoveToEx(hdc, cx - len, cy, NULL);
         LineTo(hdc, cx + len, cy);
         MoveToEx(hdc, cx, cy - len, NULL);
@@ -471,8 +494,7 @@ static void DrawGrid(HDC hdc) {
       }
       DeleteObject(linePen);
 
-      // Always draw a small circle at each anchor position (for mouse range
-      // visibility)
+      // Draw small anchor circle at each position
       HPEN circlePen = CreatePen(PS_SOLID, 1, lineColor);
       HBRUSH circleBrush = CreateSolidBrush(lineColor);
       SelectObject(hdc, circlePen);
@@ -483,7 +505,6 @@ static void DrawGrid(HDC hdc) {
 
       // Draw glow effect when hovering
       if (isHover) {
-        // Outer glow
         HPEN glowPen3 = CreatePen(PS_SOLID, 1, glowOuter);
         HBRUSH glowBrush3 = CreateSolidBrush(glowOuter);
         SelectObject(hdc, glowPen3);
@@ -493,7 +514,6 @@ static void DrawGrid(HDC hdc) {
         DeleteObject(glowPen3);
         DeleteObject(glowBrush3);
 
-        // Middle glow
         HPEN glowPen2 = CreatePen(PS_SOLID, 1, glowMid);
         HBRUSH glowBrush2 = CreateSolidBrush(glowMid);
         SelectObject(hdc, glowPen2);
@@ -503,7 +523,6 @@ static void DrawGrid(HDC hdc) {
         DeleteObject(glowPen2);
         DeleteObject(glowBrush2);
 
-        // Inner bright circle
         HPEN glowPen1 = CreatePen(PS_SOLID, 2, glowInner);
         HBRUSH glowBrush1 = CreateSolidBrush(glowInner);
         SelectObject(hdc, glowPen1);
