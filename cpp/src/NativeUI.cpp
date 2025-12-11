@@ -430,13 +430,15 @@ static void DrawGrid(HDC hdc) {
   COLORREF glowMid = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
   COLORREF glowOuter = compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER;
 
-  // First pass: draw cell backgrounds (50% opacity effect)
+  // First pass: draw cell backgrounds (with spacing gaps between cells)
   for (int y = 0; y < g_config.gridSize; y++) {
     for (int x = 0; x < g_config.gridSize; x++) {
+      // Cell starts at margin + x * cellTotal, but only fills cellSize (not
+      // including spacing)
       int cellLeft = margin + x * cellTotal;
       int cellTop = margin + y * cellTotal;
-      RECT cellRect = {cellLeft, cellTop, cellLeft + cellTotal,
-                       cellTop + cellTotal};
+      RECT cellRect = {cellLeft, cellTop, cellLeft + g_config.cellSize,
+                       cellTop + g_config.cellSize};
       HBRUSH cellBrush = CreateSolidBrush(cellBgColor);
       FillRect(hdc, &cellRect, cellBrush);
       DeleteObject(cellBrush);
