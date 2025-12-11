@@ -271,7 +271,7 @@ static void DrawCornerMark(HDC hdc, int cx, int cy, int size, int corner) {
   DeleteObject(pen);
 }
 
-// Draw extended menu options with X-shape boundary lines
+// Draw extended menu options with X-shape boundary lines and radial gradient
 static void DrawExtendedMenu(HDC hdc, int windowSize) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridPixels = g_config.gridSize * cellTotal;
@@ -280,37 +280,61 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   int gridEnd = gridStart + gridPixels;
   int center = windowSize / 2;
 
-  // Mode-specific line color
+  // Mode-specific colors
   bool compMode = g_settings.useCompMode;
   COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
+  COLORREF glowColor = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
+
+  // Draw radial gradient (multiple concentric circles from center outward)
+  // Center is darkest, edges fade to nothing (simulated gradient)
+  int numRings = 6;
+  for (int i = numRings; i >= 0; i--) {
+    int alpha = 255 - (i * 40); // Fade from dark to transparent
+    if (alpha < 0)
+      alpha = 0;
+
+    // Calculate color with reduced intensity for outer rings
+    int r = GetRValue(COLOR_BG) * alpha / 255;
+    int g = GetGValue(COLOR_BG) * alpha / 255;
+    int b = GetBValue(COLOR_BG) * alpha / 255;
+    COLORREF ringColor = RGB(r, g, b);
+
+    int ringRadius = (windowSize / 2) - (i * extOffset / 2);
+    if (ringRadius > 0) {
+      HBRUSH ringBrush = CreateSolidBrush(ringColor);
+      HPEN ringPen = CreatePen(PS_SOLID, 1, ringColor);
+      SelectObject(hdc, ringPen);
+      SelectObject(hdc, ringBrush);
+      Ellipse(hdc, center - ringRadius, center - ringRadius,
+              center + ringRadius, center + ringRadius);
+      DeleteObject(ringBrush);
+      DeleteObject(ringPen);
+    }
+  }
 
   // Draw X-shape boundary lines from corners
   HPEN xPen = CreatePen(PS_SOLID, 1, lineColor);
   SelectObject(hdc, xPen);
 
-  // Top-left corner to top-center (diagonal going up-left to option)
+  // Top: lines from top-left and top-right corners to top-center
   MoveToEx(hdc, gridStart, gridStart, NULL);
   LineTo(hdc, center, 0);
-
-  // Top-right corner to top-center
   MoveToEx(hdc, gridEnd, gridStart, NULL);
   LineTo(hdc, center, 0);
 
-  // Bottom-left corner to bottom-center
+  // Bottom: lines from bottom-left and bottom-right corners to bottom-center
   MoveToEx(hdc, gridStart, gridEnd, NULL);
   LineTo(hdc, center, windowSize);
-
-  // Bottom-right corner to bottom-center
   MoveToEx(hdc, gridEnd, gridEnd, NULL);
   LineTo(hdc, center, windowSize);
 
-  // Left corners to left-center
+  // Left: lines to left-center
   MoveToEx(hdc, gridStart, gridStart, NULL);
   LineTo(hdc, 0, center);
   MoveToEx(hdc, gridStart, gridEnd, NULL);
   LineTo(hdc, 0, center);
 
-  // Right corners to right-center
+  // Right: lines to right-center
   MoveToEx(hdc, gridEnd, gridStart, NULL);
   LineTo(hdc, windowSize, center);
   MoveToEx(hdc, gridEnd, gridEnd, NULL);
@@ -318,11 +342,60 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
 
   DeleteObject(xPen);
 
+  // Draw hover highlight circles for extended options
+  int optRadius = 15;
+
+  // Top option hover
+  if (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE) {
+    HBRUSH hBrush = CreateSolidBrush(glowColor);
+    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
+    SelectObject(hdc, hPen);
+    SelectObject(hdc, hBrush);
+    Ellipse(hdc, center - optRadius, 5, center + optRadius, 5 + optRadius * 2);
+    DeleteObject(hBrush);
+    DeleteObject(hPen);
+  }
+
+  // Bottom option hover
+  if (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR) {
+    HBRUSH hBrush = CreateSolidBrush(glowColor);
+    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
+    SelectObject(hdc, hPen);
+    SelectObject(hdc, hBrush);
+    Ellipse(hdc, center - optRadius, windowSize - 5 - optRadius * 2,
+            center + optRadius, windowSize - 5);
+    DeleteObject(hBrush);
+    DeleteObject(hPen);
+  }
+
+  // Left option hover
+  if (g_hoverExtOption == NativeUI::OPT_SETTINGS) {
+    HBRUSH hBrush = CreateSolidBrush(glowColor);
+    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
+    SelectObject(hdc, hPen);
+    SelectObject(hdc, hBrush);
+    Ellipse(hdc, 5, center - optRadius, 5 + optRadius * 2, center + optRadius);
+    DeleteObject(hBrush);
+    DeleteObject(hPen);
+  }
+
+  // Right option hover
+  if (g_hoverExtOption == NativeUI::OPT_TRANSPARENT) {
+    HBRUSH hBrush = CreateSolidBrush(glowColor);
+    HPEN hPen = CreatePen(PS_SOLID, 2, glowColor);
+    SelectObject(hdc, hPen);
+    SelectObject(hdc, hBrush);
+    Ellipse(hdc, windowSize - 5 - optRadius * 2, center - optRadius,
+            windowSize - 5, center + optRadius);
+    DeleteObject(hBrush);
+    DeleteObject(hPen);
+  }
+
   SetBkMode(hdc, TRANSPARENT);
 
   // Select font for extended menu
   HFONT hFont =
-      CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      CreateFontW(12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                   DEFAULT_PITCH, L"Segoe UI");
   HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
@@ -330,7 +403,7 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   // Top: Selection Mode
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SELECTION_MODE);
-    COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
+    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
     const wchar_t *text = g_settings.useCompMode ? L"COMP" : L"LAYER";
     RECT rc = {0, 5, windowSize, gridStart - 5};
@@ -340,7 +413,7 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   // Bottom: Custom Anchor
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_CUSTOM_ANCHOR);
-    COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
+    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
     RECT rc = {0, gridEnd + 5, windowSize, windowSize - 5};
     DrawTextW(hdc, L"CUSTOM", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -349,7 +422,7 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   // Left: Settings
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_SETTINGS);
-    COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
+    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
     RECT rc = {5, gridStart, gridStart - 5, gridEnd};
     DrawTextW(hdc, L"SET", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -358,9 +431,9 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
   // Right: Transparent
   {
     bool hover = (g_hoverExtOption == NativeUI::OPT_TRANSPARENT);
-    COLORREF color = hover ? COLOR_EXT_HOVER : COLOR_EXT_TEXT;
+    COLORREF color = hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT;
     SetTextColor(hdc, color);
-    const wchar_t *text = g_settings.transparentMode ? L"[◉]" : L"◉";
+    const wchar_t *text = g_settings.transparentMode ? L"[T]" : L"T";
     RECT rc = {gridEnd + 5, gridStart, windowSize - 5, gridEnd};
     DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
@@ -374,7 +447,8 @@ static void DrawGrid(HDC hdc) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int extOffset = g_extThreshold;
   int margin = g_config.margin + extOffset;
-  int radius = g_config.cellSize / 5;
+  int radius = g_config.cellSize / 6;      // Small circle radius
+  int hoverRadius = g_config.cellSize / 4; // Larger hover radius
 
   // Select colors based on mode
   bool compMode = g_settings.useCompMode;
@@ -383,11 +457,6 @@ static void DrawGrid(HDC hdc) {
   COLORREF glowInner = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
   COLORREF glowMid = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
   COLORREF glowOuter = compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER;
-
-  // Draw grid lines
-  HPEN linePen = CreatePen(PS_SOLID, 2, lineColor);
-  SelectObject(hdc, linePen);
-  SelectObject(hdc, GetStockObject(NULL_BRUSH));
 
   for (int y = 0; y < g_config.gridSize; y++) {
     for (int x = 0; x < g_config.gridSize; x++) {
@@ -399,10 +468,12 @@ static void DrawGrid(HDC hdc) {
       bool isCorner = (x == 0 || x == g_config.gridSize - 1) &&
                       (y == 0 || y == g_config.gridSize - 1);
 
+      // Draw L-corners or cross marks
+      HPEN linePen = CreatePen(PS_SOLID, 2, isCorner ? cornerColor : lineColor);
+      SelectObject(hdc, linePen);
+      SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
       if (isCorner) {
-        // Draw corner with mode-specific color
-        HPEN cornerPen = CreatePen(PS_SOLID, 2, cornerColor);
-        SelectObject(hdc, cornerPen);
         int corner = (y == 0 ? 0 : 2) + (x == g_config.gridSize - 1 ? 1 : 0);
         int cLen = cellTotal / 3;
         switch (corner) {
@@ -427,23 +498,33 @@ static void DrawGrid(HDC hdc) {
           LineTo(hdc, cx, cy - cLen);
           break;
         }
-        DeleteObject(cornerPen);
       } else {
-        SelectObject(hdc, linePen);
         MoveToEx(hdc, cx - len, cy, NULL);
         LineTo(hdc, cx + len, cy);
         MoveToEx(hdc, cx, cy - len, NULL);
         LineTo(hdc, cx, cy + len);
       }
+      DeleteObject(linePen);
 
+      // Always draw a small circle at each anchor position (for mouse range
+      // visibility)
+      HPEN circlePen = CreatePen(PS_SOLID, 1, lineColor);
+      HBRUSH circleBrush = CreateSolidBrush(lineColor);
+      SelectObject(hdc, circlePen);
+      SelectObject(hdc, circleBrush);
+      Ellipse(hdc, cx - radius, cy - radius, cx + radius, cy + radius);
+      DeleteObject(circlePen);
+      DeleteObject(circleBrush);
+
+      // Draw glow effect when hovering
       if (isHover) {
         // Outer glow
         HPEN glowPen3 = CreatePen(PS_SOLID, 1, glowOuter);
         HBRUSH glowBrush3 = CreateSolidBrush(glowOuter);
         SelectObject(hdc, glowPen3);
         SelectObject(hdc, glowBrush3);
-        Ellipse(hdc, cx - radius * 2, cy - radius * 2, cx + radius * 2,
-                cy + radius * 2);
+        Ellipse(hdc, cx - hoverRadius * 2, cy - hoverRadius * 2,
+                cx + hoverRadius * 2, cy + hoverRadius * 2);
         DeleteObject(glowPen3);
         DeleteObject(glowBrush3);
 
@@ -452,8 +533,8 @@ static void DrawGrid(HDC hdc) {
         HBRUSH glowBrush2 = CreateSolidBrush(glowMid);
         SelectObject(hdc, glowPen2);
         SelectObject(hdc, glowBrush2);
-        Ellipse(hdc, cx - radius - 4, cy - radius - 4, cx + radius + 4,
-                cy + radius + 4);
+        Ellipse(hdc, cx - hoverRadius - 3, cy - hoverRadius - 3,
+                cx + hoverRadius + 3, cy + hoverRadius + 3);
         DeleteObject(glowPen2);
         DeleteObject(glowBrush2);
 
@@ -462,14 +543,13 @@ static void DrawGrid(HDC hdc) {
         HBRUSH glowBrush1 = CreateSolidBrush(glowInner);
         SelectObject(hdc, glowPen1);
         SelectObject(hdc, glowBrush1);
-        Ellipse(hdc, cx - radius, cy - radius, cx + radius, cy + radius);
+        Ellipse(hdc, cx - hoverRadius, cy - hoverRadius, cx + hoverRadius,
+                cy + hoverRadius);
         DeleteObject(glowPen1);
         DeleteObject(glowBrush1);
       }
     }
   }
-
-  DeleteObject(linePen);
 }
 
 // Window procedure
