@@ -74,13 +74,23 @@ A_Err ExecuteScript(const char *script, char *resultBuf = NULL,
 
 /*****************************************************************************
  * HasSelectedLayers
- * Check if there are selected layers in active comp
+ * Check if there are selected layers and active panel is Viewer/Timeline
  *****************************************************************************/
 bool HasSelectedLayers() {
   char result[64] = {0};
-  ExecuteScript("(function(){var c=app.project.activeItem;"
+  // Check: 1) activeItem is a comp, 2) has selected layers, 3) active viewer
+  // exists
+  ExecuteScript("(function(){"
+                "var c=app.project.activeItem;"
                 "if(!c||!(c instanceof CompItem))return 0;"
-                "return c.selectedLayers.length;})();",
+                "if(c.selectedLayers.length==0)return 0;"
+                "var v=app.activeViewer;"
+                "if(!v)return 0;"
+                "var t=v.type;"
+                "if(t!=ViewerType.VIEWER_COMPOSITION&&t!=ViewerType.VIEWER_"
+                "LAYER)return 0;"
+                "return 1;"
+                "})();",
                 result, sizeof(result));
   return atoi(result) > 0;
 }
