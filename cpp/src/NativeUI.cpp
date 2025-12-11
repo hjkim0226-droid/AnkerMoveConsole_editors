@@ -345,6 +345,7 @@ static void DrawExtendedMenu(HDC hdc, Gdiplus::Graphics *g, int windowSize) {
 // Draw the grid with L/T/+ marks and glow (using GDI+ for anti-aliasing)
 static void DrawGrid(HDC hdc, Gdiplus::Graphics *g) {
   int cellTotal = g_config.cellSize + g_config.spacing;
+  int gridPixels = g_config.gridSize * cellTotal - g_config.spacing;
   int extOffset = g_extThreshold;
   int margin = g_config.margin + extOffset;
   int radius = g_config.cellSize / 12;
@@ -354,8 +355,11 @@ static void DrawGrid(HDC hdc, Gdiplus::Graphics *g) {
   // Mode-specific colors
   bool compMode = g_settings.useCompMode;
 
-  // Cell background (with alpha for true transparency)
-  Gdiplus::Color cellBgColor(180, 20, 20, 20); // ~70% opacity dark
+  // Grid background (black 20% opacity)
+  Gdiplus::Color gridBgColor(51, 0, 0, 0); // 20% opacity black (255*0.2 = 51)
+
+  // Cell background (gray 20% opacity)
+  Gdiplus::Color cellBgColor(51, 128, 128, 128); // 20% opacity gray
 
   // Mark colors
   Gdiplus::Color lineColor = compMode ? Gdiplus::Color(255, 200, 140, 80)
@@ -369,7 +373,11 @@ static void DrawGrid(HDC hdc, Gdiplus::Graphics *g) {
   Gdiplus::Color glowOuter = compMode ? Gdiplus::Color(100, 150, 90, 40)
                                       : Gdiplus::Color(100, 42, 90, 110);
 
-  // First pass: draw cell backgrounds with true alpha
+  // Draw grid background first (black 20%)
+  Gdiplus::SolidBrush gridBrush(gridBgColor);
+  g->FillRectangle(&gridBrush, margin, margin, gridPixels, gridPixels);
+
+  // Draw cell backgrounds on top (gray 20%)
   Gdiplus::SolidBrush cellBrush(cellBgColor);
   for (int y = 0; y < g_config.gridSize; y++) {
     for (int x = 0; x < g_config.gridSize; x++) {
