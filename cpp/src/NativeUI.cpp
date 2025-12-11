@@ -22,9 +22,8 @@
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
-#define COLOR_BG RGB(0, 0, 0) // Transparent (color keyed out)
-#define COLOR_CELL_BG                                                          \
-  RGB(50, 70, 85) // Cell background (visible, ~50% opacity effect)
+#define COLOR_BG RGB(0, 0, 0)              // Transparent (color keyed out)
+#define COLOR_CELL_BG RGB(70, 90, 105)     // Cell background (brighter)
 #define COLOR_GRID_LINE RGB(60, 100, 120)  // Teal grid lines / marks
 #define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
@@ -206,23 +205,23 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   g_hoverCellY = -1;
   g_hoverExtOption = NativeUI::OPT_NONE;
 
-  // Check extended menu regions first
-  if (relY < -g_extThreshold / 2 && relX >= 0 && relX < gridPixels) {
+  // Check extended menu regions first (outside grid area)
+  // Grid area is from (0,0) to (gridPixels, gridPixels) in relative coords
+  if (relY < 0 && relX >= 0 && relX < gridPixels) {
     g_hoverExtOption = NativeUI::OPT_SELECTION_MODE; // Top
     return;
   }
-  if (relY > gridPixels + g_extThreshold / 2 - cellTotal && relX >= 0 &&
-      relX < gridPixels) {
-    g_hoverExtOption = NativeUI::OPT_CUSTOM_ANCHOR; // Bottom
+  if (relY >= gridPixels && relX >= 0 && relX < gridPixels) {
+    g_hoverExtOption = NativeUI::OPT_SETTINGS; // Bottom (now Setting)
     return;
   }
-  if (relX < -g_extThreshold / 2 && relY >= 0 && relY < gridPixels) {
-    g_hoverExtOption = NativeUI::OPT_SETTINGS; // Left
+  if (relX < 0 && relY >= 0 && relY < gridPixels) {
+    g_hoverExtOption =
+        NativeUI::OPT_CUSTOM_ANCHOR; // Left (unused, but keeping)
     return;
   }
-  if (relX > gridPixels + g_extThreshold / 2 - cellTotal && relY >= 0 &&
-      relY < gridPixels) {
-    g_hoverExtOption = NativeUI::OPT_TRANSPARENT; // Right
+  if (relX >= gridPixels && relY >= 0 && relY < gridPixels) {
+    g_hoverExtOption = NativeUI::OPT_TRANSPARENT; // Right (unused, but keeping)
     return;
   }
 
@@ -424,9 +423,11 @@ static void DrawGrid(HDC hdc) {
       g_config.cellSize / 12;       // Hover glow radius (same as anchor circle)
   int len = (int)(cellTotal * 0.4); // Mark length (40% of cell, longer)
 
-  // Select colors based on mode (marks and dots change color)
+  // Select colors based on mode (marks and dots change color, but cells stay
+  // constant)
   bool compMode = g_settings.useCompMode;
-  COLORREF cellBgColor = compMode ? COLOR_CELL_BG_COMP : COLOR_CELL_BG;
+  COLORREF cellBgColor =
+      COLOR_CELL_BG; // Cell background doesn't change per mode
   COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
   COLORREF glowInner = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
   COLORREF glowMid = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
