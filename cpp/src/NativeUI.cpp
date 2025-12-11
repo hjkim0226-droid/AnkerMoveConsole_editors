@@ -9,16 +9,23 @@
 
 #ifdef MSWindows
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <string>
+#include <windows.h>
 
 // Window class name
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
-// Colors
-static const COLORREF COLOR_BACKGROUND = RGB(30, 30, 30);   // Dark gray
-static const COLORREF COLOR_CELL_NORMAL = RGB(60, 60, 60);  // Medium gray
-static const COLORREF COLOR_CELL_HOVER = RGB(51, 102, 204); // Blue highlight
-static const COLORREF COLOR_BORDER = RGB(80, 80, 80);       // Border
+// Colors (using explicit values to avoid macro issues)
+static const COLORREF COLOR_BACKGROUND =
+    0x001E1E1E; // Dark gray (BGR: 30,30,30)
+static const COLORREF COLOR_CELL_NORMAL =
+    0x003C3C3C; // Medium gray (BGR: 60,60,60)
+static const COLORREF COLOR_CELL_HOVER =
+    0x00CC6633; // Blue highlight (BGR: 204,102,51)
+static const COLORREF COLOR_BORDER = 0x00505050; // Border (BGR: 80,80,80)
 
 // Global state
 static HWND g_gridWnd = NULL;
