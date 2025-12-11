@@ -242,7 +242,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   }
 
   g_globals.key_was_held = y_key_held;
-  *max_sleepPL = 50;
+  *max_sleepPL = 16; // ~60fps for smooth hover updates
 
   return err;
 }
