@@ -2,11 +2,12 @@
  * AnchorRadialMenu.cpp
  *
  * Main AEGP plugin implementation for Anchor Grid
- * Uses ScriptUI via AEGP_ExecuteScript for floating anchor grid
+ * Uses Native Win32 UI for floating anchor grid (fast, custom styling)
  *****************************************************************************/
 
 #include "AnchorRadialMenu.h"
 #include "KeyboardMonitor.h"
+#include "NativeUI.h"
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
@@ -78,8 +79,6 @@ A_Err ExecuteScript(const char *script, char *resultBuf = NULL,
  *****************************************************************************/
 bool HasSelectedLayers() {
   char result[64] = {0};
-  // Check: 1) activeItem is a comp, 2) has selected layers, 3) active viewer
-  // exists
   ExecuteScript("(function(){"
                 "var c=app.project.activeItem;"
                 "if(!c||!(c instanceof CompItem))return 0;"
@@ -97,84 +96,27 @@ bool HasSelectedLayers() {
 
 /*****************************************************************************
  * ShowAnchorGrid
- * Show the anchor grid at specified position with polished UI
+ * Show the native anchor grid at specified position
  *****************************************************************************/
 void ShowAnchorGrid(int mouseX, int mouseY) {
-  char script[8192];
-  int gridSize = 3;
-  int cellSize = 40;
-  int winSize = gridSize * cellSize;
+  NativeUI::GridConfig config;
+  config.gridSize = 3;
+  config.cellSize = 40;
+  config.spacing = 1;
+  config.margin = 2;
 
-  snprintf(
-      script, sizeof(script),
-      "(function(){"
-      "var gridSize=3,cellSize=40;"
-      "var w=new Window('palette','',undefined,{borderless:true});"
-      "w.orientation='column';w.margins=2;w.spacing=1;"
-      "for(var y=0;y<gridSize;y++){"
-      "var "
-      "row=w.add('group');row.orientation='row';row.spacing=1;row.margins=0;"
-      "for(var x=0;x<gridSize;x++){"
-      "var b=row.add('button',undefined,'');"
-      "b.preferredSize=[cellSize,cellSize];"
-      "b.gx=x;b.gy=y;"
-      "b.onClick=function(){$.global.anchorGridResult={x:this.gx,y:this.gy};w."
-      "close();};"
-      "}}"
-      "$.global.anchorGridResult=null;"
-      "$.global.anchorGridWindow=w;"
-      "w.location=[%d,%d];"
-      "w.show();"
-      "})();",
-      mouseX - winSize / 2, mouseY - winSize / 2);
-
-  ExecuteScript(script);
+  NativeUI::ShowGrid(mouseX, mouseY, config);
 }
 
 /*****************************************************************************
- * HideAndApplyAnchor
- * Close the grid and apply anchor based on mouse position
+ * ApplyAnchorToLayers
+ * Apply anchor point to selected layers based on grid position
  *****************************************************************************/
-void HideAndApplyAnchor() {
-  // Get current mouse position
-  int mouseX = 0, mouseY = 0;
-  KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
-
-  // Calculate which grid cell the mouse is over
-  int gridSize = 3;
-  int cellSize = 40; // Must match ShowAnchorGrid
-  int spacing = 1;
-  int margin = 2;
-  int winSize = gridSize * cellSize + (gridSize - 1) * spacing + margin * 2;
-  int winX = g_mouseStartX - winSize / 2;
-  int winY = g_mouseStartY - winSize / 2;
-
-  // Calculate grid cell from mouse position (account for margin)
-  int relX = mouseX - winX - margin;
-  int relY = mouseY - winY - margin;
-
-  int gridX = relX / (cellSize + spacing);
-  int gridY = relY / (cellSize + spacing);
-
-  // Clamp to valid grid range
-  if (gridX < 0)
-    gridX = 0;
-  if (gridX >= gridSize)
-    gridX = gridSize - 1;
-  if (gridY < 0)
-    gridY = 0;
-  if (gridY >= gridSize)
-    gridY = gridSize - 1;
-
-  // Close window and apply anchor
-  char script[4000];
+void ApplyAnchorToLayers(int gridX, int gridY) {
+  char script[3000];
   snprintf(
       script, sizeof(script),
       "(function(){"
-      "if($.global.anchorGridWindow){"
-      "try{$.global.anchorGridWindow.close();}catch(e){}"
-      "$.global.anchorGridWindow=null;"
-      "}"
       "var gx=%d,gy=%d,gridSize=3;"
       "var c=app.project.activeItem;"
       "if(!c||!(c instanceof CompItem))return;"
@@ -182,9 +124,7 @@ void HideAndApplyAnchor() {
       "app.beginUndoGroup('Set Anchor');"
       "for(var i=0;i<c.selectedLayers.length;i++){"
       "var L=c.selectedLayers[i];"
-      // Get source rect - use extentsOnly=true for shape layers
       "var b=L.sourceRectAtTime(c.time,true);"
-      // If bounds invalid, skip this layer
       "if(!b||b.width<=0||b.height<=0)continue;"
       "var px=gx/(gridSize-1),py=gy/(gridSize-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
@@ -208,6 +148,21 @@ void HideAndApplyAnchor() {
       gridX, gridY);
 
   ExecuteScript(script);
+}
+
+/*****************************************************************************
+ * HideAndApplyAnchor
+ * Close the grid and apply anchor based on mouse position
+ *****************************************************************************/
+void HideAndApplyAnchor() {
+  int mouseX = 0, mouseY = 0;
+  KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+
+  NativeUI::GridResult result = NativeUI::HideGrid(mouseX, mouseY);
+
+  if (!result.cancelled && result.gridX >= 0 && result.gridY >= 0) {
+    ApplyAnchorToLayers(result.gridX, result.gridY);
+  }
 }
 
 /*****************************************************************************
@@ -243,6 +198,12 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       g_waitingForHold = false;
     }
   }
+  // Y key still held and grid visible - update hover
+  else if (y_key_held && g_globals.menu_visible) {
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+    NativeUI::UpdateHover(mouseX, mouseY);
+  }
   // Y key just released
   else if (!y_key_held && g_globals.key_was_held) {
     if (g_globals.menu_visible) {
@@ -276,6 +237,9 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     g_globals.pica_basicP = pica_basicP;
     g_globals.menu_visible = false;
     g_globals.key_was_held = false;
+
+    // Initialize native UI
+    NativeUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 
