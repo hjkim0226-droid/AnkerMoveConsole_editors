@@ -22,9 +22,10 @@
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
-#define COLOR_BG RGB(0, 0, 0)              // Transparent (will be keyed out)
-#define COLOR_CELL_BG RGB(30, 45, 55)      // Cell background (~50% visible)
-#define COLOR_GRID_LINE RGB(42, 74, 90)    // Dark teal grid lines
+#define COLOR_BG RGB(0, 0, 0) // Transparent (color keyed out)
+#define COLOR_CELL_BG                                                          \
+  RGB(50, 70, 85) // Cell background (visible, ~50% opacity effect)
+#define COLOR_GRID_LINE RGB(60, 100, 120)  // Teal grid lines / marks
 #define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
 #define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
 #define COLOR_GLOW_MID RGB(42, 122, 154)   // Medium glow
@@ -52,7 +53,8 @@ static int g_windowY = 0;
 static int g_hoverCellX = -1;
 static int g_hoverCellY = -1;
 static NativeUI::ExtendedOption g_hoverExtOption = NativeUI::OPT_NONE;
-static int g_extThreshold = 0; // Set to 0 to disable extended menu
+static int g_extThreshold =
+    35; // Extended menu area size (pixels from grid edge)
 
 // Forward declarations
 static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
@@ -224,17 +226,16 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
     return;
   }
 
-  // Check grid cells
+  // Check grid cells (rectangle hit test for entire cell area)
   for (int y = 0; y < g_config.gridSize; y++) {
     for (int x = 0; x < g_config.gridSize; x++) {
-      int cx = x * cellTotal + cellTotal / 2;
-      int cy = y * cellTotal + cellTotal / 2;
+      int cellLeft = x * cellTotal;
+      int cellTop = y * cellTotal;
+      int cellRight = cellLeft + g_config.cellSize;
+      int cellBottom = cellTop + g_config.cellSize;
 
-      int dx = relX - cx;
-      int dy = relY - cy;
-      int dist = dx * dx + dy * dy;
-
-      if (dist < radius * radius * 4) {
+      if (relX >= cellLeft && relX < cellRight && relY >= cellTop &&
+          relY < cellBottom) {
         g_hoverCellX = x;
         g_hoverCellY = y;
         return;
