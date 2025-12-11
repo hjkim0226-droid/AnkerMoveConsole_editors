@@ -110,38 +110,23 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
       "(function(){"
       "var gridSize=3,cellSize=40;"
       "var w=new Window('palette','',undefined,{borderless:true});"
-      "w.graphics.backgroundColor=w.graphics.newBrush(w.graphics.BrushType."
-      "SOLID_COLOR,[0.12,0.12,0.12]);"
       "w.orientation='column';w.margins=2;w.spacing=1;"
-      "var btns=[];"
       "for(var y=0;y<gridSize;y++){"
       "var "
       "row=w.add('group');row.orientation='row';row.spacing=1;row.margins=0;"
       "for(var x=0;x<gridSize;x++){"
-      "var b=row.add('customButton',undefined,'',{name:'cell_'+x+'_'+y});"
+      "var b=row.add('button',undefined,'');"
       "b.preferredSize=[cellSize,cellSize];"
       "b.gx=x;b.gy=y;"
-      // Custom drawing function with blue highlight
-      "b.onDraw=function(){"
-      "var g=this.graphics;"
-      "var c=this.mouseOver?[0.2,0.5,0.9]:[0.25,0.25,0.25];" // Blue when hover
-      "g.newPath();"
-      "g.rectPath(0,0,this.size[0],this.size[1]);"
-      "g.fillPath(g.newBrush(g.BrushType.SOLID_COLOR,c));"
-      "};"
-      "b.addEventListener('mouseover',function(){this.notify('onDraw');});"
-      "b.addEventListener('mouseout',function(){this.notify('onDraw');});"
-      "btns.push(b);"
-      "b.addEventListener('click',function(){$.global.anchorGridResult={x:this."
-      "gx,y:this.gy};w.close();});"
+      "b.onClick=function(){$.global.anchorGridResult={x:this.gx,y:this.gy};w."
+      "close();};"
       "}}"
       "$.global.anchorGridResult=null;"
       "$.global.anchorGridWindow=w;"
-      "$.global.anchorGridButtons=btns;"
       "w.location=[%d,%d];"
       "w.show();"
       "})();",
-      mouseX - winSize / 2 - 2, mouseY - winSize / 2 - 2);
+      mouseX - winSize / 2, mouseY - winSize / 2);
 
   ExecuteScript(script);
 }
