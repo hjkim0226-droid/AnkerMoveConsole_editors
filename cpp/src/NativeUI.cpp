@@ -9,15 +9,10 @@
 
 #ifdef MSWindows
 
-// Include Windows SDK first
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+// Include full Windows SDK (not lean - GDI+ needs COM headers)
+#include <gdiplus.h> // GDI+ for anti-aliasing
+#include <objidl.h>  // IStream for GDI+
 #include <windows.h>
-
-// GDI+ for anti-aliasing and alpha blending
-#include <gdiplus.h>
-#include <objidl.h>
 #pragma comment(lib, "gdiplus.lib")
 
 #include <string>
