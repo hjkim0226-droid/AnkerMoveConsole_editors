@@ -177,7 +177,7 @@ void HideAndApplyAnchor() {
     gridY = gridSize - 1;
 
   // Close window and apply anchor
-  char script[3000];
+  char script[4000];
   snprintf(
       script, sizeof(script),
       "(function(){"
@@ -192,11 +192,15 @@ void HideAndApplyAnchor() {
       "app.beginUndoGroup('Set Anchor');"
       "for(var i=0;i<c.selectedLayers.length;i++){"
       "var L=c.selectedLayers[i];"
+      // Get source rect - may be empty for some layers
       "var b=L.sourceRectAtTime(c.time,false);"
+      // Skip if no valid bounds
+      "if(!b||b.width==0||b.height==0)continue;"
       "var px=gx/(gridSize-1),py=gy/(gridSize-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
       "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
       "var pp=L.property('ADBE Transform Group').property('ADBE Position');"
+      "if(!ap||!pp)continue;"
       "var oa=ap.value,pos=pp.value;"
       "var dx=nx-oa[0],dy=ny-oa[1];"
       "var sc=L.property('ADBE Transform Group').property('ADBE Scale').value;"
