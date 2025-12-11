@@ -419,9 +419,10 @@ static void DrawGrid(HDC hdc) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int extOffset = g_extThreshold;
   int margin = g_config.margin + extOffset;
-  int radius = g_config.cellSize / 12;     // Small circle radius (50% smaller)
-  int hoverRadius = g_config.cellSize / 6; // Hover radius (also reduced)
-  int len = (int)(cellTotal * 0.4);        // Mark length (40% of cell, longer)
+  int radius = g_config.cellSize / 12; // Small circle radius
+  int hoverRadius =
+      g_config.cellSize / 12;       // Hover glow radius (same as anchor circle)
+  int len = (int)(cellTotal * 0.4); // Mark length (40% of cell, longer)
 
   // Select colors based on mode (marks and dots change color)
   bool compMode = g_settings.useCompMode;
