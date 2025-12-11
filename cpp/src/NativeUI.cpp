@@ -437,53 +437,67 @@ static void DrawGrid(HDC hdc) {
       bool isBottom = (y == g_config.gridSize - 1);
       bool isCorner = (isLeft || isRight) && (isTop || isBottom);
       bool isEdge = (isLeft || isRight || isTop || isBottom) && !isCorner;
-      bool isCenter = !isCorner && !isEdge;
+
+      // Calculate offset for L/T marks (move toward edge)
+      int edgeOffset = cellTotal / 4;
+      int markX = cx;
+      int markY = cy;
+      if (isCorner || isEdge) {
+        if (isLeft)
+          markX -= edgeOffset;
+        if (isRight)
+          markX += edgeOffset;
+        if (isTop)
+          markY -= edgeOffset;
+        if (isBottom)
+          markY += edgeOffset;
+      }
 
       HPEN linePen = CreatePen(PS_SOLID, 2, lineColor);
       SelectObject(hdc, linePen);
       SelectObject(hdc, GetStockObject(NULL_BRUSH));
 
       if (isCorner) {
-        // L-mark for 4 corners
+        // L-mark for 4 corners (at offset position)
         if (isTop && isLeft) { // Top-left: ┌
-          MoveToEx(hdc, cx, cy + len, NULL);
-          LineTo(hdc, cx, cy);
-          LineTo(hdc, cx + len, cy);
+          MoveToEx(hdc, markX, markY + len, NULL);
+          LineTo(hdc, markX, markY);
+          LineTo(hdc, markX + len, markY);
         } else if (isTop && isRight) { // Top-right: ┐
-          MoveToEx(hdc, cx - len, cy, NULL);
-          LineTo(hdc, cx, cy);
-          LineTo(hdc, cx, cy + len);
+          MoveToEx(hdc, markX - len, markY, NULL);
+          LineTo(hdc, markX, markY);
+          LineTo(hdc, markX, markY + len);
         } else if (isBottom && isLeft) { // Bottom-left: └
-          MoveToEx(hdc, cx, cy - len, NULL);
-          LineTo(hdc, cx, cy);
-          LineTo(hdc, cx + len, cy);
+          MoveToEx(hdc, markX, markY - len, NULL);
+          LineTo(hdc, markX, markY);
+          LineTo(hdc, markX + len, markY);
         } else { // Bottom-right: ┘
-          MoveToEx(hdc, cx - len, cy, NULL);
-          LineTo(hdc, cx, cy);
-          LineTo(hdc, cx, cy - len);
+          MoveToEx(hdc, markX - len, markY, NULL);
+          LineTo(hdc, markX, markY);
+          LineTo(hdc, markX, markY - len);
         }
       } else if (isEdge) {
-        // T-mark for 4 edges
+        // T-mark for 4 edges (at offset position)
         if (isTop) { // Top edge: ┬
-          MoveToEx(hdc, cx - len, cy, NULL);
-          LineTo(hdc, cx + len, cy);
-          MoveToEx(hdc, cx, cy, NULL);
-          LineTo(hdc, cx, cy + len);
+          MoveToEx(hdc, markX - len, markY, NULL);
+          LineTo(hdc, markX + len, markY);
+          MoveToEx(hdc, markX, markY, NULL);
+          LineTo(hdc, markX, markY + len);
         } else if (isBottom) { // Bottom edge: ┴
-          MoveToEx(hdc, cx - len, cy, NULL);
-          LineTo(hdc, cx + len, cy);
-          MoveToEx(hdc, cx, cy - len, NULL);
-          LineTo(hdc, cx, cy);
+          MoveToEx(hdc, markX - len, markY, NULL);
+          LineTo(hdc, markX + len, markY);
+          MoveToEx(hdc, markX, markY - len, NULL);
+          LineTo(hdc, markX, markY);
         } else if (isLeft) { // Left edge: ├
-          MoveToEx(hdc, cx, cy - len, NULL);
-          LineTo(hdc, cx, cy + len);
-          MoveToEx(hdc, cx, cy, NULL);
-          LineTo(hdc, cx + len, cy);
+          MoveToEx(hdc, markX, markY - len, NULL);
+          LineTo(hdc, markX, markY + len);
+          MoveToEx(hdc, markX, markY, NULL);
+          LineTo(hdc, markX + len, markY);
         } else { // Right edge: ┤
-          MoveToEx(hdc, cx, cy - len, NULL);
-          LineTo(hdc, cx, cy + len);
-          MoveToEx(hdc, cx - len, cy, NULL);
-          LineTo(hdc, cx, cy);
+          MoveToEx(hdc, markX, markY - len, NULL);
+          LineTo(hdc, markX, markY + len);
+          MoveToEx(hdc, markX - len, markY, NULL);
+          LineTo(hdc, markX, markY);
         }
       } else {
         // Cross mark for center: ┼
