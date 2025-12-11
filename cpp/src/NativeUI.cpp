@@ -2,7 +2,7 @@
  * NativeUI.cpp
  *
  * Native Windows UI for Anchor Grid
- * Custom-drawn popup window with blue highlight for grid cells
+ * Custom-drawn popup window with circular buttons and glow effect
  *****************************************************************************/
 
 #include "NativeUI.h"
@@ -20,11 +20,14 @@
 // Window class name
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
-// Use #define for colors to avoid const initialization issues with SDK headers
-#define COLOR_BG RGB(30, 30, 30)
-#define COLOR_NORMAL RGB(60, 60, 60)
-#define COLOR_HOVER RGB(51, 102, 204)
-#define COLOR_BORD RGB(80, 80, 80)
+// Color palette (matching reference design)
+#define COLOR_BG RGB(26, 26, 26)           // Dark background
+#define COLOR_GRID_LINE RGB(42, 74, 90)    // Dark teal grid lines
+#define COLOR_CIRCLE RGB(42, 74, 90)       // Normal circle
+#define COLOR_GLOW_INNER RGB(74, 207, 255) // Bright cyan glow
+#define COLOR_GLOW_MID RGB(42, 122, 154)   // Medium glow
+#define COLOR_GLOW_OUTER RGB(42, 90, 110)  // Outer glow
+#define COLOR_CORNER RGB(42, 74, 90)       // Corner L-marks
 
 // Global state
 static HWND g_gridWnd = NULL;
@@ -87,9 +90,9 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_hoverCellX = -1;
   g_hoverCellY = -1;
 
-  // Calculate window size
+  // Calculate window size (larger for new design)
   int cellTotal = config.cellSize + config.spacing;
-  int gridPixels = config.gridSize * cellTotal - config.spacing;
+  int gridPixels = config.gridSize * cellTotal;
   int windowSize = gridPixels + config.margin * 2;
 
   // Center window on mouse
@@ -161,48 +164,133 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   int relY = screenY - g_windowY - g_config.margin;
 
   int cellTotal = g_config.cellSize + g_config.spacing;
+  int radius = g_config.cellSize / 4; // Circle hit radius
 
-  int cellX = relX / cellTotal;
-  int cellY = relY / cellTotal;
-
-  if (cellX >= 0 && cellX < g_config.gridSize && cellY >= 0 &&
-      cellY < g_config.gridSize && relX >= 0 && relY >= 0) {
-    g_hoverCellX = cellX;
-    g_hoverCellY = cellY;
-  } else {
-    g_hoverCellX = -1;
-    g_hoverCellY = -1;
-  }
-}
-
-// Draw the grid
-static void DrawGrid(HDC hdc) {
-  HBRUSH brushNormal = CreateSolidBrush(COLOR_NORMAL);
-  HBRUSH brushHover = CreateSolidBrush(COLOR_HOVER);
-  HPEN penBorder = CreatePen(PS_SOLID, 1, COLOR_BORD);
-
-  SelectObject(hdc, penBorder);
-
-  int cellTotal = g_config.cellSize + g_config.spacing;
+  // Check each intersection point
+  g_hoverCellX = -1;
+  g_hoverCellY = -1;
 
   for (int y = 0; y < g_config.gridSize; y++) {
     for (int x = 0; x < g_config.gridSize; x++) {
-      int left = g_config.margin + x * cellTotal;
-      int top = g_config.margin + y * cellTotal;
-      int right = left + g_config.cellSize;
-      int bottom = top + g_config.cellSize;
+      int cx = x * cellTotal + cellTotal / 2;
+      int cy = y * cellTotal + cellTotal / 2;
 
-      HBRUSH brush =
-          (x == g_hoverCellX && y == g_hoverCellY) ? brushHover : brushNormal;
-      SelectObject(hdc, brush);
+      int dx = relX - cx;
+      int dy = relY - cy;
+      int dist = dx * dx + dy * dy;
 
-      Rectangle(hdc, left, top, right, bottom);
+      if (dist < radius * radius * 4) { // Within circle
+        g_hoverCellX = x;
+        g_hoverCellY = y;
+        return;
+      }
+    }
+  }
+}
+
+// Draw corner L-mark
+static void DrawCornerMark(HDC hdc, int cx, int cy, int size, int corner) {
+  HPEN pen = CreatePen(PS_SOLID, 2, COLOR_CORNER);
+  SelectObject(hdc, pen);
+
+  int len = size / 3;
+
+  switch (corner) {
+  case 0: // Top-left
+    MoveToEx(hdc, cx, cy + len, NULL);
+    LineTo(hdc, cx, cy);
+    LineTo(hdc, cx + len, cy);
+    break;
+  case 1: // Top-right
+    MoveToEx(hdc, cx - len, cy, NULL);
+    LineTo(hdc, cx, cy);
+    LineTo(hdc, cx, cy + len);
+    break;
+  case 2: // Bottom-left
+    MoveToEx(hdc, cx, cy - len, NULL);
+    LineTo(hdc, cx, cy);
+    LineTo(hdc, cx + len, cy);
+    break;
+  case 3: // Bottom-right
+    MoveToEx(hdc, cx - len, cy, NULL);
+    LineTo(hdc, cx, cy);
+    LineTo(hdc, cx, cy - len);
+    break;
+  }
+
+  DeleteObject(pen);
+}
+
+// Draw the grid with circles and glow
+static void DrawGrid(HDC hdc) {
+  int cellTotal = g_config.cellSize + g_config.spacing;
+  int margin = g_config.margin;
+  int radius = g_config.cellSize / 5;
+
+  // Draw grid lines (horizontal and vertical cross marks)
+  HPEN linePen = CreatePen(PS_SOLID, 2, COLOR_GRID_LINE);
+  SelectObject(hdc, linePen);
+  SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+  for (int y = 0; y < g_config.gridSize; y++) {
+    for (int x = 0; x < g_config.gridSize; x++) {
+      int cx = margin + x * cellTotal + cellTotal / 2;
+      int cy = margin + y * cellTotal + cellTotal / 2;
+      int len = cellTotal / 3;
+
+      bool isHover = (x == g_hoverCellX && y == g_hoverCellY);
+      bool isCorner = (x == 0 || x == g_config.gridSize - 1) &&
+                      (y == 0 || y == g_config.gridSize - 1);
+
+      // Draw corner L-marks for corners
+      if (isCorner) {
+        int corner = (y == 0 ? 0 : 2) + (x == g_config.gridSize - 1 ? 1 : 0);
+        DrawCornerMark(hdc, cx, cy, cellTotal, corner);
+      } else {
+        // Draw cross marks for middle buttons
+        // Horizontal line
+        MoveToEx(hdc, cx - len, cy, NULL);
+        LineTo(hdc, cx + len, cy);
+        // Vertical line
+        MoveToEx(hdc, cx, cy - len, NULL);
+        LineTo(hdc, cx, cy + len);
+      }
+
+      // Draw glow effect for hovered cell
+      if (isHover) {
+        // Outer glow (larger, semi-transparent feel via color)
+        HPEN glowPen3 = CreatePen(PS_SOLID, 1, COLOR_GLOW_OUTER);
+        HBRUSH glowBrush3 = CreateSolidBrush(COLOR_GLOW_OUTER);
+        SelectObject(hdc, glowPen3);
+        SelectObject(hdc, glowBrush3);
+        Ellipse(hdc, cx - radius * 2, cy - radius * 2, cx + radius * 2,
+                cy + radius * 2);
+        DeleteObject(glowPen3);
+        DeleteObject(glowBrush3);
+
+        // Middle glow
+        HPEN glowPen2 = CreatePen(PS_SOLID, 1, COLOR_GLOW_MID);
+        HBRUSH glowBrush2 = CreateSolidBrush(COLOR_GLOW_MID);
+        SelectObject(hdc, glowPen2);
+        SelectObject(hdc, glowBrush2);
+        Ellipse(hdc, cx - radius - 4, cy - radius - 4, cx + radius + 4,
+                cy + radius + 4);
+        DeleteObject(glowPen2);
+        DeleteObject(glowBrush2);
+
+        // Inner bright circle
+        HPEN glowPen1 = CreatePen(PS_SOLID, 2, COLOR_GLOW_INNER);
+        HBRUSH glowBrush1 = CreateSolidBrush(COLOR_GLOW_INNER);
+        SelectObject(hdc, glowPen1);
+        SelectObject(hdc, glowBrush1);
+        Ellipse(hdc, cx - radius, cy - radius, cx + radius, cy + radius);
+        DeleteObject(glowPen1);
+        DeleteObject(glowBrush1);
+      }
     }
   }
 
-  DeleteObject(brushNormal);
-  DeleteObject(brushHover);
-  DeleteObject(penBorder);
+  DeleteObject(linePen);
 }
 
 // Window procedure
