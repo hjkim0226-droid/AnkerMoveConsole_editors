@@ -52,8 +52,7 @@ static int g_windowY = 0;
 static int g_hoverCellX = -1;
 static int g_hoverCellY = -1;
 static NativeUI::ExtendedOption g_hoverExtOption = NativeUI::OPT_NONE;
-static int g_extThreshold =
-    30; // Distance from grid edge to trigger extended menu
+static int g_extThreshold = 0; // Set to 0 to disable extended menu
 
 // Forward declarations
 static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
@@ -418,9 +417,9 @@ static void DrawGrid(HDC hdc) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int extOffset = g_extThreshold;
   int margin = g_config.margin + extOffset;
-  int radius = g_config.cellSize / 6;      // Small circle radius
-  int hoverRadius = g_config.cellSize / 4; // Larger hover radius
-  int len = cellTotal / 3;                 // Mark length
+  int radius = g_config.cellSize / 12;     // Small circle radius (50% smaller)
+  int hoverRadius = g_config.cellSize / 6; // Hover radius (also reduced)
+  int len = (int)(cellTotal * 0.4);        // Mark length (40% of cell, longer)
 
   // Select colors based on mode (marks and dots change color)
   bool compMode = g_settings.useCompMode;
