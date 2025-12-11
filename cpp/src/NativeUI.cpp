@@ -367,11 +367,24 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
 
   SetBkMode(hdc, TRANSPARENT);
 
-  // Font for labels
+  // Font for horizontal labels (top/bottom) - 2x larger
   HFONT hFont =
-      CreateFontW(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      CreateFontW(22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                   DEFAULT_PITCH, L"Segoe UI");
+
+  // Font for left label (rotated 90° CCW = 900 tenths of degree)
+  HFONT hFontLeft =
+      CreateFontW(22, 0, 900, 900, FW_BOLD, FALSE, FALSE, FALSE,
+                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                  CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+
+  // Font for right label (rotated 90° CW = 2700 tenths of degree, or -900)
+  HFONT hFontRight =
+      CreateFontW(22, 0, 2700, 2700, FW_BOLD, FALSE, FALSE, FALSE,
+                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                  CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+
   HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
   // Top: Selection Mode
@@ -391,25 +404,33 @@ static void DrawExtendedMenu(HDC hdc, int windowSize) {
     DrawTextW(hdc, L"CUSTOM", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
 
-  // Left: Settings
+  // Left: Settings (rotated 90° CCW)
   {
+    SelectObject(hdc, hFontLeft);
     bool hover = (g_hoverExtOption == NativeUI::OPT_SETTINGS);
     SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
-    RECT rc = {2, gridStart, gridStart - 2, gridEnd};
-    DrawTextW(hdc, L"SET", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    // For rotated text, use TextOut at center position
+    int tx = gridStart / 2;
+    int ty = center + 20; // Offset for text height
+    TextOutW(hdc, tx, ty, L"SET", 3);
   }
 
-  // Right: Transparent
+  // Right: Transparent (rotated 90° CW)
   {
+    SelectObject(hdc, hFontRight);
     bool hover = (g_hoverExtOption == NativeUI::OPT_TRANSPARENT);
     SetTextColor(hdc, hover ? RGB(255, 255, 255) : COLOR_EXT_TEXT);
     const wchar_t *text = g_settings.transparentMode ? L"[T]" : L"T";
-    RECT rc = {gridEnd + 2, gridStart, windowSize - 2, gridEnd};
-    DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    int textLen = g_settings.transparentMode ? 3 : 1;
+    int tx = windowSize - gridStart / 2;
+    int ty = center - 20; // Offset for text height
+    TextOutW(hdc, tx, ty, text, textLen);
   }
 
   SelectObject(hdc, oldFont);
   DeleteObject(hFont);
+  DeleteObject(hFontLeft);
+  DeleteObject(hFontRight);
 }
 
 // Draw the grid with L/T/+ marks and glow (mode-specific colors)
