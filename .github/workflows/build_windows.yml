@@ -12,7 +12,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup MSVC with older SDK (fixes GDI+ header bugs in 26100)
+    - name: Install Windows SDK 22621 (fixes GDI+ header bugs in 26100)
+      uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+      with:
+        sdk-version: 22621
+    
+    - name: Setup MSVC with installed SDK
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
