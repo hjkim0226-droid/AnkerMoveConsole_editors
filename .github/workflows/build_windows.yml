@@ -47,9 +47,13 @@ jobs:
         mkdir release
         mkdir release\AnchorGrid
         mkdir release\AnchorGrid\plugin
+        mkdir release\AnchorGrid\cep
         
-        # Copy compiled plugin
+        # Copy compiled plugin (.aex)
         copy cpp\build\Release\AnchorRadialMenu.aex release\AnchorGrid\plugin\AnchorRadialMenu.aex
+        
+        # Copy CEP panel (full folder)
+        xcopy cep release\AnchorGrid\cep /E /I /Y
         
         # Copy Install Script
         copy install_windows.bat release\AnchorGrid\install.bat
