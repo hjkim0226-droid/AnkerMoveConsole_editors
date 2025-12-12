@@ -25,6 +25,9 @@ static int g_mouseStartY = 0;
 static std::chrono::steady_clock::time_point g_keyPressTime;
 static bool g_waitingForHold = false;
 static const int HOLD_DELAY_MS = 400; // 0.4 seconds
+static const int DOUBLE_TAP_MS = 250; // Max time between double-tap
+static std::chrono::steady_clock::time_point g_lastYRelease;
+static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 
 // Define MissingSuiteError for AEGP_SuiteHandler
 void AEGP_SuiteHandler::MissingSuiteError() const {
@@ -92,6 +95,42 @@ bool HasSelectedLayers() {
                 "})();",
                 result, sizeof(result));
   return atoi(result) > 0;
+}
+
+
+/*****************************************************************************
+ * LoadSettingsFromFile
+ * Read settings from CEP's settings file
+ *****************************************************************************/
+void LoadSettingsFromFile() {
+  try {
+    char path[512];
+    snprintf(path, sizeof(path), "%s/Library/Application Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+             getenv("HOME") ? getenv("HOME") : "");
+    
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    
+    char buffer[2048];
+    size_t len = fread(buffer, 1, sizeof(buffer) - 1, f);
+    buffer[len] = '\0';
+    fclose(f);
+    
+    // Parse simple JSON (gridWidth, gridHeight, gridScale, useCompMode, useMaskRecognition)
+    NativeUI::GridSettings& settings = NativeUI::GetSettings();
+    
+    // Very simple parsing for key values
+    const char* p;
+    if ((p = strstr(buffer, ""useCompMode":")) != NULL) {
+      settings.useCompMode = (strstr(p, "true") != NULL && strstr(p, "true") < strstr(p, ","));
+    }
+    if ((p = strstr(buffer, ""useMaskRecognition":")) != NULL) {
+      settings.useMaskRecognition = (strstr(p, "true") != NULL);
+    }
+    
+  } catch (...) {
+    // Ignore errors
+  }
 }
 
 /*****************************************************************************
@@ -286,13 +325,36 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   bool y_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_Y);
   bool alt_held = KeyboardMonitor::IsAltHeld();
+  auto now = std::chrono::steady_clock::now();
 
-  // Y key just pressed - start waiting for hold duration
+  // Y key just pressed
   if (y_key_held && !g_globals.key_was_held && !alt_held) {
     if (HasSelectedLayers()) {
-      g_keyPressTime = std::chrono::steady_clock::now();
-      g_waitingForHold = true;
-      KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
+      // Check for double-tap (Y~Y)
+      auto timeSinceLastRelease = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now - g_lastYRelease).count();
+      
+      if (timeSinceLastRelease < DOUBLE_TAP_MS) {
+        // Double-tap detected - toggle click mode
+        g_toggleClickMode = !g_toggleClickMode;
+        if (g_toggleClickMode) {
+          // Show grid in toggle mode (stays visible)
+          KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
+          LoadSettingsFromFile(); // Sync settings
+          ShowAnchorGrid(g_mouseStartX, g_mouseStartY);
+          g_globals.menu_visible = true;
+        } else {
+          // Hide grid
+          HideAndApplyAnchor();
+          g_globals.menu_visible = false;
+        }
+        g_waitingForHold = false;
+      } else {
+        // Normal press - start waiting for hold
+        g_keyPressTime = now;
+        g_waitingForHold = true;
+        KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
+      }
     }
   }
   // Y key still held - check if hold duration reached
@@ -304,6 +366,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     if (elapsed >= HOLD_DELAY_MS) {
       // Update mouse position to current
       KeyboardMonitor::GetMousePosition(&g_mouseStartX, &g_mouseStartY);
+      LoadSettingsFromFile(); // Sync settings from CEP
       ShowAnchorGrid(g_mouseStartX, g_mouseStartY);
       g_globals.menu_visible = true;
       g_waitingForHold = false;
@@ -317,11 +380,23 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   }
   // Y key just released
   else if (!y_key_held && g_globals.key_was_held) {
-    if (g_globals.menu_visible) {
+    g_lastYRelease = now;
+    
+    // In toggle mode, don't hide on release
+    if (!g_toggleClickMode && g_globals.menu_visible) {
       HideAndApplyAnchor();
       g_globals.menu_visible = false;
     }
     g_waitingForHold = false;
+  }
+  
+  // In toggle mode, handle mouse click to apply
+  if (g_toggleClickMode && g_globals.menu_visible) {
+    if (KeyboardMonitor::IsMouseButtonPressed()) {
+      HideAndApplyAnchor();
+      g_globals.menu_visible = false;
+      g_toggleClickMode = false;
+    }
   }
 
   g_globals.key_was_held = y_key_held;

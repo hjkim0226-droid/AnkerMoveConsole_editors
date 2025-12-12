@@ -81,4 +81,13 @@ void GetMousePosition(int *x, int *y) {
 
 #endif
 
+bool IsMouseButtonPressed() {
+#ifdef MSWindows
+  return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+#else
+  // macOS
+  return CGEventSourceButtonState(kCGEventSourceStateHIDSystemState, kCGMouseButtonLeft);
+#endif
+}
+
 } // namespace KeyboardMonitor

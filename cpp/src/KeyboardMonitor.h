@@ -56,4 +56,9 @@ bool IsCmdHeld();
  */
 void GetMousePosition(int *x, int *y);
 
+/**
+ * Check if mouse left button is currently pressed
+ */
+bool IsMouseButtonPressed();
+
 } // namespace KeyboardMonitor
