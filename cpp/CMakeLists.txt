@@ -5,6 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ============================================================================
+# Windows SDK Version (fix for GDI+ header bugs in SDK 26100)
+# ============================================================================
+if(WIN32)
+    set(CMAKE_SYSTEM_VERSION 10.0.22621.0)
+endif()
+
+# ============================================================================
 # After Effects SDK Configuration
 # ============================================================================
 # Set the path to After Effects SDK
