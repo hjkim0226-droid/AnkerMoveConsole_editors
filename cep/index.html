@@ -12,19 +12,58 @@
         <!-- Grid Overlay (shown when Y key held) -->
         <div id="grid-overlay" class="hidden">
             <div class="cancel-zone">Release to cancel</div>
+
+            <!-- Left Side: Custom Anchors -->
+            <div class="side-panel left-panel">
+                <button class="side-btn" id="btn-preset-1" title="Custom Anchor 1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="2" />
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+                    </svg>
+                    <span class="side-btn-label">1</span>
+                </button>
+                <button class="side-btn" id="btn-preset-2" title="Custom Anchor 2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="2" />
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+                    </svg>
+                    <span class="side-btn-label">2</span>
+                </button>
+                <button class="side-btn" id="btn-preset-3" title="Custom Anchor 3">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="2" />
+                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+                    </svg>
+                    <span class="side-btn-label">3</span>
+                </button>
+            </div>
+
+            <!-- Center: Grid -->
             <div id="anchor-grid"></div>
-            <div class="grid-toolbar">
-                <button class="toolbar-btn" id="btn-settings" title="Settings">
+
+            <!-- Right Side: Mode Controls -->
+            <div class="side-panel right-panel">
+                <!-- Composition Mode Toggle -->
+                <button class="side-btn" id="btn-comp-mode" title="Composition Mode (Off)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                </button>
+                <!-- Mask Recognition Toggle -->
+                <button class="side-btn active" id="btn-mask-mode" title="Mask Recognition (On)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" />
+                        <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
+                    </svg>
+                </button>
+                <!-- Settings -->
+                <button class="side-btn" id="btn-settings" title="Settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3" />
                         <path
                             d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-                    </svg>
-                </button>
-                <button class="toolbar-btn" id="btn-copy-anchor" title="Copy Anchor Ratio">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                     </svg>
                 </button>
             </div>
@@ -51,6 +90,21 @@
                         <span>×</span>
                         <input type="number" id="grid-height" min="3" max="7" value="3">
                     </div>
+                </div>
+            </div>
+
+            <!-- Transparency Section -->
+            <div class="setting-section">
+                <div class="setting-section-title">Transparency</div>
+                <div class="setting-row">
+                    <label>Grid Background</label>
+                    <input type="range" id="grid-opacity" min="0" max="100" value="75" class="slider">
+                    <span class="slider-value" id="grid-opacity-value">75%</span>
+                </div>
+                <div class="setting-row">
+                    <label>Cell Background</label>
+                    <input type="range" id="cell-opacity" min="0" max="100" value="50" class="slider">
+                    <span class="slider-value" id="cell-opacity-value">50%</span>
                 </div>
             </div>
 

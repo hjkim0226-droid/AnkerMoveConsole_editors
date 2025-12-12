@@ -49,6 +49,7 @@
 
         // Initialize modules
         settings = new Settings();
+        settings.bindOpacityEvents();
         customAnchor = new CustomAnchor();
         grid = new AnchorGrid(settings);
 

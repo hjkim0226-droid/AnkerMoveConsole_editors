@@ -9,7 +9,9 @@ class Settings {
             gridWidth: 3,
             gridHeight: 3,
             compMode: false,
-            maskRecognition: true
+            maskRecognition: true,
+            gridOpacity: 75,
+            cellOpacity: 50
         };
 
         this.current = { ...this.defaults };
@@ -17,6 +19,7 @@ class Settings {
 
         this.load();
         this.bindEvents();
+        this.applyOpacity();
     }
 
     /**
@@ -148,6 +151,54 @@ class Settings {
      */
     isMaskEnabled() {
         return this.current.maskRecognition;
+    }
+
+    /**
+     * Apply opacity settings to CSS variables
+     */
+    applyOpacity() {
+        const gridOpacity = this.current.gridOpacity / 100;
+        const cellOpacity = this.current.cellOpacity / 100;
+
+        document.documentElement.style.setProperty('--bg-secondary', `rgba(45, 45, 45, ${gridOpacity})`);
+        document.documentElement.style.setProperty('--grid-cell-bg', `rgba(74, 158, 255, ${cellOpacity * 0.15})`);
+        document.documentElement.style.setProperty('--grid-cell-hover', `rgba(74, 158, 255, ${cellOpacity * 0.7})`);
+        document.documentElement.style.setProperty('--grid-cell-active', `rgba(74, 158, 255, ${cellOpacity})`);
+
+        // Update UI labels
+        const gridOpacityValue = document.getElementById('grid-opacity-value');
+        const cellOpacityValue = document.getElementById('cell-opacity-value');
+        const gridOpacitySlider = document.getElementById('grid-opacity');
+        const cellOpacitySlider = document.getElementById('cell-opacity');
+
+        if (gridOpacityValue) gridOpacityValue.textContent = this.current.gridOpacity + '%';
+        if (cellOpacityValue) cellOpacityValue.textContent = this.current.cellOpacity + '%';
+        if (gridOpacitySlider) gridOpacitySlider.value = this.current.gridOpacity;
+        if (cellOpacitySlider) cellOpacitySlider.value = this.current.cellOpacity;
+    }
+
+    /**
+     * Bind opacity slider events (called after DOM ready)
+     */
+    bindOpacityEvents() {
+        const gridOpacitySlider = document.getElementById('grid-opacity');
+        const cellOpacitySlider = document.getElementById('cell-opacity');
+
+        if (gridOpacitySlider) {
+            gridOpacitySlider.addEventListener('input', (e) => {
+                this.current.gridOpacity = parseInt(e.target.value, 10);
+                this.applyOpacity();
+                this.save();
+            });
+        }
+
+        if (cellOpacitySlider) {
+            cellOpacitySlider.addEventListener('input', (e) => {
+                this.current.cellOpacity = parseInt(e.target.value, 10);
+                this.applyOpacity();
+                this.save();
+            });
+        }
     }
 }
 
