@@ -85,7 +85,10 @@
 #define META_CREATEREGION 0x06FF
 #endif
 
-// GDI+ requires Windows headers in this specific order
+// GDI+ requires Windows headers in this specific order:
+// 1. windows.h FIRST (provides CALLBACK, BOOL, EMR_*, etc.)
+// 2. objidl.h (provides IStream)
+// 3. gdiplus.h LAST (uses types from above)
 #include <gdiplus.h>
 #include <objidl.h>
 #include <windows.h>
