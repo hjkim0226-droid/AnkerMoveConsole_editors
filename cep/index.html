@@ -1,41 +1,111 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <title>Anchor Grid</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
     <div id="app">
-        <!-- Grid Container -->
+        <!-- Grid Overlay (shown when Y key held) -->
         <div id="grid-overlay" class="hidden">
+            <div class="cancel-zone">Release to cancel</div>
             <div id="anchor-grid"></div>
-        </div>
-        
-        <!-- Settings Panel -->
-        <div id="settings-panel">
-            <h3>Anchor Grid Settings</h3>
-            <div class="setting-row">
-                <label>Grid Size:</label>
-                <select id="grid-size">
-                    <option value="3" selected>3×3</option>
-                    <option value="5">5×5</option>
-                    <option value="7">7×7</option>
-                </select>
+            <div class="grid-toolbar">
+                <button class="toolbar-btn" id="btn-settings" title="Settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+                    </svg>
+                </button>
+                <button class="toolbar-btn" id="btn-copy-anchor" title="Copy Anchor Ratio">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                </button>
             </div>
-            <div class="setting-row">
-                <label>Shortcuts:</label>
+        </div>
+
+        <!-- Settings Panel (CEP Full Panel) -->
+        <div id="settings-panel" class="visible">
+            <h3>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+                </svg>
+                Anchor Grid Settings
+            </h3>
+
+            <!-- Grid Size Section -->
+            <div class="setting-section">
+                <div class="setting-section-title">Grid Size</div>
+                <div class="setting-row">
+                    <label>Columns × Rows</label>
+                    <div class="grid-size-inputs">
+                        <input type="number" id="grid-width" min="3" max="7" value="3">
+                        <span>×</span>
+                        <input type="number" id="grid-height" min="3" max="7" value="3">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Section -->
+            <div class="setting-section">
+                <div class="setting-section-title">Mode</div>
+                <div class="setting-row">
+                    <label>Composition Mode</label>
+                    <div class="toggle-switch" id="toggle-comp-mode"></div>
+                </div>
+                <div class="setting-row">
+                    <label>Mask Recognition</label>
+                    <div class="toggle-switch active" id="toggle-mask"></div>
+                </div>
+            </div>
+
+            <!-- Custom Anchor Section -->
+            <div class="setting-section">
+                <div class="setting-section-title">Custom Anchor</div>
+                <div class="custom-anchor-editor">
+                    <div class="anchor-preview" id="anchor-preview">
+                        <div class="anchor-point" id="anchor-point" style="left: 50%; top: 50%;"></div>
+                    </div>
+                    <div class="anchor-coords">
+                        <input type="text" id="anchor-x" placeholder="X: 0.5" value="0.5">
+                        <input type="text" id="anchor-y" placeholder="Y: 0.5" value="0.5">
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-small" id="btn-save-preset">Save Preset</button>
+                        <button class="btn btn-small btn-secondary" id="btn-apply-custom">Apply</button>
+                    </div>
+                </div>
+
+                <!-- Preset List -->
+                <div class="preset-list" id="preset-list">
+                    <!-- Presets will be populated by JS -->
+                </div>
+            </div>
+
+            <!-- Shortcuts Info -->
+            <div class="setting-section">
+                <div class="setting-section-title">Shortcuts</div>
                 <div class="shortcut-info">
-                    <span class="key">Y</span> Hold to show grid
-                    <br>
+                    <span class="key">Y</span> Hold to show grid<br>
                     <span class="key">⌥Y</span> Toggle click mode
                 </div>
             </div>
         </div>
     </div>
-    
+
     <script src="js/CSInterface.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/custom-anchor.js"></script>
     <script src="js/grid.js"></script>
     <script src="js/main.js"></script>
 </body>
+
 </html>

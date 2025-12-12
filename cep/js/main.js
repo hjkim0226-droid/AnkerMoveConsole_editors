@@ -11,6 +11,8 @@
     const os = require('os');
 
     let grid = null;
+    let settings = null;
+    let customAnchor = null;
     let csInterface = null;
     let commandFilePath = '';
     let stateFilePath = '';
@@ -22,10 +24,8 @@
      */
     function getIPCDirectory() {
         if (process.platform === 'darwin') {
-            // macOS
             return path.join(os.homedir(), 'Library/Application Support/AnchorRadialMenu');
         } else {
-            // Windows
             return path.join(process.env.APPDATA || 'C:\\Temp', 'AnchorRadialMenu');
         }
     }
@@ -46,7 +46,16 @@
      */
     function init() {
         csInterface = new CSInterface();
-        grid = new AnchorGrid();
+
+        // Initialize modules
+        settings = new Settings();
+        customAnchor = new CustomAnchor();
+        grid = new AnchorGrid(settings);
+
+        // Link custom anchor apply to grid
+        customAnchor.onApply = (x, y) => {
+            grid.applyCustomAnchor(x, y);
+        };
 
         // Setup IPC paths
         const ipcDir = ensureIPCDirectory();
@@ -72,7 +81,6 @@
      * Start watching the command file for changes from C++ plugin
      */
     function startCommandWatcher() {
-        // Poll the command file every 50ms
         watchInterval = setInterval(() => {
             try {
                 if (fs.existsSync(commandFilePath)) {
@@ -80,7 +88,6 @@
                     if (command && command !== lastCommand) {
                         lastCommand = command;
                         processCommand(command);
-                        // Clear the command file after processing
                         fs.writeFileSync(commandFilePath, '');
                     }
                 }
@@ -99,7 +106,7 @@
         switch (command) {
             case 'showRadialMenu':
                 if (!grid.isVisible) {
-                    grid.show(false); // Hold mode
+                    grid.show(false);
                 }
                 break;
 
@@ -113,8 +120,14 @@
                 if (grid.isVisible) {
                     grid.hide();
                 } else {
-                    grid.show(true); // Click mode
+                    grid.show(true);
                 }
+                break;
+
+            case 'openSettings':
+                grid.hide();
+                const panel = document.getElementById('settings-panel');
+                if (panel) panel.classList.add('visible');
                 break;
 
             default:
@@ -127,6 +140,15 @@
                         grid.applyAnchor(gridX, gridY);
                     }
                 }
+                // Handle applyCustomAnchor:X,Y command
+                else if (command.startsWith('applyCustomAnchor:')) {
+                    const coords = command.substring(18).split(',');
+                    if (coords.length === 2) {
+                        const ratioX = parseFloat(coords[0]);
+                        const ratioY = parseFloat(coords[1]);
+                        grid.applyCustomAnchor(ratioX, ratioY);
+                    }
+                }
                 break;
         }
     }
@@ -136,11 +158,21 @@
      */
     function writeStateFile(selection) {
         try {
+            const size = settings.getGridSize();
+            const stateData = {
+                gridWidth: size.width,
+                gridHeight: size.height,
+                compMode: settings.isCompMode(),
+                maskEnabled: settings.isMaskEnabled()
+            };
+
             if (selection) {
-                fs.writeFileSync(stateFilePath, `${selection.x},${selection.y}`);
+                stateData.selection = `${selection.x},${selection.y}`;
             } else {
-                fs.writeFileSync(stateFilePath, 'outside');
+                stateData.selection = 'outside';
             }
+
+            fs.writeFileSync(stateFilePath, JSON.stringify(stateData));
         } catch (err) {
             console.error('Error writing state file:', err);
         }

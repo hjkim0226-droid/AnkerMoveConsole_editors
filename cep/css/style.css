@@ -2,16 +2,20 @@
 
 :root {
     --bg-primary: #232323;
-    --bg-secondary: #2d2d2d;
-    --bg-hover: #3a3a3a;
-    --border-color: #4a4a4a;
+    --bg-secondary: rgba(45, 45, 45, 0.95);
+    --bg-overlay: rgba(0, 0, 0, 0.75);
+    --bg-hover: rgba(58, 58, 58, 0.9);
+    --border-color: rgba(74, 74, 74, 0.6);
     --text-primary: #e0e0e0;
     --text-secondary: #888;
     --accent: #4a9eff;
     --accent-hover: #6bb3ff;
-    --grid-cell-bg: rgba(74, 158, 255, 0.1);
-    --grid-cell-hover: rgba(74, 158, 255, 0.4);
-    --grid-cell-active: rgba(74, 158, 255, 0.7);
+    --accent-soft: rgba(74, 158, 255, 0.15);
+    --grid-cell-bg: rgba(74, 158, 255, 0.08);
+    --grid-cell-hover: rgba(74, 158, 255, 0.35);
+    --grid-cell-active: rgba(74, 158, 255, 0.6);
+    --danger: #ff6464;
+    --success: #4ade80;
 }
 
 * {
@@ -35,68 +39,77 @@ body {
     flex-direction: column;
 }
 
-/* Grid Overlay */
+/* ===========================================
+   Grid Overlay
+   =========================================== */
 #grid-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.85);
+    background: var(--bg-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    transition: opacity 0.15s ease;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.12s ease, visibility 0.12s ease;
 }
 
 #grid-overlay.hidden {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
 }
 
+/* Grid Container */
 #anchor-grid {
     display: grid;
-    gap: 4px;
-    padding: 8px;
+    gap: 3px;
+    padding: 10px;
     background: var(--bg-secondary);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    position: relative;
 }
 
+/* Grid Cells */
 .grid-cell {
-    width: 60px;
-    height: 60px;
+    width: 52px;
+    height: 52px;
     background: var(--grid-cell-bg);
-    border: 2px solid transparent;
-    border-radius: 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.1s ease;
+    transition: background 0.08s ease, border-color 0.08s ease, transform 0.08s ease;
     position: relative;
 }
 
 .grid-cell::after {
     content: '';
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     background: var(--accent);
     border-radius: 50%;
-    opacity: 0.5;
-    transition: all 0.1s ease;
+    opacity: 0.4;
+    transition: opacity 0.08s ease, transform 0.08s ease;
 }
 
 .grid-cell:hover {
     background: var(--grid-cell-hover);
     border-color: var(--accent);
-    transform: scale(1.05);
+    transform: scale(1.04);
 }
 
 .grid-cell:hover::after {
     opacity: 1;
-    transform: scale(1.5);
+    transform: scale(1.4);
 }
 
 .grid-cell.active {
@@ -105,43 +118,204 @@ body {
 }
 
 .grid-cell.center::after {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
 }
 
-/* Settings Panel */
-#settings-panel {
-    padding: 16px;
+/* Even grid center (multiple cells) */
+.grid-cell.center-zone {
+    background: rgba(74, 158, 255, 0.12);
 }
 
-#settings-panel h3 {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: var(--text-primary);
+.grid-cell.center-zone::after {
+    width: 8px;
+    height: 8px;
+    opacity: 0.6;
 }
 
-.setting-row {
-    margin-bottom: 12px;
+/* ===========================================
+   Settings Icon (in grid overlay)
+   =========================================== */
+.grid-toolbar {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
 }
 
-.setting-row label {
-    display: block;
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-select {
-    width: 100%;
-    padding: 8px 12px;
+.toolbar-btn {
+    width: 28px;
+    height: 28px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: all 0.1s ease;
+}
+
+.toolbar-btn:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ===========================================
+   Cancel Zone Indicator
+   =========================================== */
+.cancel-zone {
+    position: absolute;
+    top: -36px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 10px;
+    background: rgba(255, 100, 100, 0.15);
+    border: 1px solid rgba(255, 100, 100, 0.3);
+    border-radius: 4px;
+    color: var(--danger);
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+#grid-overlay.outside-grid .cancel-zone {
+    opacity: 1;
+}
+
+/* ===========================================
+   Settings Panel (CEP Modal)
+   =========================================== */
+#settings-panel {
+    padding: 16px;
+    display: none;
+}
+
+#settings-panel.visible {
+    display: block;
+}
+
+#settings-panel h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.setting-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.setting-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.setting-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.setting-row {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.setting-row label {
+    font-size: 11px;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+/* Grid Size Inputs */
+.grid-size-inputs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.grid-size-inputs input {
+    width: 48px;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
     color: var(--text-primary);
     font-size: 12px;
+    text-align: center;
+}
+
+.grid-size-inputs input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.grid-size-inputs span {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--bg-hover);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.toggle-switch.active {
+    background: var(--accent);
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+}
+
+.toggle-switch.active::after {
+    transform: translateX(16px);
+}
+
+/* Select Dropdown */
+select {
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 11px;
     cursor: pointer;
 }
 
@@ -152,9 +326,164 @@ select:hover {
 select:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
 }
 
+/* ===========================================
+   Custom Anchor Section
+   =========================================== */
+.custom-anchor-editor {
+    margin-top: 12px;
+}
+
+.anchor-preview {
+    width: 100%;
+    height: 120px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    position: relative;
+    cursor: crosshair;
+    margin-bottom: 10px;
+}
+
+.anchor-preview::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--border-color);
+}
+
+.anchor-preview::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-color);
+}
+
+.anchor-point {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    border: 2px solid white;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+}
+
+.anchor-coords {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.anchor-coords input {
+    flex: 1;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 11px;
+}
+
+.anchor-coords input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* Preset List */
+.preset-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.preset-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.preset-item:hover {
+    background: var(--bg-hover);
+}
+
+.preset-item .preset-name {
+    flex: 1;
+    font-size: 11px;
+}
+
+.preset-item .preset-value {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-right: 8px;
+}
+
+.preset-item .preset-delete {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border-radius: 3px;
+    transition: all 0.1s ease;
+}
+
+.preset-item .preset-delete:hover {
+    background: rgba(255, 100, 100, 0.2);
+    color: var(--danger);
+}
+
+/* ===========================================
+   Buttons
+   =========================================== */
+.btn {
+    padding: 7px 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.btn:hover {
+    background: var(--accent-hover);
+}
+
+.btn-secondary {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background: var(--border-color);
+}
+
+.btn-small {
+    padding: 5px 10px;
+    font-size: 10px;
+}
+
+/* ===========================================
+   Shortcut Info (legacy, keep for reference)
+   =========================================== */
 .shortcut-info {
     background: var(--bg-secondary);
     padding: 10px 12px;
@@ -173,22 +502,22 @@ select:focus {
     margin-right: 4px;
 }
 
-/* Cancel Zone Indicator */
-.cancel-zone {
-    position: absolute;
-    top: -40px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 6px 12px;
-    background: rgba(255, 100, 100, 0.2);
-    border: 1px solid rgba(255, 100, 100, 0.4);
-    border-radius: 4px;
-    color: #ff6464;
-    font-size: 10px;
-    opacity: 0;
-    transition: opacity 0.2s;
+/* ===========================================
+   Scrollbar
+   =========================================== */
+::-webkit-scrollbar {
+    width: 6px;
 }
 
-#grid-overlay.outside-grid .cancel-zone {
-    opacity: 1;
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
 }

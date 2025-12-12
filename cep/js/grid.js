@@ -1,42 +1,32 @@
 /**
  * Anchor Grid - Grid UI Component
  * Handles grid creation, interaction, and selection
+ * Supports asymmetric grids (different width/height)
  */
 
 class AnchorGrid {
-    constructor() {
-        this.gridSize = 3;
+    constructor(settings) {
+        this.settings = settings;
+        this.gridWidth = settings ? settings.getGridSize().width : 3;
+        this.gridHeight = settings ? settings.getGridSize().height : 3;
         this.gridContainer = document.getElementById('anchor-grid');
         this.overlay = document.getElementById('grid-overlay');
         this.selectedCell = null;
         this.isVisible = false;
         this.isClickMode = false;
-        this.onSelectionChange = null; // Callback for state file updates
+        this.onSelectionChange = null;
 
-        this.loadSettings();
         this.buildGrid();
         this.bindEvents();
-    }
 
-    /**
-     * Load grid settings from localStorage
-     */
-    loadSettings() {
-        const savedSize = localStorage.getItem('anchorGridSize');
-        if (savedSize) {
-            this.gridSize = parseInt(savedSize, 10);
-            const sizeSelect = document.getElementById('grid-size');
-            if (sizeSelect) {
-                sizeSelect.value = this.gridSize;
-            }
+        // Listen for settings changes
+        if (settings) {
+            settings.onSettingsChange = (newSettings) => {
+                this.gridWidth = newSettings.gridWidth;
+                this.gridHeight = newSettings.gridHeight;
+                this.buildGrid();
+            };
         }
-    }
-
-    /**
-     * Save grid settings to localStorage
-     */
-    saveSettings() {
-        localStorage.setItem('anchorGridSize', this.gridSize.toString());
     }
 
     /**
@@ -44,21 +34,40 @@ class AnchorGrid {
      */
     buildGrid() {
         this.gridContainer.innerHTML = '';
-        this.gridContainer.style.gridTemplateColumns = `repeat(${this.gridSize}, 1fr)`;
-        this.gridContainer.style.gridTemplateRows = `repeat(${this.gridSize}, 1fr)`;
+        this.gridContainer.style.gridTemplateColumns = `repeat(${this.gridWidth}, 1fr)`;
+        this.gridContainer.style.gridTemplateRows = `repeat(${this.gridHeight}, 1fr)`;
 
-        const centerIndex = Math.floor(this.gridSize / 2);
+        // Calculate center - for even grids, center is between cells
+        const centerX = (this.gridWidth - 1) / 2;
+        const centerY = (this.gridHeight - 1) / 2;
+        const isEvenWidth = this.gridWidth % 2 === 0;
+        const isEvenHeight = this.gridHeight % 2 === 0;
 
-        for (let y = 0; y < this.gridSize; y++) {
-            for (let x = 0; x < this.gridSize; x++) {
+        for (let y = 0; y < this.gridHeight; y++) {
+            for (let x = 0; x < this.gridWidth; x++) {
                 const cell = document.createElement('div');
                 cell.className = 'grid-cell';
                 cell.dataset.x = x;
                 cell.dataset.y = y;
 
-                // Mark center cell
-                if (x === centerIndex && y === centerIndex) {
-                    cell.classList.add('center');
+                // Mark center cell(s)
+                if (isEvenWidth || isEvenHeight) {
+                    // For even grids, mark the 4 (or 2) center cells
+                    const isCenterX = isEvenWidth
+                        ? (x === Math.floor(centerX) || x === Math.ceil(centerX))
+                        : x === Math.floor(centerX);
+                    const isCenterY = isEvenHeight
+                        ? (y === Math.floor(centerY) || y === Math.ceil(centerY))
+                        : y === Math.floor(centerY);
+
+                    if (isCenterX && isCenterY) {
+                        cell.classList.add('center-zone');
+                    }
+                } else {
+                    // Odd grid - single center
+                    if (x === Math.floor(centerX) && y === Math.floor(centerY)) {
+                        cell.classList.add('center');
+                    }
                 }
 
                 // Hover events
@@ -69,28 +78,12 @@ class AnchorGrid {
                 this.gridContainer.appendChild(cell);
             }
         }
-
-        // Add cancel zone indicator
-        const cancelZone = document.createElement('div');
-        cancelZone.className = 'cancel-zone';
-        cancelZone.textContent = 'Release to cancel';
-        this.gridContainer.appendChild(cancelZone);
     }
 
     /**
      * Bind global events
      */
     bindEvents() {
-        // Grid size change
-        const sizeSelect = document.getElementById('grid-size');
-        if (sizeSelect) {
-            sizeSelect.addEventListener('change', (e) => {
-                this.gridSize = parseInt(e.target.value, 10);
-                this.saveSettings();
-                this.buildGrid();
-            });
-        }
-
         // Track mouse leaving grid area
         this.overlay.addEventListener('mousemove', (e) => {
             const gridRect = this.gridContainer.getBoundingClientRect();
@@ -108,6 +101,17 @@ class AnchorGrid {
                 this.overlay.classList.remove('outside-grid');
             }
         });
+
+        // Settings button in toolbar
+        const settingsBtn = document.getElementById('btn-settings');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                this.hide();
+                // Show settings panel
+                const panel = document.getElementById('settings-panel');
+                if (panel) panel.classList.add('visible');
+            });
+        }
     }
 
     /**
@@ -123,7 +127,6 @@ class AnchorGrid {
      * Handle cell hover
      */
     onCellHover(cell, x, y) {
-        // Remove active from all cells
         document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('active'));
         cell.classList.add('active');
         this.selectedCell = { x, y };
@@ -154,13 +157,27 @@ class AnchorGrid {
         this.isClickMode = clickMode;
         this.isVisible = true;
         this.selectedCell = null;
+
+        // Refresh grid in case settings changed
+        if (this.settings) {
+            const size = this.settings.getGridSize();
+            if (size.width !== this.gridWidth || size.height !== this.gridHeight) {
+                this.gridWidth = size.width;
+                this.gridHeight = size.height;
+                this.buildGrid();
+            }
+        }
+
         this.overlay.classList.remove('hidden');
         this.overlay.classList.remove('outside-grid');
 
         // Reset all cells
         document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('active'));
 
-        // Notify initial state
+        // Hide settings panel when grid is shown
+        const panel = document.getElementById('settings-panel');
+        if (panel) panel.classList.remove('visible');
+
         this.notifySelectionChange(null);
     }
 
@@ -185,10 +202,14 @@ class AnchorGrid {
      */
     applyAnchor(gridX, gridY) {
         const csInterface = new CSInterface();
-        const script = `setLayerAnchor(${gridX}, ${gridY}, ${this.gridSize})`;
+        const compMode = this.settings ? this.settings.isCompMode() : false;
+        const maskEnabled = this.settings ? this.settings.isMaskEnabled() : true;
 
-        // Debug: Show what coordinates are being sent
-        console.log('Applying anchor:', gridX, gridY, 'gridSize:', this.gridSize);
+        const script = compMode
+            ? `setCompositionAnchor(${gridX}, ${gridY}, ${this.gridWidth}, ${this.gridHeight})`
+            : `setLayerAnchor(${gridX}, ${gridY}, ${this.gridWidth}, ${this.gridHeight}, ${maskEnabled})`;
+
+        console.log('Applying anchor:', gridX, gridY, 'grid:', this.gridWidth, 'x', this.gridHeight, 'compMode:', compMode);
 
         csInterface.evalScript(script, (result) => {
             console.log('ExtendScript result:', result);
@@ -197,6 +218,24 @@ class AnchorGrid {
             } else {
                 console.log('Anchor applied:', result);
             }
+        });
+    }
+
+    /**
+     * Apply custom anchor (ratio-based)
+     */
+    applyCustomAnchor(ratioX, ratioY) {
+        const csInterface = new CSInterface();
+        const compMode = this.settings ? this.settings.isCompMode() : false;
+
+        const script = compMode
+            ? `setCompositionCustomAnchor(${ratioX}, ${ratioY})`
+            : `setLayerCustomAnchor(${ratioX}, ${ratioY})`;
+
+        console.log('Applying custom anchor:', ratioX, ratioY, 'compMode:', compMode);
+
+        csInterface.evalScript(script, (result) => {
+            console.log('Custom anchor result:', result);
         });
     }
 
