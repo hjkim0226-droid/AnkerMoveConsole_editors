@@ -12,19 +12,24 @@ namespace NativeUI {
 
 // Grid configuration
 struct GridConfig {
-  int gridSize = 3;  // 3x3, 5x5, or 7x7
-  int cellSize = 40; // pixels per cell
-  int spacing = 4;   // pixels between cells (4px gap)
-  int margin = 2;    // window margin
+  int gridWidth = 3;  // Horizontal cells (3-7)
+  int gridHeight = 3; // Vertical cells (3-7)
+  int cellSize = 40;  // pixels per cell
+  int spacing = 4;    // pixels between cells (4px gap)
+  int margin = 2;     // window margin
 };
 
-// Extended menu options (when mouse moves outside grid)
+// Extended menu options (side panels)
 enum ExtendedOption {
-  OPT_NONE = 0,       // Normal grid selection
-  OPT_SELECTION_MODE, // Top: Toggle Selection/Comp mode
-  OPT_CUSTOM_ANCHOR,  // Bottom: Custom anchor position
-  OPT_SETTINGS,       // Left: Open settings panel
-  OPT_TRANSPARENT     // Right: Toggle transparent mode
+  OPT_NONE = 0, // Normal grid selection
+  // Left side: Custom anchor presets
+  OPT_CUSTOM_1, // Custom anchor preset 1
+  OPT_CUSTOM_2, // Custom anchor preset 2
+  OPT_CUSTOM_3, // Custom anchor preset 3
+  // Right side: Mode controls
+  OPT_COMP_MODE, // Toggle Composition mode
+  OPT_MASK_MODE, // Toggle Mask recognition
+  OPT_SETTINGS   // Open settings panel
 };
 
 // Grid result
@@ -37,8 +42,15 @@ struct GridResult {
 
 // Current mode settings
 struct GridSettings {
-  bool useCompMode = false;     // false = per-selection, true = whole comp
-  bool transparentMode = false; // transparent background
+  bool useCompMode = false;       // false = per-selection, true = whole comp
+  bool useMaskRecognition = true; // true = use mask bounds
+  bool transparentMode = false;   // transparent background
+  float gridOpacity = 0.75f;      // Grid background opacity
+  float cellOpacity = 0.50f;      // Cell background opacity
+  // Custom anchor presets (x, y ratios 0-1)
+  float customAnchor1X = 0.0f, customAnchor1Y = 0.0f;
+  float customAnchor2X = 0.5f, customAnchor2Y = 0.0f;
+  float customAnchor3X = 1.0f, customAnchor3Y = 0.0f;
 };
 
 // Initialize native UI system

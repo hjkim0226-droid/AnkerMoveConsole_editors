@@ -100,7 +100,8 @@ bool HasSelectedLayers() {
  *****************************************************************************/
 void ShowAnchorGrid(int mouseX, int mouseY) {
   NativeUI::GridConfig config;
-  config.gridSize = 3;
+  config.gridWidth = 3;  // TODO: read from settings
+  config.gridHeight = 3; // TODO: read from settings
   config.cellSize = 40;
   config.spacing = 1;
   config.margin = 2;
@@ -113,11 +114,14 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
  * Apply anchor point to selected layers based on grid position
  *****************************************************************************/
 void ApplyAnchorToLayers(int gridX, int gridY) {
+  int gridW = 3; // TODO: get from settings
+  int gridH = 3; // TODO: get from settings
+
   char script[5000];
   snprintf(
       script, sizeof(script),
       "(function(){"
-      "var gx=%d,gy=%d,gridSize=3;"
+      "var gx=%d,gy=%d,gridW=%d,gridH=%d;"
       "var c=app.project.activeItem;"
       "if(!c||!(c instanceof CompItem))return;"
       "if(c.selectedLayers.length==0)return;"
@@ -148,7 +152,7 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "var b=getMaskBounds(L);"
       "if(!b)b=L.sourceRectAtTime(c.time,false);"
       "if(!b||b.width<=0||b.height<=0)continue;"
-      "var px=gx/(gridSize-1),py=gy/(gridSize-1);"
+      "var px=gx/(gridW-1),py=gy/(gridH-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
       "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
       "var pp=L.property('ADBE Transform Group').property('ADBE Position');"
@@ -167,7 +171,7 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "}"
       "app.endUndoGroup();"
       "})();",
-      gridX, gridY);
+      gridX, gridY, gridW, gridH);
 
   ExecuteScript(script);
 }
@@ -182,26 +186,30 @@ void HideAndApplyAnchor() {
 
   NativeUI::GridResult result = NativeUI::HideGrid(mouseX, mouseY);
 
-  // Handle extended menu options
+  // Handle extended menu options (side panel icons)
   if (result.extendedOption != NativeUI::OPT_NONE) {
+    NativeUI::GridSettings &settings = NativeUI::GetSettings();
     switch (result.extendedOption) {
-    case NativeUI::OPT_SELECTION_MODE:
-      // Toggle Selection/Comp mode
-      NativeUI::GetSettings().useCompMode =
-          !NativeUI::GetSettings().useCompMode;
+    // Left panel: Custom anchors
+    case NativeUI::OPT_CUSTOM_1:
+      // Apply custom anchor preset 1
+      ExecuteScript("alert('Custom Anchor 1');");
       break;
-    case NativeUI::OPT_TRANSPARENT:
-      // Toggle transparent mode
-      NativeUI::GetSettings().transparentMode =
-          !NativeUI::GetSettings().transparentMode;
+    case NativeUI::OPT_CUSTOM_2:
+      ExecuteScript("alert('Custom Anchor 2');");
+      break;
+    case NativeUI::OPT_CUSTOM_3:
+      ExecuteScript("alert('Custom Anchor 3');");
+      break;
+    // Right panel: Mode controls
+    case NativeUI::OPT_COMP_MODE:
+      settings.useCompMode = !settings.useCompMode;
+      break;
+    case NativeUI::OPT_MASK_MODE:
+      settings.useMaskRecognition = !settings.useMaskRecognition;
       break;
     case NativeUI::OPT_SETTINGS:
-      // Open settings (CEP panel) - placeholder
-      ExecuteScript("alert('Settings panel - coming soon');");
-      break;
-    case NativeUI::OPT_CUSTOM_ANCHOR:
-      // Custom anchor input - placeholder
-      ExecuteScript("alert('Custom anchor - coming soon');");
+      ExecuteScript("alert('Settings - coming soon');");
       break;
     default:
       break;
