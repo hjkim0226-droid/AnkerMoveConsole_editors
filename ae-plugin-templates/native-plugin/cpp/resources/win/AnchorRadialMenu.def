@@ -1,0 +1,3 @@
+LIBRARY AnchorRadialMenu
+EXPORTS
+    EntryPointFunc
