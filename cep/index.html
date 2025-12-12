@@ -3,159 +3,196 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Anchor Grid</title>
+    <title>Anchor Grid Settings</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
-    <div id="app">
-        <!-- Grid Overlay (shown when Y key held) -->
-        <div id="grid-overlay" class="hidden">
-            <div class="cancel-zone">Release to cancel</div>
+    <!-- Header Banner -->
+    <div class="header-banner">
+        <h1>⚓ Anchor Grid</h1>
+        <span class="version">v1.0.0</span>
+    </div>
 
-            <!-- Left Side: Custom Anchors -->
-            <div class="side-panel left-panel">
-                <button class="side-btn" id="btn-preset-1" title="Custom Anchor 1">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="2" />
-                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-                    </svg>
-                    <span class="side-btn-label">1</span>
-                </button>
-                <button class="side-btn" id="btn-preset-2" title="Custom Anchor 2">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="2" />
-                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-                    </svg>
-                    <span class="side-btn-label">2</span>
-                </button>
-                <button class="side-btn" id="btn-preset-3" title="Custom Anchor 3">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="2" />
-                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-                    </svg>
-                    <span class="side-btn-label">3</span>
-                </button>
-            </div>
-
-            <!-- Center: Grid -->
-            <div id="anchor-grid"></div>
-
-            <!-- Right Side: Mode Controls -->
-            <div class="side-panel right-panel">
-                <!-- Composition Mode Toggle -->
-                <button class="side-btn" id="btn-comp-mode" title="Composition Mode (Off)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                        <line x1="8" y1="21" x2="16" y2="21" />
-                        <line x1="12" y1="17" x2="12" y2="21" />
-                    </svg>
-                </button>
-                <!-- Mask Recognition Toggle -->
-                <button class="side-btn active" id="btn-mask-mode" title="Mask Recognition (On)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" />
-                        <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z" />
-                    </svg>
-                </button>
-                <!-- Settings -->
-                <button class="side-btn" id="btn-settings" title="Settings">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3" />
-                        <path
-                            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-                    </svg>
-                </button>
-            </div>
+    <!-- Grid Preview Section -->
+    <div class="section">
+        <div class="section-title">Grid Preview</div>
+        <div class="grid-preview-container">
+            <div id="preview-grid" class="preview-grid"></div>
         </div>
+    </div>
 
-        <!-- Settings Panel (CEP Full Panel) -->
-        <div id="settings-panel" class="visible">
-            <h3>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3" />
-                    <path
-                        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-                </svg>
-                Anchor Grid Settings
-            </h3>
-
-            <!-- Grid Size Section -->
-            <div class="setting-section">
-                <div class="setting-section-title">Grid Size</div>
-                <div class="setting-row">
-                    <label>Columns × Rows</label>
-                    <div class="grid-size-inputs">
-                        <input type="number" id="grid-width" min="3" max="7" value="3">
-                        <span>×</span>
-                        <input type="number" id="grid-height" min="3" max="7" value="3">
-                    </div>
-                </div>
+    <!-- Grid Size Section -->
+    <div class="section">
+        <div class="section-title">Grid Size</div>
+        <div class="grid-size-row">
+            <div class="size-control">
+                <span class="size-label">Width:</span>
+                <span class="size-value" id="grid-width" data-min="3" data-max="7">3</span>
             </div>
-
-            <!-- Transparency Section -->
-            <div class="setting-section">
-                <div class="setting-section-title">Transparency</div>
-                <div class="setting-row">
-                    <label>Grid Background</label>
-                    <input type="range" id="grid-opacity" min="0" max="100" value="75" class="slider">
-                    <span class="slider-value" id="grid-opacity-value">75%</span>
-                </div>
-                <div class="setting-row">
-                    <label>Cell Background</label>
-                    <input type="range" id="cell-opacity" min="0" max="100" value="50" class="slider">
-                    <span class="slider-value" id="cell-opacity-value">50%</span>
-                </div>
-            </div>
-
-            <!-- Mode Section -->
-            <div class="setting-section">
-                <div class="setting-section-title">Mode</div>
-                <div class="setting-row">
-                    <label>Composition Mode</label>
-                    <div class="toggle-switch" id="toggle-comp-mode"></div>
-                </div>
-                <div class="setting-row">
-                    <label>Mask Recognition</label>
-                    <div class="toggle-switch active" id="toggle-mask"></div>
-                </div>
-            </div>
-
-            <!-- Custom Anchor Section -->
-            <div class="setting-section">
-                <div class="setting-section-title">Custom Anchor</div>
-                <div class="custom-anchor-editor">
-                    <div class="anchor-preview" id="anchor-preview">
-                        <div class="anchor-point" id="anchor-point" style="left: 50%; top: 50%;"></div>
-                    </div>
-                    <div class="anchor-coords">
-                        <input type="text" id="anchor-x" placeholder="X: 0.5" value="0.5">
-                        <input type="text" id="anchor-y" placeholder="Y: 0.5" value="0.5">
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-small" id="btn-save-preset">Save Preset</button>
-                        <button class="btn btn-small btn-secondary" id="btn-apply-custom">Apply</button>
-                    </div>
-                </div>
-
-                <!-- Preset List -->
-                <div class="preset-list" id="preset-list">
-                    <!-- Presets will be populated by JS -->
-                </div>
-            </div>
-
-            <!-- Shortcuts Info -->
-            <div class="setting-section">
-                <div class="setting-section-title">Shortcuts</div>
-                <div class="shortcut-info">
-                    <span class="key">Y</span> Hold to show grid<br>
-                    <span class="key">⌥Y</span> Toggle click mode
-                </div>
+            <span class="size-separator">×</span>
+            <div class="size-control">
+                <span class="size-label">Height:</span>
+                <span class="size-value" id="grid-height" data-min="3" data-max="7">3</span>
             </div>
         </div>
     </div>
 
-    <script src="js/CSInterface.js"></script>
+    <!-- Grid Scale Slider -->
+    <div class="section">
+        <div class="section-title">Grid Scale</div>
+        <div class="scale-slider-container">
+            <span class="scale-label">-40%</span>
+            <input type="range" id="grid-scale" class="scale-slider" min="0" max="4" value="1" step="1">
+            <span class="scale-label">+40%</span>
+        </div>
+        <div class="scale-display" id="scale-display">-20%</div>
+    </div>
+
+    <!-- Mode Section -->
+    <div class="section">
+        <div class="section-title">Mode</div>
+        <div class="mode-row">
+            <button class="mode-btn active selection" id="btn-selection">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="4" y="4" width="16" height="16" />
+                    <rect x="2" y="2" width="4" height="4" fill="currentColor" />
+                    <rect x="18" y="2" width="4" height="4" fill="currentColor" />
+                    <rect x="2" y="18" width="4" height="4" fill="currentColor" />
+                    <rect x="18" y="18" width="4" height="4" fill="currentColor" />
+                </svg>
+                <span>Selection</span>
+            </button>
+            <button class="mode-btn composition" id="btn-composition">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="6" width="20" height="12" />
+                    <line x1="12" y1="9" x2="12" y2="15" />
+                    <line x1="9" y1="12" x2="15" y2="12" />
+                </svg>
+                <span>Composition</span>
+            </button>
+        </div>
+        <div class="mode-row">
+            <button class="mode-btn active mask-on" id="btn-mask-on">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="2" y="2" width="20" height="20" rx="2" />
+                    <circle cx="12" cy="12" r="5" fill="var(--bg-color)" />
+                </svg>
+                <span>Mask ON</span>
+            </button>
+            <button class="mode-btn mask-off" id="btn-mask-off">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="2" />
+                </svg>
+                <span>Mask OFF</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Anchor Section -->
+    <div class="section">
+        <div class="section-title">Custom Anchors</div>
+        <div class="custom-anchor-container">
+            <div class="custom-anchor-icons">
+                <button class="custom-btn active" id="custom-1" data-preset="1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="2" y1="12" x2="10" y2="12" />
+                        <line x1="14" y1="12" x2="22" y2="12" />
+                        <line x1="12" y1="2" x2="12" y2="10" />
+                        <line x1="12" y1="14" x2="12" y2="22" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <span>1</span>
+                </button>
+                <button class="custom-btn" id="custom-2" data-preset="2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="2" y1="12" x2="10" y2="12" />
+                        <line x1="14" y1="12" x2="22" y2="12" />
+                        <line x1="12" y1="2" x2="12" y2="10" />
+                        <line x1="12" y1="14" x2="12" y2="22" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <span>2</span>
+                </button>
+                <button class="custom-btn" id="custom-3" data-preset="3">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="2" y1="12" x2="10" y2="12" />
+                        <line x1="14" y1="12" x2="22" y2="12" />
+                        <line x1="12" y1="2" x2="12" y2="10" />
+                        <line x1="12" y1="14" x2="12" y2="22" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <span>3</span>
+                </button>
+            </div>
+            <div class="anchor-editor-container">
+                <div class="anchor-editor" id="anchor-editor">
+                    <div class="anchor-marker" id="anchor-marker"></div>
+                </div>
+                <div class="anchor-coords">
+                    <span id="anchor-x">50</span>% × <span id="anchor-y">50</span>%
+                </div>
+                <div class="anchor-controls">
+                    <button class="flip-btn" id="flip-h" title="Flip Horizontal">↔</button>
+                    <button class="flip-btn" id="flip-v" title="Flip Vertical">↕</button>
+                </div>
+            </div>
+        </div>
+        <div class="help-text">
+            Click or drag to set position. Shift+drag: vertical only. Ctrl+drag: snap to grid.
+        </div>
+    </div>
+
+    <!-- Transparency Section -->
+    <div class="section">
+        <div class="section-title">Transparency</div>
+        <div class="slider-row">
+            <span class="slider-label">Grid BG:</span>
+            <input type="range" id="grid-opacity" class="opacity-slider" min="0" max="100" value="75">
+            <span class="slider-value" id="grid-opacity-value">75%</span>
+        </div>
+        <div class="slider-row">
+            <span class="slider-label">Cell BG:</span>
+            <input type="range" id="cell-opacity" class="opacity-slider" min="0" max="100" value="50">
+            <span class="slider-value" id="cell-opacity-value">50%</span>
+        </div>
+    </div>
+
+    <!-- Shortcuts Section -->
+    <div class="section">
+        <div class="section-title">Shortcuts</div>
+        <div class="shortcut-row">
+            <span class="shortcut-label">Hold Grid:</span>
+            <span class="shortcut-key" id="key-hold">Y</span>
+        </div>
+        <div class="shortcut-row">
+            <span class="shortcut-label">Toggle Click:</span>
+            <span class="shortcut-key" id="key-toggle">Y~Y</span>
+        </div>
+    </div>
+
+    <!-- Language Section -->
+    <div class="section">
+        <div class="section-title">Language</div>
+        <select id="language-select" class="language-select">
+            <option value="en">English</option>
+            <option value="ko">한국어</option>
+        </select>
+    </div>
+
+    <!-- Error Message Area -->
+    <div id="error-message" class="error-message"></div>
+
+    <!-- Footer Banner -->
+    <div class="footer-banner">
+        <div class="logo">🎯</div>
+        <div class="credits">
+            <span>Made with ♥</span>
+        </div>
+    </div>
+
+    <script src="lib/CSInterface.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/custom-anchor.js"></script>
     <script src="js/grid.js"></script>

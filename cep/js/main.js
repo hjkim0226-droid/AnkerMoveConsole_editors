@@ -1,208 +1,114 @@
 /**
- * Anchor Grid - Main Entry Point
- * Handles CEP initialization and C++ plugin communication via file-based IPC
+ * main.js - Main entry point for Anchor Grid CEP panel
+ * Initializes all modules and handles IPC with C++ plugin
  */
 
-(function () {
-    'use strict';
+// Global references
+let csInterface = null;
+let settings = null;
+let customAnchor = null;
+let grid = null;
 
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+});
 
-    let grid = null;
-    let settings = null;
-    let customAnchor = null;
-    let csInterface = null;
-    let commandFilePath = '';
-    let stateFilePath = '';
-    let watchInterval = null;
-    let lastCommand = '';
-
-    /**
-     * Get IPC directory path based on OS
-     */
-    function getIPCDirectory() {
-        if (process.platform === 'darwin') {
-            return path.join(os.homedir(), 'Library/Application Support/AnchorRadialMenu');
-        } else {
-            return path.join(process.env.APPDATA || 'C:\\Temp', 'AnchorRadialMenu');
-        }
-    }
-
-    /**
-     * Ensure IPC directory exists
-     */
-    function ensureIPCDirectory() {
-        const dir = getIPCDirectory();
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        return dir;
-    }
-
-    /**
-     * Initialize the CEP panel
-     */
-    function init() {
+async function init() {
+    try {
+        // Initialize CSInterface
         csInterface = new CSInterface();
+        window.csInterface = csInterface;
+
+        // Load ExtendScript
+        const jsxPath = csInterface.getSystemPath(SystemPath.EXTENSION) + '/jsx/anchor.jsx';
+        csInterface.evalScript(`$.evalFile("${jsxPath}")`);
+
+        // Initialize i18n
+        if (window.i18n) {
+            i18n.init();
+        }
 
         // Initialize modules
         settings = new Settings();
-        settings.bindOpacityEvents();
-        customAnchor = new CustomAnchor();
+        customAnchor = new CustomAnchor(settings);
         grid = new AnchorGrid(settings);
+        grid.build();
 
-        // Link custom anchor apply to grid
-        customAnchor.onApply = (x, y) => {
-            grid.applyCustomAnchor(x, y);
-        };
+        // Apply theme
+        applyTheme();
 
-        // Setup IPC paths
-        const ipcDir = ensureIPCDirectory();
-        commandFilePath = path.join(ipcDir, 'command.txt');
-        stateFilePath = path.join(ipcDir, 'state.txt');
+        console.log('Anchor Grid panel initialized');
 
-        // Create empty command file if it doesn't exist
-        if (!fs.existsSync(commandFilePath)) {
-            fs.writeFileSync(commandFilePath, '');
-        }
-
-        // Start watching for commands from C++ plugin
-        startCommandWatcher();
-
-        // Listen for grid state changes to write to state file
-        grid.onSelectionChange = writeStateFile;
-
-        console.log('Anchor Grid CEP panel initialized');
-        console.log('IPC Directory:', ipcDir);
+    } catch (error) {
+        showError('Failed to initialize: ' + error.message);
     }
+}
 
-    /**
-     * Start watching the command file for changes from C++ plugin
-     */
-    function startCommandWatcher() {
-        watchInterval = setInterval(() => {
-            try {
-                if (fs.existsSync(commandFilePath)) {
-                    const command = fs.readFileSync(commandFilePath, 'utf8').trim();
-                    if (command && command !== lastCommand) {
-                        lastCommand = command;
-                        processCommand(command);
-                        fs.writeFileSync(commandFilePath, '');
-                    }
-                }
-            } catch (err) {
-                console.error('Error reading command file:', err);
-            }
-        }, 50);
-    }
-
-    /**
-     * Process a command from the C++ plugin
-     */
-    function processCommand(command) {
-        console.log('Received command:', command);
-
-        switch (command) {
-            case 'showRadialMenu':
-                if (!grid.isVisible) {
-                    grid.show(false);
-                }
-                break;
-
-            case 'hideRadialMenu':
-                if (grid.isVisible && !grid.isClickMode) {
-                    grid.applySelectionAndHide();
-                }
-                break;
-
-            case 'toggleClickMode':
-                if (grid.isVisible) {
-                    grid.hide();
-                } else {
-                    grid.show(true);
-                }
-                break;
-
-            case 'openSettings':
-                grid.hide();
-                const panel = document.getElementById('settings-panel');
-                if (panel) panel.classList.add('visible');
-                break;
-
-            default:
-                // Handle applyAnchor:X,Y command
-                if (command.startsWith('applyAnchor:')) {
-                    const coords = command.substring(12).split(',');
-                    if (coords.length === 2) {
-                        const gridX = parseInt(coords[0], 10);
-                        const gridY = parseInt(coords[1], 10);
-                        grid.applyAnchor(gridX, gridY);
-                    }
-                }
-                // Handle applyCustomAnchor:X,Y command
-                else if (command.startsWith('applyCustomAnchor:')) {
-                    const coords = command.substring(18).split(',');
-                    if (coords.length === 2) {
-                        const ratioX = parseFloat(coords[0]);
-                        const ratioY = parseFloat(coords[1]);
-                        grid.applyCustomAnchor(ratioX, ratioY);
-                    }
-                }
-                break;
+function applyTheme() {
+    // Get host environment colors (optional)
+    if (csInterface) {
+        const hostEnv = csInterface.getHostEnvironment();
+        const appSkinInfo = csInterface.hostEnvironment?.appSkinInfo;
+        if (appSkinInfo) {
+            // Could apply AE's native colors here
         }
     }
+}
 
-    /**
-     * Write current grid state to state file (for C++ plugin to read)
-     */
-    function writeStateFile(selection) {
-        try {
-            const size = settings.getGridSize();
-            const stateData = {
-                gridWidth: size.width,
-                gridHeight: size.height,
-                compMode: settings.isCompMode(),
-                maskEnabled: settings.isMaskEnabled()
-            };
+function showError(message) {
+    const errorEl = document.getElementById('error-message');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.add('visible');
 
-            if (selection) {
-                stateData.selection = `${selection.x},${selection.y}`;
-            } else {
-                stateData.selection = 'outside';
-            }
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            errorEl.classList.remove('visible');
+        }, 5000);
+    }
+    console.error(message);
+}
 
-            fs.writeFileSync(stateFilePath, JSON.stringify(stateData));
-        } catch (err) {
-            console.error('Error writing state file:', err);
-        }
+// ExtendScript functions to call from JSX
+function setLayerAnchor(x, y, gridW, gridH) {
+    if (!csInterface) return;
+
+    const useMask = settings.get('useMaskRecognition');
+    const useComp = settings.get('useCompMode');
+
+    let script;
+    if (useComp) {
+        script = `setCompositionAnchor(${x}, ${y}, ${gridW}, ${gridH})`;
+    } else if (useMask) {
+        script = `setAnchorWithMask(${x}, ${y}, ${gridW}, ${gridH})`;
+    } else {
+        script = `setLayerAnchor(${x}, ${y}, ${gridW}, ${gridH})`;
     }
 
-    /**
-     * Get current grid selection (called from C++ via ExtendScript)
-     */
-    window.getCurrentGridSelection = function () {
-        const selection = grid ? grid.getSelection() : null;
-        if (selection) {
-            return JSON.stringify(selection);
-        }
-        return null;
-    };
-
-    /**
-     * Cleanup on unload
-     */
-    window.addEventListener('unload', () => {
-        if (watchInterval) {
-            clearInterval(watchInterval);
+    csInterface.evalScript(script, (result) => {
+        if (result && result.startsWith('Error:')) {
+            showError(result);
         }
     });
+}
 
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
+function setCustomAnchor(ratioX, ratioY) {
+    if (!csInterface) return;
+
+    const useMask = settings.get('useMaskRecognition');
+    const script = useMask
+        ? `setCustomAnchorWithMask(${ratioX}, ${ratioY})`
+        : `setCustomAnchor(${ratioX}, ${ratioY})`;
+
+    csInterface.evalScript(script, (result) => {
+        if (result && result.startsWith('Error:')) {
+            showError(result);
+        }
+    });
+}
+
+// Export functions for ExtendScript callbacks
+window.setLayerAnchor = setLayerAnchor;
+window.setCustomAnchor = setCustomAnchor;
+window.showError = showError;

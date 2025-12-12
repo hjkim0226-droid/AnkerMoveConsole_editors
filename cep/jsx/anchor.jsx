@@ -1,231 +1,205 @@
 /**
- * Anchor Grid - ExtendScript
- * Handles actual anchor point manipulation in After Effects
+ * anchor.jsx - ExtendScript for After Effects anchor point manipulation
+ * Supports grid-based, custom ratio, composition mode, and mask recognition
  */
 
-/**
- * Set anchor point of the selected layer based on grid position
- * @param {number} gridX - Grid X coordinate (0 to gridWidth-1)
- * @param {number} gridY - Grid Y coordinate (0 to gridHeight-1)
- * @param {number} gridWidth - Width of the grid (3-7)
- * @param {number} gridHeight - Height of the grid (3-7)
- * @param {boolean} maskEnabled - Whether to consider mask bounds
- * @returns {string} Result message
- */
-function setLayerAnchor(gridX, gridY, gridWidth, gridHeight, maskEnabled) {
+// Main function: Set anchor by grid position
+function setLayerAnchor(gridX, gridY, gridWidth, gridHeight) {
     try {
-        $.writeln("setLayerAnchor: gridX=" + gridX + ", gridY=" + gridY + ", gridW=" + gridWidth + ", gridH=" + gridHeight);
-
         var comp = app.project.activeItem;
-
         if (!comp || !(comp instanceof CompItem)) {
-            return 'Error: No active composition';
+            return "Error: No active composition";
         }
-
         if (comp.selectedLayers.length === 0) {
-            return 'Error: No layer selected';
+            return "Error: No layers selected";
         }
 
-        app.beginUndoGroup('Set Anchor Point');
+        var px = gridX / (gridWidth - 1);
+        var py = gridY / (gridHeight - 1);
 
-        var results = [];
+        app.beginUndoGroup("Set Anchor Point");
 
         for (var i = 0; i < comp.selectedLayers.length; i++) {
             var layer = comp.selectedLayers[i];
-            var percentX = gridX / (gridWidth - 1);
-            var percentY = gridY / (gridHeight - 1);
-            var result = setAnchorByRatio(layer, percentX, percentY, comp.time, maskEnabled);
-            results.push(result);
+            setAnchorByRatio(layer, comp, px, py, false);
         }
 
         app.endUndoGroup();
-
-        return results.join(', ');
+        return "OK";
 
     } catch (e) {
-        return 'Error: ' + e.toString();
+        return "Error: " + e.toString();
     }
 }
 
-/**
- * Set custom anchor point by ratio (0-1)
- * @param {number} ratioX - X ratio (0-1)
- * @param {number} ratioY - Y ratio (0-1)
- */
-function setLayerCustomAnchor(ratioX, ratioY) {
+// Set anchor with mask bounds recognition
+function setAnchorWithMask(gridX, gridY, gridWidth, gridHeight) {
     try {
         var comp = app.project.activeItem;
-
         if (!comp || !(comp instanceof CompItem)) {
-            return 'Error: No active composition';
+            return "Error: No active composition";
         }
-
         if (comp.selectedLayers.length === 0) {
-            return 'Error: No layer selected';
+            return "Error: No layers selected";
         }
 
-        app.beginUndoGroup('Set Custom Anchor');
+        var px = gridX / (gridWidth - 1);
+        var py = gridY / (gridHeight - 1);
 
-        var results = [];
+        app.beginUndoGroup("Set Anchor Point (Mask)");
 
         for (var i = 0; i < comp.selectedLayers.length; i++) {
             var layer = comp.selectedLayers[i];
-            var result = setAnchorByRatio(layer, ratioX, ratioY, comp.time, true);
-            results.push(result);
+            setAnchorByRatio(layer, comp, px, py, true);
         }
 
         app.endUndoGroup();
-
-        return results.join(', ');
+        return "OK";
 
     } catch (e) {
-        return 'Error: ' + e.toString();
+        return "Error: " + e.toString();
     }
 }
 
-/**
- * Set anchor for composition (applies to all layers proportionally)
- */
+// Set anchor for entire composition
 function setCompositionAnchor(gridX, gridY, gridWidth, gridHeight) {
     try {
         var comp = app.project.activeItem;
-
         if (!comp || !(comp instanceof CompItem)) {
-            return 'Error: No active composition';
+            return "Error: No active composition";
         }
 
-        var percentX = gridX / (gridWidth - 1);
-        var percentY = gridY / (gridHeight - 1);
+        var px = gridX / (gridWidth - 1);
+        var py = gridY / (gridHeight - 1);
 
-        return setCompositionCustomAnchor(percentX, percentY);
+        // Composition bounds
+        var bounds = {
+            left: 0,
+            top: 0,
+            width: comp.width,
+            height: comp.height
+        };
 
-    } catch (e) {
-        return 'Error: ' + e.toString();
-    }
-}
+        var nx = bounds.left + bounds.width * px;
+        var ny = bounds.top + bounds.height * py;
 
-/**
- * Set composition anchor by ratio
- */
-function setCompositionCustomAnchor(ratioX, ratioY) {
-    try {
-        var comp = app.project.activeItem;
+        app.beginUndoGroup("Set Anchor (Composition)");
 
-        if (!comp || !(comp instanceof CompItem)) {
-            return 'Error: No active composition';
-        }
-
-        app.beginUndoGroup('Set Composition Anchor');
-
-        var results = [];
-
-        // Apply to all layers in composition
-        for (var i = 1; i <= comp.numLayers; i++) {
-            var layer = comp.layer(i);
-            var result = setAnchorByRatio(layer, ratioX, ratioY, comp.time, false);
-            results.push(result);
+        for (var i = 0; i < comp.selectedLayers.length; i++) {
+            var layer = comp.selectedLayers[i];
+            applyAnchorToLayer(layer, comp, nx, ny);
         }
 
         app.endUndoGroup();
-
-        return 'Applied to ' + comp.numLayers + ' layers';
+        return "OK";
 
     } catch (e) {
-        return 'Error: ' + e.toString();
+        return "Error: " + e.toString();
     }
 }
 
-/**
- * Set anchor point for a single layer by ratio
- */
-function setAnchorByRatio(layer, percentX, percentY, time, useMask) {
+// Set custom anchor by ratio (0-1)
+function setCustomAnchor(ratioX, ratioY) {
     try {
-        // Get layer bounds at current time
-        var bounds = layer.sourceRectAtTime(time, false);
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
 
-        // Check for mask bounds if enabled
-        if (useMask && layer.property("ADBE Mask Parade") && layer.property("ADBE Mask Parade").numProperties > 0) {
-            var maskBounds = getMaskBounds(layer, time);
-            if (maskBounds) {
-                bounds = maskBounds;
+        app.beginUndoGroup("Set Custom Anchor");
+
+        for (var i = 0; i < comp.selectedLayers.length; i++) {
+            var layer = comp.selectedLayers[i];
+            setAnchorByRatio(layer, comp, ratioX, ratioY, false);
+        }
+
+        app.endUndoGroup();
+        return "OK";
+
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+// Set custom anchor with mask recognition
+function setCustomAnchorWithMask(ratioX, ratioY) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        app.beginUndoGroup("Set Custom Anchor (Mask)");
+
+        for (var i = 0; i < comp.selectedLayers.length; i++) {
+            var layer = comp.selectedLayers[i];
+            setAnchorByRatio(layer, comp, ratioX, ratioY, true);
+        }
+
+        app.endUndoGroup();
+        return "OK";
+
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+// Helper: Set anchor by ratio with optional mask recognition
+function setAnchorByRatio(layer, comp, ratioX, ratioY, useMask) {
+    var bounds;
+
+    if (useMask) {
+        bounds = getMaskBounds(layer, comp.time);
+    }
+
+    if (!bounds) {
+        bounds = layer.sourceRectAtTime(comp.time, false);
+    }
+
+    if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+        return;
+    }
+
+    var nx = bounds.left + bounds.width * ratioX;
+    var ny = bounds.top + bounds.height * ratioY;
+
+    applyAnchorToLayer(layer, comp, nx, ny);
+}
+
+// Helper: Get mask bounds
+function getMaskBounds(layer, time) {
+    try {
+        var masks = layer.property("ADBE Mask Parade");
+        if (!masks || masks.numProperties === 0) {
+            return null;
+        }
+
+        var minX = Infinity, minY = Infinity;
+        var maxX = -Infinity, maxY = -Infinity;
+
+        for (var m = 1; m <= masks.numProperties; m++) {
+            var mask = masks.property(m);
+            var path = mask.property("ADBE Mask Shape").valueAtTime(time, false);
+            if (!path || !path.vertices) continue;
+
+            var verts = path.vertices;
+            for (var v = 0; v < verts.length; v++) {
+                var pt = verts[v];
+                if (pt[0] < minX) minX = pt[0];
+                if (pt[0] > maxX) maxX = pt[0];
+                if (pt[1] < minY) minY = pt[1];
+                if (pt[1] > maxY) maxY = pt[1];
             }
         }
 
-        // Calculate new anchor point in layer's local coordinates
-        var newAnchorX = bounds.left + (bounds.width * percentX);
-        var newAnchorY = bounds.top + (bounds.height * percentY);
-
-        // Get current anchor and position
-        var anchorProp = layer.property('ADBE Transform Group').property('ADBE Anchor Point');
-        var positionProp = layer.property('ADBE Transform Group').property('ADBE Position');
-
-        var oldAnchor = anchorProp.value;
-        var position = positionProp.value;
-
-        // Calculate position offset to maintain visual position
-        var deltaX = newAnchorX - oldAnchor[0];
-        var deltaY = newAnchorY - oldAnchor[1];
-
-        // Apply scale and rotation to delta
-        var scaleProp = layer.property('ADBE Transform Group').property('ADBE Scale');
-        var scale = scaleProp.value;
-        var scaleX = scale[0] / 100;
-        var scaleY = scale[1] / 100;
-
-        var rotationProp = layer.property('ADBE Transform Group').property('ADBE Rotate Z');
-        var rotation = rotationProp.value * Math.PI / 180;
-
-        // Rotate and scale the delta
-        var rotatedDeltaX = (deltaX * Math.cos(rotation) - deltaY * Math.sin(rotation)) * scaleX;
-        var rotatedDeltaY = (deltaX * Math.sin(rotation) + deltaY * Math.cos(rotation)) * scaleY;
-
-        // Set new anchor point
-        anchorProp.setValue([newAnchorX, newAnchorY]);
-
-        // Adjust position to compensate
-        if (position.length === 3) {
-            positionProp.setValue([position[0] + rotatedDeltaX, position[1] + rotatedDeltaY, position[2]]);
-        } else {
-            positionProp.setValue([position[0] + rotatedDeltaX, position[1] + rotatedDeltaY]);
-        }
-
-        return layer.name + ': OK';
-
-    } catch (e) {
-        return layer.name + ': ' + e.toString();
-    }
-}
-
-/**
- * Get bounding box of the first mask on a layer
- */
-function getMaskBounds(layer, time) {
-    try {
-        var maskGroup = layer.property("ADBE Mask Parade");
-        if (!maskGroup || maskGroup.numProperties === 0) {
+        if (minX === Infinity) {
             return null;
-        }
-
-        var mask = maskGroup.property(1);
-        var maskPath = mask.property("ADBE Mask Shape").valueAtTime(time, false);
-        var vertices = maskPath.vertices;
-
-        if (vertices.length === 0) {
-            return null;
-        }
-
-        var minX = vertices[0][0];
-        var maxX = vertices[0][0];
-        var minY = vertices[0][1];
-        var maxY = vertices[0][1];
-
-        for (var i = 1; i < vertices.length; i++) {
-            var x = vertices[i][0];
-            var y = vertices[i][1];
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
         }
 
         return {
@@ -240,72 +214,63 @@ function getMaskBounds(layer, time) {
     }
 }
 
-/**
- * Get anchor ratio of currently selected layer
- * Returns JSON with x, y ratios (0-1)
- */
+// Helper: Apply anchor to layer with position compensation
+function applyAnchorToLayer(layer, comp, newAnchorX, newAnchorY) {
+    var ap = layer.property("ADBE Transform Group").property("ADBE Anchor Point");
+    var pp = layer.property("ADBE Transform Group").property("ADBE Position");
+
+    if (!ap || !pp) return;
+
+    var oldAnchor = ap.value;
+    var pos = pp.value;
+
+    var dx = newAnchorX - oldAnchor[0];
+    var dy = newAnchorY - oldAnchor[1];
+
+    // Get scale and rotation
+    var scale = layer.property("ADBE Transform Group").property("ADBE Scale").value;
+    var sx = scale[0] / 100;
+    var sy = scale[1] / 100;
+    var rot = layer.property("ADBE Transform Group").property("ADBE Rotate Z").value * Math.PI / 180;
+
+    // Transform delta by rotation and scale
+    var rdx = (dx * Math.cos(rot) - dy * Math.sin(rot)) * sx;
+    var rdy = (dx * Math.sin(rot) + dy * Math.cos(rot)) * sy;
+
+    // Apply
+    ap.setValue([newAnchorX, newAnchorY]);
+
+    if (pos.length === 3) {
+        pp.setValue([pos[0] + rdx, pos[1] + rdy, pos[2]]);
+    } else {
+        pp.setValue([pos[0] + rdx, pos[1] + rdy]);
+    }
+}
+
+// Get anchor ratio of selected layer (for copy feature)
 function getLayerAnchorRatio() {
     try {
         var comp = app.project.activeItem;
-
         if (!comp || !(comp instanceof CompItem)) {
-            return 'null';
+            return "Error: No active composition";
         }
-
         if (comp.selectedLayers.length === 0) {
-            return 'null';
+            return "Error: No layers selected";
         }
 
         var layer = comp.selectedLayers[0];
         var bounds = layer.sourceRectAtTime(comp.time, false);
-        var anchor = layer.property('ADBE Transform Group').property('ADBE Anchor Point').value;
+        if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+            return "Error: Invalid layer bounds";
+        }
 
-        // Calculate ratios
-        var ratioX = (anchor[0] - bounds.left) / bounds.width;
-        var ratioY = (anchor[1] - bounds.top) / bounds.height;
+        var ap = layer.property("ADBE Transform Group").property("ADBE Anchor Point").value;
+        var rx = (ap[0] - bounds.left) / bounds.width;
+        var ry = (ap[1] - bounds.top) / bounds.height;
 
-        // Clamp to 0-1 range
-        ratioX = Math.max(0, Math.min(1, ratioX));
-        ratioY = Math.max(0, Math.min(1, ratioY));
-
-        return JSON.stringify({ x: ratioX, y: ratioY });
+        return JSON.stringify({ x: rx, y: ry });
 
     } catch (e) {
-        return 'null';
-    }
-}
-
-/**
- * Get info about currently selected layers (for debugging)
- */
-function getSelectedLayerInfo() {
-    try {
-        var comp = app.project.activeItem;
-
-        if (!comp || !(comp instanceof CompItem)) {
-            return 'No active composition';
-        }
-
-        if (comp.selectedLayers.length === 0) {
-            return 'No layer selected';
-        }
-
-        var info = [];
-        for (var i = 0; i < comp.selectedLayers.length; i++) {
-            var layer = comp.selectedLayers[i];
-            var anchor = layer.property('ADBE Transform Group').property('ADBE Anchor Point').value;
-            var bounds = layer.sourceRectAtTime(comp.time, false);
-
-            info.push({
-                name: layer.name,
-                anchor: anchor,
-                bounds: bounds
-            });
-        }
-
-        return JSON.stringify(info);
-
-    } catch (e) {
-        return 'Error: ' + e.toString();
+        return "Error: " + e.toString();
     }
 }

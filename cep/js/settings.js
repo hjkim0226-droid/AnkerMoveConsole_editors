@@ -1,6 +1,6 @@
 /**
- * Anchor Grid - Settings Module
- * Handles grid settings, modes, and persistence
+ * settings.js - Settings management module
+ * Handles grid size, scale, mode, transparency, and persistence
  */
 
 class Settings {
@@ -8,197 +8,265 @@ class Settings {
         this.defaults = {
             gridWidth: 3,
             gridHeight: 3,
-            compMode: false,
-            maskRecognition: true,
+            gridScale: 1, // 0-4 representing -40% to +40%
+            useCompMode: false,
+            useMaskRecognition: true,
             gridOpacity: 75,
-            cellOpacity: 50
+            cellOpacity: 50,
+            language: 'en',
+            // Custom anchor presets (0-100 percent)
+            customAnchors: [
+                { x: 50, y: 50 },
+                { x: 50, y: 50 },
+                { x: 50, y: 50 }
+            ],
+            selectedPreset: 0
         };
 
-        this.current = { ...this.defaults };
-        this.onSettingsChange = null;
-
+        this.settings = { ...this.defaults };
         this.load();
         this.bindEvents();
-        this.applyOpacity();
     }
 
-    /**
-     * Load settings from localStorage
-     */
     load() {
         try {
-            const saved = localStorage.getItem('anchorGridSettings');
+            const saved = localStorage.getItem('anchorGrid_settings');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                this.current = { ...this.defaults, ...parsed };
+                this.settings = { ...this.defaults, ...parsed };
             }
         } catch (e) {
             console.error('Failed to load settings:', e);
         }
-
-        this.updateUI();
+        this.applyToUI();
     }
 
-    /**
-     * Save settings to localStorage
-     */
     save() {
         try {
-            localStorage.setItem('anchorGridSettings', JSON.stringify(this.current));
+            localStorage.setItem('anchorGrid_settings', JSON.stringify(this.settings));
         } catch (e) {
             console.error('Failed to save settings:', e);
         }
+    }
 
-        if (this.onSettingsChange) {
-            this.onSettingsChange(this.current);
+    get(key) {
+        return this.settings[key];
+    }
+
+    set(key, value) {
+        this.settings[key] = value;
+        this.save();
+    }
+
+    applyToUI() {
+        // Grid size
+        const gridWidth = document.getElementById('grid-width');
+        const gridHeight = document.getElementById('grid-height');
+        if (gridWidth) gridWidth.textContent = this.settings.gridWidth;
+        if (gridHeight) gridHeight.textContent = this.settings.gridHeight;
+
+        // Grid scale
+        const gridScale = document.getElementById('grid-scale');
+        const scaleDisplay = document.getElementById('scale-display');
+        if (gridScale) gridScale.value = this.settings.gridScale;
+        if (scaleDisplay) {
+            const scaleValues = ['-40%', '-20%', '0%', '+20%', '+40%'];
+            scaleDisplay.textContent = scaleValues[this.settings.gridScale];
+        }
+
+        // Mode buttons
+        this.updateModeButtons();
+
+        // Opacity sliders
+        const gridOpacity = document.getElementById('grid-opacity');
+        const cellOpacity = document.getElementById('cell-opacity');
+        if (gridOpacity) {
+            gridOpacity.value = this.settings.gridOpacity;
+            document.getElementById('grid-opacity-value').textContent = this.settings.gridOpacity + '%';
+        }
+        if (cellOpacity) {
+            cellOpacity.value = this.settings.cellOpacity;
+            document.getElementById('cell-opacity-value').textContent = this.settings.cellOpacity + '%';
+        }
+
+        // Language
+        const langSelect = document.getElementById('language-select');
+        if (langSelect) langSelect.value = this.settings.language;
+
+        // Build preview grid
+        this.buildPreviewGrid();
+    }
+
+    updateModeButtons() {
+        const btnSelection = document.getElementById('btn-selection');
+        const btnComposition = document.getElementById('btn-composition');
+        const btnMaskOn = document.getElementById('btn-mask-on');
+        const btnMaskOff = document.getElementById('btn-mask-off');
+
+        if (btnSelection && btnComposition) {
+            btnSelection.classList.toggle('active', !this.settings.useCompMode);
+            btnComposition.classList.toggle('active', this.settings.useCompMode);
+        }
+
+        if (btnMaskOn && btnMaskOff) {
+            btnMaskOn.classList.toggle('active', this.settings.useMaskRecognition);
+            btnMaskOff.classList.toggle('active', !this.settings.useMaskRecognition);
         }
     }
 
-    /**
-     * Update UI elements to reflect current settings
-     */
-    updateUI() {
-        const widthInput = document.getElementById('grid-width');
-        const heightInput = document.getElementById('grid-height');
-        const compToggle = document.getElementById('toggle-comp-mode');
-        const maskToggle = document.getElementById('toggle-mask');
+    buildPreviewGrid() {
+        const container = document.getElementById('preview-grid');
+        if (!container) return;
 
-        if (widthInput) widthInput.value = this.current.gridWidth;
-        if (heightInput) heightInput.value = this.current.gridHeight;
+        const w = this.settings.gridWidth;
+        const h = this.settings.gridHeight;
 
-        if (compToggle) {
-            compToggle.classList.toggle('active', this.current.compMode);
-        }
-        if (maskToggle) {
-            maskToggle.classList.toggle('active', this.current.maskRecognition);
+        container.style.gridTemplateColumns = `repeat(${w}, 1fr)`;
+        container.style.gridTemplateRows = `repeat(${h}, 1fr)`;
+        container.innerHTML = '';
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const cell = document.createElement('div');
+                cell.className = 'preview-cell';
+                cell.dataset.x = x;
+                cell.dataset.y = y;
+
+                // Add mark indicator
+                const mark = document.createElement('span');
+                mark.className = 'mark';
+                mark.textContent = '+';
+                cell.appendChild(mark);
+
+                cell.addEventListener('click', () => {
+                    this.onCellClick(x, y);
+                });
+
+                container.appendChild(cell);
+            }
         }
     }
 
-    /**
-     * Bind UI event handlers
-     */
+    onCellClick(x, y) {
+        // Trigger anchor apply via ExtendScript
+        if (window.csInterface) {
+            const script = `setLayerAnchor(${x}, ${y}, ${this.settings.gridWidth}, ${this.settings.gridHeight})`;
+            csInterface.evalScript(script);
+        }
+    }
+
     bindEvents() {
-        // Grid size inputs
-        const widthInput = document.getElementById('grid-width');
-        const heightInput = document.getElementById('grid-height');
+        // Grid size drag
+        this.bindSizeControl('grid-width', 'gridWidth');
+        this.bindSizeControl('grid-height', 'gridHeight');
 
-        if (widthInput) {
-            widthInput.addEventListener('change', (e) => {
-                const val = this.clampGridSize(parseInt(e.target.value, 10));
-                e.target.value = val;
-                this.current.gridWidth = val;
-                this.save();
+        // Grid scale slider
+        const gridScale = document.getElementById('grid-scale');
+        if (gridScale) {
+            gridScale.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                this.set('gridScale', value);
+                const scaleValues = ['-40%', '-20%', '0%', '+20%', '+40%'];
+                document.getElementById('scale-display').textContent = scaleValues[value];
             });
         }
 
-        if (heightInput) {
-            heightInput.addEventListener('change', (e) => {
-                const val = this.clampGridSize(parseInt(e.target.value, 10));
-                e.target.value = val;
-                this.current.gridHeight = val;
-                this.save();
-            });
-        }
+        // Mode buttons
+        document.getElementById('btn-selection')?.addEventListener('click', () => {
+            this.set('useCompMode', false);
+            this.updateModeButtons();
+        });
 
-        // Toggle switches
-        const compToggle = document.getElementById('toggle-comp-mode');
-        const maskToggle = document.getElementById('toggle-mask');
+        document.getElementById('btn-composition')?.addEventListener('click', () => {
+            this.set('useCompMode', true);
+            this.updateModeButtons();
+        });
 
-        if (compToggle) {
-            compToggle.addEventListener('click', () => {
-                this.current.compMode = !this.current.compMode;
-                compToggle.classList.toggle('active', this.current.compMode);
-                this.save();
-            });
-        }
+        document.getElementById('btn-mask-on')?.addEventListener('click', () => {
+            this.set('useMaskRecognition', true);
+            this.updateModeButtons();
+        });
 
-        if (maskToggle) {
-            maskToggle.addEventListener('click', () => {
-                this.current.maskRecognition = !this.current.maskRecognition;
-                maskToggle.classList.toggle('active', this.current.maskRecognition);
-                this.save();
-            });
-        }
+        document.getElementById('btn-mask-off')?.addEventListener('click', () => {
+            this.set('useMaskRecognition', false);
+            this.updateModeButtons();
+        });
+
+        // Opacity sliders
+        document.getElementById('grid-opacity')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            this.set('gridOpacity', value);
+            document.getElementById('grid-opacity-value').textContent = value + '%';
+        });
+
+        document.getElementById('cell-opacity')?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            this.set('cellOpacity', value);
+            document.getElementById('cell-opacity-value').textContent = value + '%';
+        });
+
+        // Language
+        document.getElementById('language-select')?.addEventListener('change', (e) => {
+            this.set('language', e.target.value);
+            if (window.i18n) {
+                i18n.setLanguage(e.target.value);
+            }
+        });
     }
 
-    /**
-     * Clamp grid size to valid range (3-7)
-     */
-    clampGridSize(val) {
-        if (isNaN(val)) return 3;
-        return Math.max(3, Math.min(7, val));
-    }
+    bindSizeControl(elementId, settingKey) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
 
-    /**
-     * Get current grid dimensions
-     */
-    getGridSize() {
-        return {
-            width: this.current.gridWidth,
-            height: this.current.gridHeight
-        };
-    }
+        let startX = 0;
+        let startValue = 0;
+        let isDragging = false;
 
-    /**
-     * Check if composition mode is enabled
-     */
-    isCompMode() {
-        return this.current.compMode;
-    }
+        element.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startValue = this.settings[settingKey];
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        });
 
-    /**
-     * Check if mask recognition is enabled
-     */
-    isMaskEnabled() {
-        return this.current.maskRecognition;
-    }
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
 
-    /**
-     * Apply opacity settings to CSS variables
-     */
-    applyOpacity() {
-        const gridOpacity = this.current.gridOpacity / 100;
-        const cellOpacity = this.current.cellOpacity / 100;
+            const diff = Math.floor((e.clientX - startX) / 20);
+            let newValue = startValue + diff;
+            const min = parseInt(element.dataset.min) || 3;
+            const max = parseInt(element.dataset.max) || 7;
+            newValue = Math.max(min, Math.min(max, newValue));
 
-        document.documentElement.style.setProperty('--bg-secondary', `rgba(45, 45, 45, ${gridOpacity})`);
-        document.documentElement.style.setProperty('--grid-cell-bg', `rgba(74, 158, 255, ${cellOpacity * 0.15})`);
-        document.documentElement.style.setProperty('--grid-cell-hover', `rgba(74, 158, 255, ${cellOpacity * 0.7})`);
-        document.documentElement.style.setProperty('--grid-cell-active', `rgba(74, 158, 255, ${cellOpacity})`);
+            if (newValue !== this.settings[settingKey]) {
+                this.set(settingKey, newValue);
+                element.textContent = newValue;
+                this.buildPreviewGrid();
+            }
+        });
 
-        // Update UI labels
-        const gridOpacityValue = document.getElementById('grid-opacity-value');
-        const cellOpacityValue = document.getElementById('cell-opacity-value');
-        const gridOpacitySlider = document.getElementById('grid-opacity');
-        const cellOpacitySlider = document.getElementById('cell-opacity');
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.cursor = '';
+            }
+        });
 
-        if (gridOpacityValue) gridOpacityValue.textContent = this.current.gridOpacity + '%';
-        if (cellOpacityValue) cellOpacityValue.textContent = this.current.cellOpacity + '%';
-        if (gridOpacitySlider) gridOpacitySlider.value = this.current.gridOpacity;
-        if (cellOpacitySlider) cellOpacitySlider.value = this.current.cellOpacity;
-    }
-
-    /**
-     * Bind opacity slider events (called after DOM ready)
-     */
-    bindOpacityEvents() {
-        const gridOpacitySlider = document.getElementById('grid-opacity');
-        const cellOpacitySlider = document.getElementById('cell-opacity');
-
-        if (gridOpacitySlider) {
-            gridOpacitySlider.addEventListener('input', (e) => {
-                this.current.gridOpacity = parseInt(e.target.value, 10);
-                this.applyOpacity();
-                this.save();
-            });
-        }
-
-        if (cellOpacitySlider) {
-            cellOpacitySlider.addEventListener('input', (e) => {
-                this.current.cellOpacity = parseInt(e.target.value, 10);
-                this.applyOpacity();
-                this.save();
-            });
-        }
+        // Click to edit
+        element.addEventListener('dblclick', () => {
+            const current = this.settings[settingKey];
+            const input = prompt(`Enter value (3-7):`, current);
+            if (input !== null) {
+                let val = parseInt(input);
+                if (!isNaN(val)) {
+                    val = Math.max(3, Math.min(7, val));
+                    this.set(settingKey, val);
+                    element.textContent = val;
+                    this.buildPreviewGrid();
+                }
+            }
+        });
     }
 }
 

@@ -176,6 +176,47 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
   ExecuteScript(script);
 }
 
+
+/*****************************************************************************
+ * ApplyCustomAnchor
+ * Apply a custom anchor point at specified ratio (0-1)
+ *****************************************************************************/
+void ApplyCustomAnchor(float ratioX, float ratioY) {
+  char script[3000];
+  snprintf(
+      script, sizeof(script),
+      "(function(){"
+      "var rx=%.4f,ry=%.4f;"
+      "var c=app.project.activeItem;"
+      "if(!c||!(c instanceof CompItem))return;"
+      "if(c.selectedLayers.length==0)return;"
+      "app.beginUndoGroup('Set Custom Anchor');"
+      "for(var i=0;i<c.selectedLayers.length;i++){"
+      "var L=c.selectedLayers[i];"
+      "var b=L.sourceRectAtTime(c.time,false);"
+      "if(!b||b.width<=0||b.height<=0)continue;"
+      "var nx=b.left+b.width*rx,ny=b.top+b.height*ry;"
+      "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
+      "var pp=L.property('ADBE Transform Group').property('ADBE Position');"
+      "if(!ap||!pp)continue;"
+      "var oa=ap.value,pos=pp.value;"
+      "var dx=nx-oa[0],dy=ny-oa[1];"
+      "var sc=L.property('ADBE Transform Group').property('ADBE Scale').value;"
+      "var sx=sc[0]/100,sy=sc[1]/100;"
+      "var rot=L.property('ADBE Transform Group').property('ADBE Rotate Z').value*Math.PI/180;"
+      "var rdx=(dx*Math.cos(rot)-dy*Math.sin(rot))*sx;"
+      "var rdy=(dx*Math.sin(rot)+dy*Math.cos(rot))*sy;"
+      "ap.setValue([nx,ny]);"
+      "if(pos.length==3)pp.setValue([pos[0]+rdx,pos[1]+rdy,pos[2]]);"
+      "else pp.setValue([pos[0]+rdx,pos[1]+rdy]);"
+      "}"
+      "app.endUndoGroup();"
+      "})();",
+      ratioX, ratioY);
+
+  ExecuteScript(script);
+}
+
 /*****************************************************************************
  * HideAndApplyAnchor
  * Close the grid and apply anchor or handle extended menu option
@@ -193,13 +234,16 @@ void HideAndApplyAnchor() {
     // Left panel: Custom anchors
     case NativeUI::OPT_CUSTOM_1:
       // Apply custom anchor preset 1
-      ExecuteScript("alert('Custom Anchor 1');");
+      // Apply custom anchor preset 1
+      ApplyCustomAnchor(settings.customAnchor1X, settings.customAnchor1Y);
       break;
     case NativeUI::OPT_CUSTOM_2:
-      ExecuteScript("alert('Custom Anchor 2');");
+      // Apply custom anchor preset 2
+      ApplyCustomAnchor(settings.customAnchor2X, settings.customAnchor2Y);
       break;
     case NativeUI::OPT_CUSTOM_3:
-      ExecuteScript("alert('Custom Anchor 3');");
+      // Apply custom anchor preset 3
+      ApplyCustomAnchor(settings.customAnchor3X, settings.customAnchor3Y);
       break;
     // Right panel: Mode controls
     case NativeUI::OPT_COMP_MODE:
@@ -209,7 +253,16 @@ void HideAndApplyAnchor() {
       settings.useMaskRecognition = !settings.useMaskRecognition;
       break;
     case NativeUI::OPT_SETTINGS:
-      ExecuteScript("alert('Settings - coming soon');");
+      // Open CEP panel via Window menu
+      ExecuteScript(
+        "try {"
+        "  var menuId = app.findMenuCommandId('Anchor Grid');"
+        "  if (menuId > 0) app.executeCommand(menuId);"
+        "} catch(e) {"
+        "  // Fallback: show settings panel in CEP"
+        "  alert('Please open Window > Extensions > Anchor Grid');"
+        "}"
+      );
       break;
     default:
       break;

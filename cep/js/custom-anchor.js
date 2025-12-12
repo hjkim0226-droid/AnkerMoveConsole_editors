@@ -1,264 +1,174 @@
 /**
- * Anchor Grid - Custom Anchor Module
- * Handles custom anchor positioning and presets
+ * custom-anchor.js - Custom anchor editor with drag support
+ * Handles anchor position editing with mouse drag, shift/ctrl modifiers, and flip buttons
  */
 
 class CustomAnchor {
-    constructor() {
-        this.presets = [];
-        this.currentX = 0.5;
-        this.currentY = 0.5;
-        this.onApply = null;
+    constructor(settings) {
+        this.settings = settings;
+        this.selectedPreset = 0;
+        this.isDragging = false;
+        this.currentX = 50; // Percent
+        this.currentY = 50;
 
-        this.load();
+        this.editor = document.getElementById('anchor-editor');
+        this.marker = document.getElementById('anchor-marker');
+        this.coordX = document.getElementById('anchor-x');
+        this.coordY = document.getElementById('anchor-y');
+
+        // Add inner circle to marker
+        if (this.marker) {
+            const circle = document.createElement('span');
+            this.marker.appendChild(circle);
+        }
+
+        this.loadPresets();
         this.bindEvents();
-        this.renderPresets();
+        this.updateUI();
     }
 
-    /**
-     * Load presets from localStorage
-     */
-    load() {
-        try {
-            const saved = localStorage.getItem('anchorPresets');
-            if (saved) {
-                this.presets = JSON.parse(saved);
-            }
-        } catch (e) {
-            console.error('Failed to load presets:', e);
+    loadPresets() {
+        const saved = this.settings.get('customAnchors');
+        if (saved && saved.length === 3) {
+            this.presets = saved;
+        } else {
+            this.presets = [
+                { x: 50, y: 50 },
+                { x: 50, y: 50 },
+                { x: 50, y: 50 }
+            ];
         }
+        this.selectPreset(this.settings.get('selectedPreset') || 0);
     }
 
-    /**
-     * Save presets to localStorage
-     */
-    save() {
-        try {
-            localStorage.setItem('anchorPresets', JSON.stringify(this.presets));
-        } catch (e) {
-            console.error('Failed to save presets:', e);
-        }
+    savePresets() {
+        this.settings.set('customAnchors', this.presets);
     }
 
-    /**
-     * Bind UI event handlers
-     */
+    selectPreset(index) {
+        this.selectedPreset = index;
+        this.settings.set('selectedPreset', index);
+
+        // Update button states
+        document.querySelectorAll('.custom-btn').forEach((btn, i) => {
+            btn.classList.toggle('active', i === index);
+        });
+
+        // Load preset position
+        const preset = this.presets[index];
+        this.currentX = preset.x;
+        this.currentY = preset.y;
+        this.updateUI();
+    }
+
     bindEvents() {
-        const preview = document.getElementById('anchor-preview');
-        const xInput = document.getElementById('anchor-x');
-        const yInput = document.getElementById('anchor-y');
-        const saveBtn = document.getElementById('btn-save-preset');
-        const applyBtn = document.getElementById('btn-apply-custom');
-        const copyBtn = document.getElementById('btn-copy-anchor');
-
-        // Click on preview to set anchor position
-        if (preview) {
-            preview.addEventListener('click', (e) => {
-                const rect = preview.getBoundingClientRect();
-                this.currentX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                this.currentY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-                this.updatePreviewPoint();
-                this.updateInputs();
-            });
-        }
-
-        // Input changes
-        if (xInput) {
-            xInput.addEventListener('change', () => {
-                const val = parseFloat(xInput.value);
-                if (!isNaN(val)) {
-                    this.currentX = Math.max(0, Math.min(1, val));
-                    xInput.value = this.currentX.toFixed(3);
-                    this.updatePreviewPoint();
-                }
-            });
-        }
-
-        if (yInput) {
-            yInput.addEventListener('change', () => {
-                const val = parseFloat(yInput.value);
-                if (!isNaN(val)) {
-                    this.currentY = Math.max(0, Math.min(1, val));
-                    yInput.value = this.currentY.toFixed(3);
-                    this.updatePreviewPoint();
-                }
-            });
-        }
-
-        // Save preset button
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-                this.saveCurrentAsPreset();
-            });
-        }
-
-        // Apply custom anchor
-        if (applyBtn) {
-            applyBtn.addEventListener('click', () => {
-                if (this.onApply) {
-                    this.onApply(this.currentX, this.currentY);
-                }
-            });
-        }
-
-        // Copy anchor ratio from selected layer
-        if (copyBtn) {
-            copyBtn.addEventListener('click', () => {
-                this.copyAnchorFromLayer();
-            });
-        }
-    }
-
-    /**
-     * Update the visual anchor point position
-     */
-    updatePreviewPoint() {
-        const point = document.getElementById('anchor-point');
-        if (point) {
-            point.style.left = `${this.currentX * 100}%`;
-            point.style.top = `${this.currentY * 100}%`;
-        }
-    }
-
-    /**
-     * Update input fields with current values
-     */
-    updateInputs() {
-        const xInput = document.getElementById('anchor-x');
-        const yInput = document.getElementById('anchor-y');
-
-        if (xInput) xInput.value = this.currentX.toFixed(3);
-        if (yInput) yInput.value = this.currentY.toFixed(3);
-    }
-
-    /**
-     * Save current position as a preset
-     */
-    saveCurrentAsPreset() {
-        const name = prompt('Enter preset name:', `Preset ${this.presets.length + 1}`);
-        if (name && name.trim()) {
-            this.presets.push({
-                name: name.trim(),
-                x: this.currentX,
-                y: this.currentY
-            });
-            this.save();
-            this.renderPresets();
-        }
-    }
-
-    /**
-     * Add a preset directly (used by copy anchor feature)
-     */
-    addPreset(x, y, name = null) {
-        const presetName = name || `Copied ${this.presets.length + 1}`;
-        this.presets.push({
-            name: presetName,
-            x: x,
-            y: y
+        // Preset buttons
+        document.querySelectorAll('.custom-btn').forEach((btn, i) => {
+            btn.addEventListener('click', () => this.selectPreset(i));
         });
-        this.save();
-        this.renderPresets();
+
+        // Editor mouse events
+        if (this.editor) {
+            this.editor.addEventListener('mousedown', (e) => this.onMouseDown(e));
+            document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            document.addEventListener('mouseup', () => this.onMouseUp());
+        }
+
+        // Flip buttons
+        document.getElementById('flip-h')?.addEventListener('click', () => this.flipHorizontal());
+        document.getElementById('flip-v')?.addEventListener('click', () => this.flipVertical());
     }
 
-    /**
-     * Delete a preset by index
-     */
-    deletePreset(index) {
-        if (index >= 0 && index < this.presets.length) {
-            this.presets.splice(index, 1);
-            this.save();
-            this.renderPresets();
+    onMouseDown(e) {
+        this.isDragging = true;
+        this.updatePositionFromMouse(e);
+    }
+
+    onMouseMove(e) {
+        if (!this.isDragging) return;
+        this.updatePositionFromMouse(e);
+    }
+
+    onMouseUp() {
+        if (this.isDragging) {
+            this.isDragging = false;
+            // Save to current preset
+            this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+            this.savePresets();
         }
     }
 
-    /**
-     * Apply a preset
-     */
-    applyPreset(index) {
-        if (index >= 0 && index < this.presets.length) {
-            const preset = this.presets[index];
-            this.currentX = preset.x;
-            this.currentY = preset.y;
-            this.updatePreviewPoint();
-            this.updateInputs();
+    updatePositionFromMouse(e) {
+        if (!this.editor) return;
 
-            if (this.onApply) {
-                this.onApply(this.currentX, this.currentY);
-            }
+        const rect = this.editor.getBoundingClientRect();
+        let x = ((e.clientX - rect.left) / rect.width) * 100;
+        let y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        // Shift: constrain to vertical (keep x at center or current start)
+        if (e.shiftKey) {
+            x = this.isDragging ? this.currentX : 50;
         }
+
+        // Ctrl: snap to 5x5 grid (0, 25, 50, 75, 100)
+        if (e.ctrlKey || e.metaKey) {
+            x = Math.round(x / 25) * 25;
+            y = Math.round(y / 25) * 25;
+        }
+
+        // Clamp to -20 to 120 (allow overflow)
+        x = Math.max(-20, Math.min(120, x));
+        y = Math.max(-20, Math.min(120, y));
+
+        this.currentX = Math.round(x);
+        this.currentY = Math.round(y);
+        this.updateUI();
     }
 
-    /**
-     * Render preset list in UI
-     */
-    renderPresets() {
-        const list = document.getElementById('preset-list');
-        if (!list) return;
-
-        list.innerHTML = '';
-
-        this.presets.forEach((preset, index) => {
-            const item = document.createElement('div');
-            item.className = 'preset-item';
-            item.innerHTML = `
-                <span class="preset-name">${this.escapeHtml(preset.name)}</span>
-                <span class="preset-value">${preset.x.toFixed(2)}, ${preset.y.toFixed(2)}</span>
-                <span class="preset-delete" data-index="${index}">✕</span>
-            `;
-
-            // Click to apply
-            item.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('preset-delete')) {
-                    this.applyPreset(index);
-                }
-            });
-
-            // Delete button
-            const deleteBtn = item.querySelector('.preset-delete');
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.deletePreset(index);
-            });
-
-            list.appendChild(item);
-        });
+    flipHorizontal() {
+        this.currentX = 100 - this.currentX;
+        this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+        this.savePresets();
+        this.updateUI();
     }
 
-    /**
-     * Copy anchor ratio from currently selected layer
-     */
-    copyAnchorFromLayer() {
-        const csInterface = new CSInterface();
-        csInterface.evalScript('getLayerAnchorRatio()', (result) => {
-            if (result && result !== 'EvalScript error.' && result !== 'null') {
-                try {
-                    const data = JSON.parse(result);
-                    if (data && typeof data.x === 'number' && typeof data.y === 'number') {
-                        this.currentX = data.x;
-                        this.currentY = data.y;
-                        this.updatePreviewPoint();
-                        this.updateInputs();
-
-                        // Auto-add as preset
-                        this.addPreset(data.x, data.y, `Copied (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
-                    }
-                } catch (e) {
-                    console.error('Failed to parse anchor ratio:', e);
-                }
-            } else {
-                console.log('No layer selected or failed to get anchor ratio');
-            }
-        });
+    flipVertical() {
+        this.currentY = 100 - this.currentY;
+        this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+        this.savePresets();
+        this.updateUI();
     }
 
-    /**
-     * Escape HTML to prevent XSS
-     */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    updateUI() {
+        // Update marker position
+        if (this.marker) {
+            // Clamp visual position to editor bounds
+            const visualX = Math.max(0, Math.min(100, this.currentX));
+            const visualY = Math.max(0, Math.min(100, this.currentY));
+            this.marker.style.left = visualX + '%';
+            this.marker.style.top = visualY + '%';
+        }
+
+        // Update coordinates display
+        if (this.coordX) this.coordX.textContent = this.currentX;
+        if (this.coordY) this.coordY.textContent = this.currentY;
+    }
+
+    // Get current anchor as ratio (0-1) for ExtendScript
+    getCurrentAnchorRatio() {
+        return {
+            x: this.currentX / 100,
+            y: this.currentY / 100
+        };
+    }
+
+    // Apply current anchor to selected layers
+    applyToLayers() {
+        if (!window.csInterface) return;
+
+        const ratio = this.getCurrentAnchorRatio();
+        const script = `setCustomAnchor(${ratio.x}, ${ratio.y})`;
+        csInterface.evalScript(script);
     }
 }
 
