@@ -42,9 +42,28 @@ if not exist "plugin\AnchorRadialMenu.aex" (
 mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2>nul
 copy /Y plugin\AnchorRadialMenu.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
 
+echo 3. Installing CEP Panel...
+if not exist "cep" (
+    echo ERROR: Source folder 'cep' not found!
+    echo Please extract the ZIP file completely before running this script.
+    pause
+    exit /b
+)
+
+mkdir "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" 2>nul
+xcopy /E /I /Y cep "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
+
+echo 4. Enabling CEP Debug Mode...
+reg add "HKCU\Software\Adobe\CSXS.11" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul 2>&1
+reg add "HKCU\Software\Adobe\CSXS.12" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul 2>&1
+
 echo ==========================================
 echo Installation Complete!
 echo ==========================================
+echo.
+echo Installed:
+echo   - AnchorRadialMenu.aex (Plugin)
+echo   - com.anchor.grid (CEP Panel)
 echo.
 echo Usage:
 echo   - Press Y key to show anchor grid
