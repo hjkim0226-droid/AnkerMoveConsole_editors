@@ -10,9 +10,10 @@
 #ifdef MSWindows
 
 // IMPORTANT: GDI+ Include Order
-// 1. windows.h FIRST (do NOT define WIN32_LEAN_AND_MEAN - it breaks GDI+)
+// 1. windows.h FIRST (provides META_*, EMR_*, CALLBACK, etc.)
 // 2. objidl.h (provides IStream for GDI+)
 // 3. gdiplus.h LAST (uses all types from above)
+// DO NOT define WIN32_LEAN_AND_MEAN - it excludes GDI headers needed by GDI+
 #include <gdiplus.h>
 #include <objidl.h>
 #include <windows.h>
