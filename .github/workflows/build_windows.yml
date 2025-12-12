@@ -12,9 +12,14 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Install Windows SDK 22621 via winget
+    - name: Install Windows SDK 22621
+      shell: pwsh
       run: |
-        winget install Microsoft.WindowsSDK.10.0.22621 --accept-source-agreements --accept-package-agreements --silent
+        $url = "https://go.microsoft.com/fwlink/?linkid=2196241"
+        $installer = "$env:TEMP\winsdksetup.exe"
+        Invoke-WebRequest -Uri $url -OutFile $installer
+        Start-Process -FilePath $installer -ArgumentList "/features OptionId.DesktopCPPx64 /quiet /norestart" -Wait
+        Remove-Item $installer
       
     - name: Setup MSVC with SDK 22621
       uses: ilammy/msvc-dev-cmd@v1
