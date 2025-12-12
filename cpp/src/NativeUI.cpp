@@ -43,6 +43,9 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 #define COLOR_ICON_NORMAL RGB(90, 140, 170)
 #define COLOR_ICON_HOVER RGB(74, 207, 255)
 #define COLOR_ICON_ACTIVE RGB(100, 220, 255)
+#define COLOR_BLUE RGB(74, 158, 255)      // Selection, Mask ON
+#define COLOR_ORANGE RGB(255, 180, 74)    // Composition mode
+#define COLOR_DARK_GRAY RGB(70, 70, 70)   // Inactive/OFF state
 
 // Color palette - Comp Mode (Orange/Warm)
 #define COLOR_CELL_BG_COMP RGB(35, 25, 15)
@@ -285,82 +288,162 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   }
 }
 
+// Draw hover background (unified square area)
+static void DrawIconBackground(HDC hdc, int cx, int cy, bool hover) {
+  if (hover) {
+    int halfSize = ICON_SIZE / 2;
+    HBRUSH hoverBrush = CreateSolidBrush(RGB(50, 60, 70));
+    RECT hoverRect = {cx - halfSize, cy - halfSize, cx + halfSize, cy + halfSize};
+    FillRect(hdc, &hoverRect, hoverBrush);
+    DeleteObject(hoverBrush);
+  }
+}
+
 // Draw an icon based on type
 static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
                      bool hover, bool active) {
-  COLORREF color = hover ? COLOR_ICON_HOVER
-                         : (active ? COLOR_ICON_ACTIVE : COLOR_ICON_NORMAL);
-  HPEN pen = CreatePen(PS_SOLID, 2, color);
-  HPEN oldPen = (HPEN)SelectObject(hdc, pen);
-  SelectObject(hdc, GetStockObject(NULL_BRUSH));
-
-  int r = ICON_SIZE / 2 - 4;
-
+  // Draw hover background first
+  DrawIconBackground(hdc, cx, cy, hover);
+  
+  int r = ICON_SIZE / 2 - 6;
+  int s = 3; // Small corner square size
+  
   switch (type) {
   case NativeUI::OPT_CUSTOM_1:
   case NativeUI::OPT_CUSTOM_2:
   case NativeUI::OPT_CUSTOM_3: {
-    // Crosshair icon with number
+    // AE-style anchor point indicator with number
+    COLORREF color = hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
+    HPEN pen = CreatePen(PS_SOLID, 2, color);
+    SelectObject(hdc, pen);
+    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    
+    // Crosshair lines
     MoveToEx(hdc, cx - r, cy, NULL);
+    LineTo(hdc, cx - 4, cy);
+    MoveToEx(hdc, cx + 4, cy, NULL);
     LineTo(hdc, cx + r, cy);
     MoveToEx(hdc, cx, cy - r, NULL);
+    LineTo(hdc, cx, cy - 4);
+    MoveToEx(hdc, cx, cy + 4, NULL);
     LineTo(hdc, cx, cy + r);
-    Ellipse(hdc, cx - 3, cy - 3, cx + 3, cy + 3);
-
-    // Draw number
+    
+    // Center circle
+    Ellipse(hdc, cx - 4, cy - 4, cx + 4, cy + 4);
+    
+    // Draw number in corner
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, color);
-    HFONT hFont =
-        CreateFontW(10, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                    DEFAULT_PITCH, L"Segoe UI");
+    HFONT hFont = CreateFontW(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
     wchar_t num[2] = {L'1' + (type - NativeUI::OPT_CUSTOM_1), 0};
-    TextOutW(hdc, cx + r - 4, cy + r - 8, num, 1);
+    TextOutW(hdc, cx + r - 6, cy + r - 10, num, 1);
     SelectObject(hdc, oldFont);
     DeleteObject(hFont);
+    DeleteObject(pen);
     break;
   }
 
   case NativeUI::OPT_COMP_MODE: {
-    // Monitor icon
-    RECT rect = {cx - r, cy - r + 2, cx + r, cy + r - 4};
-    Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
-    MoveToEx(hdc, cx - 4, cy + r - 2, NULL);
-    LineTo(hdc, cx + 4, cy + r - 2);
-    MoveToEx(hdc, cx, cy + r - 4, NULL);
-    LineTo(hdc, cx, cy + r - 2);
+    // Selection or Composition icon based on current mode
+    bool isCompMode = g_settings.useCompMode;
+    COLORREF color = hover ? COLOR_ICON_HOVER : (isCompMode ? COLOR_ORANGE : COLOR_BLUE);
+    HPEN pen = CreatePen(PS_SOLID, 2, color);
+    SelectObject(hdc, pen);
+    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    
+    if (isCompMode) {
+      // Composition: wide rectangle with + in center
+      int w = r + 2;
+      int h = r - 2;
+      Rectangle(hdc, cx - w, cy - h, cx + w, cy + h);
+      // Plus sign in center
+      int ps = 3;
+      MoveToEx(hdc, cx - ps, cy, NULL);
+      LineTo(hdc, cx + ps + 1, cy);
+      MoveToEx(hdc, cx, cy - ps, NULL);
+      LineTo(hdc, cx, cy + ps + 1);
+    } else {
+      // Selection: square with small squares at corners
+      Rectangle(hdc, cx - r, cy - r, cx + r, cy + r);
+      // Corner squares (filled)
+      HBRUSH cornerBrush = CreateSolidBrush(color);
+      RECT tl = {cx - r - 1, cy - r - 1, cx - r + s, cy - r + s};
+      RECT tr = {cx + r - s, cy - r - 1, cx + r + 1, cy - r + s};
+      RECT bl = {cx - r - 1, cy + r - s, cx - r + s, cy + r + 1};
+      RECT br = {cx + r - s, cy + r - s, cx + r + 1, cy + r + 1};
+      FillRect(hdc, &tl, cornerBrush);
+      FillRect(hdc, &tr, cornerBrush);
+      FillRect(hdc, &bl, cornerBrush);
+      FillRect(hdc, &br, cornerBrush);
+      DeleteObject(cornerBrush);
+    }
+    DeleteObject(pen);
     break;
   }
 
   case NativeUI::OPT_MASK_MODE: {
-    // Mask/circle icon (concentric circles)
-    Ellipse(hdc, cx - r, cy - r, cx + r, cy + r);
-    Ellipse(hdc, cx - r / 2, cy - r / 2, cx + r / 2, cy + r / 2);
+    // Mask icon: filled rectangle with transparent circle in center
+    bool maskOn = g_settings.useMaskRecognition;
+    COLORREF color = hover ? COLOR_ICON_HOVER : (maskOn ? COLOR_BLUE : COLOR_DARK_GRAY);
+    
+    // Filled rectangle background
+    HBRUSH fillBrush = CreateSolidBrush(color);
+    RECT maskRect = {cx - r, cy - r, cx + r, cy + r};
+    FillRect(hdc, &maskRect, fillBrush);
+    DeleteObject(fillBrush);
+    
+    // Transparent circle in center (cut out using background color)
+    HBRUSH bgBrush = CreateSolidBrush(COLOR_BG);
+    HPEN bgPen = CreatePen(PS_SOLID, 1, COLOR_BG);
+    SelectObject(hdc, bgPen);
+    SelectObject(hdc, bgBrush);
+    int circleR = r / 2;
+    Ellipse(hdc, cx - circleR, cy - circleR, cx + circleR, cy + circleR);
+    DeleteObject(bgBrush);
+    DeleteObject(bgPen);
     break;
   }
 
   case NativeUI::OPT_SETTINGS: {
-    // Gear icon (simplified)
-    Ellipse(hdc, cx - 4, cy - 4, cx + 4, cy + 4);
+    // Gear icon: filled with hollow center
+    COLORREF color = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
+    HBRUSH gearBrush = CreateSolidBrush(color);
+    HPEN gearPen = CreatePen(PS_SOLID, 1, color);
+    SelectObject(hdc, gearPen);
+    SelectObject(hdc, gearBrush);
+    
+    // Draw gear teeth as filled polygon (simplified: octagon)
+    int outerR = r;
+    int innerR = r - 4;
+    POINT teeth[16];
     for (int i = 0; i < 8; i++) {
-      double angle = i * 3.14159 / 4;
-      int x1 = cx + (int)(6 * cos(angle));
-      int y1 = cy + (int)(6 * sin(angle));
-      int x2 = cx + (int)(r * cos(angle));
-      int y2 = cy + (int)(r * sin(angle));
-      MoveToEx(hdc, x1, y1, NULL);
-      LineTo(hdc, x2, y2);
+      double angle1 = i * 3.14159 / 4 - 0.2;
+      double angle2 = i * 3.14159 / 4 + 0.2;
+      teeth[i * 2].x = cx + (int)(outerR * cos(angle1));
+      teeth[i * 2].y = cy + (int)(outerR * sin(angle1));
+      teeth[i * 2 + 1].x = cx + (int)(outerR * cos(angle2));
+      teeth[i * 2 + 1].y = cy + (int)(outerR * sin(angle2));
     }
+    Polygon(hdc, teeth, 16);
+    
+    // Hollow center circle
+    HBRUSH bgBrush = CreateSolidBrush(COLOR_BG);
+    SelectObject(hdc, bgBrush);
+    int centerR = 4;
+    Ellipse(hdc, cx - centerR, cy - centerR, cx + centerR, cy + centerR);
+    
+    DeleteObject(bgBrush);
+    DeleteObject(gearBrush);
+    DeleteObject(gearPen);
     break;
   }
 
   default:
     break;
   }
-
-  SelectObject(hdc, oldPen);
-  DeleteObject(pen);
 }
 
 // Draw side panels with icons
