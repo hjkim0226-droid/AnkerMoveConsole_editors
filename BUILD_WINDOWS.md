@@ -45,7 +45,9 @@ PowerShell에서 프로젝트 폴더로 이동 후:
 cd cpp
 mkdir build
 cd build
-cmake ..
+
+# SDK 버전을 10.0.22621.0으로 강제 지정하여 구성
+cmake .. -DCMAKE_SYSTEM_VERSION=10.0.22621.0
 cmake --build . --config Release
 ```
 
@@ -63,11 +65,19 @@ cmake --build . --config Release
 ### 레지스트리 설정 (Debug Mode)
 CEP 패널이 서명되지 않았으므로 레지스트리 편집이 필요합니다.
 
+> 💡 **After Effects 버전에 따라 CSXS 폴더 숫자가 다릅니다:**
+> - AE 2024 → CSXS.11
+> - AE 2025 → CSXS.12  
+> - AE 2026 → CSXS.13
+> 
+> **확실하지 않다면 CSXS.10, CSXS.11, CSXS.12, CSXS.13 전부에 `PlayerDebugMode` 값을 넣어주세요.**
+
 1. `Win + R` -> `regedit` 실행
 2. 다음 경로로 이동:
-   `HKEY_CURRENT_USER\Software\Adobe\CSXS.11` (버전에 따라 10, 11, 12 등)
-3. 우클릭 -> 새로 만들기 -> 문자열 값(String Value)
-4. 이름: `PlayerDebugMode`, 값: `1`
+   `HKEY_CURRENT_USER\Software\Adobe\CSXS.11` (또는 12, 13 등)
+3. 해당 키가 없으면 **새로 만들기 > 키**로 생성
+4. 우클릭 -> 새로 만들기 -> 문자열 값(String Value)
+5. 이름: `PlayerDebugMode`, 값: `1`
 
 ## 5. 실행 확인
 
