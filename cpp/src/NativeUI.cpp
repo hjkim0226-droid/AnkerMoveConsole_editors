@@ -2,21 +2,26 @@
  * NativeUI.cpp
  *
  * Native Windows UI for Anchor Grid
- * Custom-drawn popup window with circular buttons, glow effect, and extended
- *menu
+ * Uses GDI+ for anti-aliasing, alpha blending, and smooth rendering
  *****************************************************************************/
 
 #include "NativeUI.h"
 
 #ifdef MSWindows
 
-// Include Windows SDK first
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+// IMPORTANT: GDI+ Include Order
+// 1. windows.h FIRST (do NOT define WIN32_LEAN_AND_MEAN - it breaks GDI+)
+// 2. objidl.h (provides IStream for GDI+)
+// 3. gdiplus.h LAST (uses all types from above)
+#include <gdiplus.h>
+#include <objidl.h>
 #include <windows.h>
+#pragma comment(lib, "gdiplus.lib")
 
 #include <string>
+
+// GDI+ token for startup/shutdown
+static ULONG_PTR g_gdiplusToken = 0;
 
 // Window class name
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
@@ -69,6 +74,13 @@ bool Initialize() {
   if (g_initialized)
     return true;
 
+  // Initialize GDI+
+  Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+  if (Gdiplus::GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL) !=
+      Gdiplus::Ok) {
+    return false;
+  }
+
   g_hInstance = GetModuleHandle(NULL);
 
   // Register window class
@@ -82,6 +94,7 @@ bool Initialize() {
   wc.lpszClassName = GRID_CLASS_NAME;
 
   if (!RegisterClassExW(&wc)) {
+    Gdiplus::GdiplusShutdown(g_gdiplusToken);
     return false;
   }
 
@@ -97,6 +110,11 @@ void Cleanup() {
   if (g_initialized) {
     UnregisterClassW(GRID_CLASS_NAME, g_hInstance);
     g_initialized = false;
+  }
+  // Shutdown GDI+
+  if (g_gdiplusToken != 0) {
+    Gdiplus::GdiplusShutdown(g_gdiplusToken);
+    g_gdiplusToken = 0;
   }
 }
 
