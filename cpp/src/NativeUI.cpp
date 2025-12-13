@@ -172,7 +172,7 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   }
 
   UpdateHoverFromMouse(mouseX, mouseY);
-  InvalidateRect(g_gridWnd, NULL, TRUE);
+  InvalidateRect(g_gridWnd, NULL, FALSE);  // FALSE to prevent flickering
 }
 
 GridResult HideGrid(int mouseX, int mouseY) {
@@ -205,7 +205,7 @@ void UpdateHover(int mouseX, int mouseY) {
 
     if (oldX != g_hoverCellX || oldY != g_hoverCellY ||
         oldExt != g_hoverExtOption) {
-      InvalidateRect(g_gridWnd, NULL, TRUE);
+      InvalidateRect(g_gridWnd, NULL, FALSE);  // FALSE to prevent flickering
     }
   }
 }
@@ -409,11 +409,11 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     int innerR = 3;
     graphics.DrawEllipse(&thickPen, cx - innerR, cy - innerR, innerR * 2, innerR * 2);
     
-    // 8 gear teeth (thick lines)
+    // 6 gear teeth (thick lines)
     int teethInner = innerR + 2;
     int teethOuter = r + 2;
-    for (int i = 0; i < 8; i++) {
-      double angle = i * 3.14159 / 4;
+    for (int i = 0; i < 6; i++) {
+      double angle = i * 3.14159 / 3;
       int x1 = cx + (int)(teethInner * cos(angle));
       int y1 = cy + (int)(teethInner * sin(angle));
       int x2 = cx + (int)(teethOuter * cos(angle));
