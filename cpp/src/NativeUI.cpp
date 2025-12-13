@@ -299,151 +299,120 @@ static void DrawIconBackground(HDC hdc, int cx, int cy, bool hover) {
   }
 }
 
-// Draw an icon based on type using GDI+
+// Draw an icon based on type using pure GDI+
 static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
                      bool hover, bool active) {
   using namespace Gdiplus;
   
-  // Draw hover background first (using GDI for simple rect)
+  // Draw hover background first
   DrawIconBackground(hdc, cx, cy, hover);
   
-  // Create GDI+ Graphics with anti-aliasing control
+  // Create GDI+ Graphics with anti-aliasing
   Graphics graphics(hdc);
-  graphics.SetSmoothingMode(SmoothingModeHighQuality); // or SmoothingModeNone for sharp
+  graphics.SetSmoothingMode(SmoothingModeAntiAlias);
   graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
+  graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
   
   int r = ICON_SIZE / 2 - 6;
-  int s = 3; // Small corner square size
+  int s = 3;
+  
+  // Helper to convert COLORREF to GDI+ Color
+  auto toColor = [](COLORREF c) { 
+    return Color(255, GetRValue(c), GetGValue(c), GetBValue(c)); 
+  };
   
   switch (type) {
   case NativeUI::OPT_CUSTOM_1:
   case NativeUI::OPT_CUSTOM_2:
   case NativeUI::OPT_CUSTOM_3: {
-    // AE-style anchor point indicator with number
     COLORREF colorRef = hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
-    Color color(GetRValue(colorRef), GetGValue(colorRef), GetBValue(colorRef));
+    Color color = toColor(colorRef);
     Pen pen(color, 2.0f);
-    SolidBrush brush(color);
     
     // Crosshair lines
-    MoveToEx(hdc, cx - r, cy, NULL);
-    LineTo(hdc, cx - 4, cy);
-    MoveToEx(hdc, cx + 4, cy, NULL);
-    LineTo(hdc, cx + r, cy);
-    MoveToEx(hdc, cx, cy - r, NULL);
-    LineTo(hdc, cx, cy - 4);
-    MoveToEx(hdc, cx, cy + 4, NULL);
-    LineTo(hdc, cx, cy + r);
+    graphics.DrawLine(&pen, cx - r, cy, cx - 4, cy);
+    graphics.DrawLine(&pen, cx + 4, cy, cx + r, cy);
+    graphics.DrawLine(&pen, cx, cy - r, cx, cy - 4);
+    graphics.DrawLine(&pen, cx, cy + 4, cx, cy + r);
     
     // Center circle
-    Ellipse(hdc, cx - 4, cy - 4, cx + 4, cy + 4);
+    graphics.DrawEllipse(&pen, cx - 4, cy - 4, 8, 8);
     
-    // Draw number in corner
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, color);
-    HFONT hFont = CreateFontW(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                              CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
-    HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+    // Draw number
+    FontFamily fontFamily(L"Segoe UI");
+    Font font(&fontFamily, 9, FontStyleBold, UnitPixel);
+    SolidBrush textBrush(color);
     wchar_t num[2] = {static_cast<wchar_t>(L'1' + (type - NativeUI::OPT_CUSTOM_1)), 0};
-    TextOutW(hdc, cx + r - 6, cy + r - 10, num, 1);
-    SelectObject(hdc, oldFont);
-    DeleteObject(hFont);
-    DeleteObject(pen);
+    graphics.DrawString(num, 1, &font, PointF((REAL)(cx + r - 8), (REAL)(cy + r - 12)), &textBrush);
     break;
   }
 
   case NativeUI::OPT_COMP_MODE: {
-    // Selection or Composition icon based on current mode
     bool isCompMode = g_settings.useCompMode;
-    COLORREF color = hover ? COLOR_ICON_HOVER : (isCompMode ? COLOR_ORANGE : COLOR_BLUE);
-    HPEN pen = CreatePen(PS_SOLID, 2, color);
-    SelectObject(hdc, pen);
-    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    COLORREF colorRef = hover ? COLOR_ICON_HOVER : (isCompMode ? COLOR_ORANGE : COLOR_BLUE);
+    Color color = toColor(colorRef);
+    Pen pen(color, 2.0f);
+    SolidBrush brush(color);
     
     if (isCompMode) {
       // Composition: wide rectangle with + in center
       int w = r + 2;
       int h = r - 2;
-      Rectangle(hdc, cx - w, cy - h, cx + w, cy + h);
-      // Plus sign in center
+      graphics.DrawRectangle(&pen, cx - w, cy - h, w * 2, h * 2);
+      // Plus sign
       int ps = 3;
-      MoveToEx(hdc, cx - ps, cy, NULL);
-      LineTo(hdc, cx + ps + 1, cy);
-      MoveToEx(hdc, cx, cy - ps, NULL);
-      LineTo(hdc, cx, cy + ps + 1);
+      graphics.DrawLine(&pen, cx - ps, cy, cx + ps, cy);
+      graphics.DrawLine(&pen, cx, cy - ps, cx, cy + ps);
     } else {
-      // Selection: square with small squares at corners
-      Rectangle(hdc, cx - r, cy - r, cx + r, cy + r);
-      // Corner squares (filled)
-      HBRUSH cornerBrush = CreateSolidBrush(color);
-      RECT tl = {cx - r - 1, cy - r - 1, cx - r + s, cy - r + s};
-      RECT tr = {cx + r - s, cy - r - 1, cx + r + 1, cy - r + s};
-      RECT bl = {cx - r - 1, cy + r - s, cx - r + s, cy + r + 1};
-      RECT br = {cx + r - s, cy + r - s, cx + r + 1, cy + r + 1};
-      FillRect(hdc, &tl, cornerBrush);
-      FillRect(hdc, &tr, cornerBrush);
-      FillRect(hdc, &bl, cornerBrush);
-      FillRect(hdc, &br, cornerBrush);
-      DeleteObject(cornerBrush);
+      // Selection: square with corner squares
+      graphics.DrawRectangle(&pen, cx - r, cy - r, r * 2, r * 2);
+      // Corner squares
+      graphics.FillRectangle(&brush, cx - r - 1, cy - r - 1, s + 1, s + 1);
+      graphics.FillRectangle(&brush, cx + r - s, cy - r - 1, s + 1, s + 1);
+      graphics.FillRectangle(&brush, cx - r - 1, cy + r - s, s + 1, s + 1);
+      graphics.FillRectangle(&brush, cx + r - s, cy + r - s, s + 1, s + 1);
     }
-    DeleteObject(pen);
     break;
   }
 
   case NativeUI::OPT_MASK_MODE: {
-    // Mask icon: filled rectangle with transparent circle in center
     bool maskOn = g_settings.useMaskRecognition;
-    COLORREF color = hover ? COLOR_ICON_HOVER : (maskOn ? COLOR_BLUE : COLOR_DARK_GRAY);
+    COLORREF colorRef = hover ? COLOR_ICON_HOVER : (maskOn ? COLOR_BLUE : COLOR_DARK_GRAY);
+    Color color = toColor(colorRef);
+    SolidBrush brush(color);
+    Color bgColor = toColor(COLOR_BG);
+    SolidBrush bgBrush(bgColor);
     
-    // Filled rectangle background
-    HBRUSH fillBrush = CreateSolidBrush(color);
-    RECT maskRect = {cx - r, cy - r, cx + r, cy + r};
-    FillRect(hdc, &maskRect, fillBrush);
-    DeleteObject(fillBrush);
-    
-    // Transparent circle in center (cut out using background color)
-    HBRUSH bgBrush = CreateSolidBrush(COLOR_BG);
-    HPEN bgPen = CreatePen(PS_SOLID, 1, COLOR_BG);
-    SelectObject(hdc, bgPen);
-    SelectObject(hdc, bgBrush);
+    // Filled rectangle
+    graphics.FillRectangle(&brush, cx - r, cy - r, r * 2, r * 2);
+    // Circle cutout
     int circleR = r / 2;
-    Ellipse(hdc, cx - circleR, cy - circleR, cx + circleR, cy + circleR);
-    DeleteObject(bgBrush);
-    DeleteObject(bgPen);
+    graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2, circleR * 2);
     break;
   }
 
   case NativeUI::OPT_SETTINGS: {
-    // Gear icon: simplified solid circle with spokes
-    COLORREF color = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
-    HPEN pen = CreatePen(PS_SOLID, 3, color);
-    SelectObject(hdc, pen);
-    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    COLORREF colorRef = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
+    Color color = toColor(colorRef);
+    Pen pen(color, 2.5f);
+    SolidBrush brush(color);
     
     // Main circle
     int mainR = r - 2;
-    Ellipse(hdc, cx - mainR, cy - mainR, cx + mainR, cy + mainR);
+    graphics.DrawEllipse(&pen, cx - mainR, cy - mainR, mainR * 2, mainR * 2);
     
-    // 6 gear teeth (short lines)
+    // 6 gear teeth
     for (int i = 0; i < 6; i++) {
       double angle = i * 3.14159 / 3;
-      int x1 = cx + (int)((mainR - 2) * cos(angle));
-      int y1 = cy + (int)((mainR - 2) * sin(angle));
-      int x2 = cx + (int)((mainR + 3) * cos(angle));
-      int y2 = cy + (int)((mainR + 3) * sin(angle));
-      MoveToEx(hdc, x1, y1, NULL);
-      LineTo(hdc, x2, y2);
+      int x1 = cx + (int)((mainR - 1) * cos(angle));
+      int y1 = cy + (int)((mainR - 1) * sin(angle));
+      int x2 = cx + (int)((mainR + 4) * cos(angle));
+      int y2 = cy + (int)((mainR + 4) * sin(angle));
+      graphics.DrawLine(&pen, x1, y1, x2, y2);
     }
     
     // Center dot
-    HBRUSH centerBrush = CreateSolidBrush(color);
-    SelectObject(hdc, centerBrush);
-    int dotR = 2;
-    Ellipse(hdc, cx - dotR, cy - dotR, cx + dotR, cy + dotR);
-    
-    DeleteObject(centerBrush);
-    DeleteObject(pen);
+    graphics.FillEllipse(&brush, cx - 2, cy - 2, 4, 4);
     break;
   }
 
