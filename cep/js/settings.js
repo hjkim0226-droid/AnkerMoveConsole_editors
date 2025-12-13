@@ -44,8 +44,38 @@ class Settings {
     save() {
         try {
             localStorage.setItem('anchorGrid_settings', JSON.stringify(this.settings));
+            this.saveToFile(); // Also save for C++ plugin
         } catch (e) {
             console.error('Failed to save settings:', e);
+        }
+    }
+    
+    saveToFile() {
+        if (!window.csInterface) return;
+        
+        const json = JSON.stringify(this.settings, null, 2);
+        
+        try {
+            const os = require('os');
+            const path = require('path');
+            const fs = require('fs');
+            let settingsPath;
+            
+            if (os.platform() === 'win32') {
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+            } else {
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+            }
+            
+            // Ensure directory exists
+            const dir = path.dirname(settingsPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(settingsPath, json, 'utf8');
+            console.log('Settings saved to:', settingsPath);
+        } catch (e) {
+            console.error('Failed to write settings file:', e);
         }
     }
 

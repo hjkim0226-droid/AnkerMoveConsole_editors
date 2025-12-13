@@ -100,36 +100,60 @@ bool HasSelectedLayers() {
 
 /*****************************************************************************
  * LoadSettingsFromFile
- * Read settings from CEP's settings file
+ * Read settings from CEP's settings file (cross-platform)
  *****************************************************************************/
 void LoadSettingsFromFile() {
-  try {
-    char path[512];
-    snprintf(path, sizeof(path), "%s/Library/Application Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
-             getenv("HOME") ? getenv("HOME") : "");
-    
-    FILE *f = fopen(path, "r");
-    if (!f) return;
-    
-    char buffer[2048];
-    size_t len = fread(buffer, 1, sizeof(buffer) - 1, f);
-    buffer[len] = '\0';
-    fclose(f);
-    
-    // Parse simple JSON (gridWidth, gridHeight, gridScale, useCompMode, useMaskRecognition)
-    NativeUI::GridSettings& settings = NativeUI::GetSettings();
-    
-    // Very simple parsing for key values
-    const char* p;
-    if ((p = strstr(buffer, "\"useCompMode\":")) != NULL) {
-      settings.useCompMode = (strstr(p, "true") != NULL && strstr(p, "true") < strstr(p, ","));
+#ifdef MSWindows
+  // Windows: %APPDATA%\Adobe\CEP\extensions\com.anchor.grid\settings.json
+  char path[512];
+  const char* appdata = getenv("APPDATA");
+  if (!appdata) return;
+  snprintf(path, sizeof(path), "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json", appdata);
+#else
+  // macOS: ~/Library/Application Support/Adobe/CEP/extensions/com.anchor.grid/settings.json
+  char path[512];
+  const char* home = getenv("HOME");
+  if (!home) return;
+  snprintf(path, sizeof(path), "%s/Library/Application Support/Adobe/CEP/extensions/com.anchor.grid/settings.json", home);
+#endif
+
+  FILE *f = fopen(path, "r");
+  if (!f) return;
+  
+  char buffer[2048];
+  size_t len = fread(buffer, 1, sizeof(buffer) - 1, f);
+  buffer[len] = '\0';
+  fclose(f);
+  
+  // Parse simple JSON
+  NativeUI::GridSettings& settings = NativeUI::GetSettings();
+  
+  const char* p;
+  // useCompMode
+  if ((p = strstr(buffer, "\"useCompMode\":")) != NULL) {
+    p += 14; // skip past key
+    settings.useCompMode = (strstr(p, "true") != NULL && (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
+  }
+  // useMaskRecognition
+  if ((p = strstr(buffer, "\"useMaskRecognition\":")) != NULL) {
+    p += 21;
+    settings.useMaskRecognition = (strstr(p, "true") != NULL && (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
+  }
+  // gridWidth
+  if ((p = strstr(buffer, "\"gridWidth\":")) != NULL) {
+    p += 12;
+    int val = atoi(p);
+    if (val >= 3 && val <= 7) {
+      // Store in config - we'll apply when showing grid
     }
-    if ((p = strstr(buffer, "\"useMaskRecognition\":")) != NULL) {
-      settings.useMaskRecognition = (strstr(p, "true") != NULL);
+  }
+  // gridHeight
+  if ((p = strstr(buffer, "\"gridHeight\":")) != NULL) {
+    p += 13;
+    int val = atoi(p);
+    if (val >= 3 && val <= 7) {
+      // Store in config
     }
-    
-  } catch (...) {
-    // Ignore errors
   }
 }
 
@@ -294,13 +318,14 @@ void HideAndApplyAnchor() {
     case NativeUI::OPT_SETTINGS:
       // Open CEP panel via Window menu
       ExecuteScript(
-        "try {"
-        "  var menuId = app.findMenuCommandId('Anchor Grid');"
-        "  if (menuId > 0) app.executeCommand(menuId);"
-        "} catch(e) {"
-        "  // Fallback: show settings panel in CEP"
-        "  alert('Please open Window > Extensions > Anchor Grid');"
+        "(function(){"
+        "try{"
+        "var menuId=app.findMenuCommandId('Anchor Grid');"
+        "if(menuId>0)app.executeCommand(menuId);"
+        "}catch(e){"
+        "alert('Please open Window > Extensions > Anchor Grid');"
         "}"
+        "})();"
       );
       break;
     default:

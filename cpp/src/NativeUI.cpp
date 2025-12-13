@@ -314,7 +314,7 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   case NativeUI::OPT_CUSTOM_3: {
     // AE-style anchor point indicator with number
     COLORREF color = hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
-    HPEN pen = CreatePen(PS_SOLID, 2, color);
+    HPEN pen = CreatePen(PS_SOLID, 2, color); // Keep 2px for crisp lines
     SelectObject(hdc, pen);
     SelectObject(hdc, GetStockObject(NULL_BRUSH));
     
@@ -408,36 +408,35 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   }
 
   case NativeUI::OPT_SETTINGS: {
-    // Gear icon: filled with hollow center
+    // Gear icon: simplified solid circle with spokes
     COLORREF color = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
-    HBRUSH gearBrush = CreateSolidBrush(color);
-    HPEN gearPen = CreatePen(PS_SOLID, 1, color);
-    SelectObject(hdc, gearPen);
-    SelectObject(hdc, gearBrush);
+    HPEN pen = CreatePen(PS_SOLID, 3, color);
+    SelectObject(hdc, pen);
+    SelectObject(hdc, GetStockObject(NULL_BRUSH));
     
-    // Draw gear teeth as filled polygon (simplified: octagon)
-    int outerR = r;
-    int innerR = r - 4;
-    POINT teeth[16];
-    for (int i = 0; i < 8; i++) {
-      double angle1 = i * 3.14159 / 4 - 0.2;
-      double angle2 = i * 3.14159 / 4 + 0.2;
-      teeth[i * 2].x = cx + (int)(outerR * cos(angle1));
-      teeth[i * 2].y = cy + (int)(outerR * sin(angle1));
-      teeth[i * 2 + 1].x = cx + (int)(outerR * cos(angle2));
-      teeth[i * 2 + 1].y = cy + (int)(outerR * sin(angle2));
+    // Main circle
+    int mainR = r - 2;
+    Ellipse(hdc, cx - mainR, cy - mainR, cx + mainR, cy + mainR);
+    
+    // 6 gear teeth (short lines)
+    for (int i = 0; i < 6; i++) {
+      double angle = i * 3.14159 / 3;
+      int x1 = cx + (int)((mainR - 2) * cos(angle));
+      int y1 = cy + (int)((mainR - 2) * sin(angle));
+      int x2 = cx + (int)((mainR + 3) * cos(angle));
+      int y2 = cy + (int)((mainR + 3) * sin(angle));
+      MoveToEx(hdc, x1, y1, NULL);
+      LineTo(hdc, x2, y2);
     }
-    Polygon(hdc, teeth, 16);
     
-    // Hollow center circle
-    HBRUSH bgBrush = CreateSolidBrush(COLOR_BG);
-    SelectObject(hdc, bgBrush);
-    int centerR = 4;
-    Ellipse(hdc, cx - centerR, cy - centerR, cx + centerR, cy + centerR);
+    // Center dot
+    HBRUSH centerBrush = CreateSolidBrush(color);
+    SelectObject(hdc, centerBrush);
+    int dotR = 2;
+    Ellipse(hdc, cx - dotR, cy - dotR, cx + dotR, cy + dotR);
     
-    DeleteObject(bgBrush);
-    DeleteObject(gearBrush);
-    DeleteObject(gearPen);
+    DeleteObject(centerBrush);
+    DeleteObject(pen);
     break;
   }
 
