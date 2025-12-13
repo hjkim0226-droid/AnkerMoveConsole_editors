@@ -327,18 +327,23 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   case NativeUI::OPT_CUSTOM_3: {
     COLORREF colorRef = hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
     Color color = toColor(colorRef);
+    Color bgColor = toColor(COLOR_BG);
     Pen pen(color, 2.0f);
+    SolidBrush bgBrush(bgColor);
     
-    // Crosshair lines
-    graphics.DrawLine(&pen, cx - r, cy, cx - 4, cy);
-    graphics.DrawLine(&pen, cx + 4, cy, cx + r, cy);
-    graphics.DrawLine(&pen, cx, cy - r, cx, cy - 4);
-    graphics.DrawLine(&pen, cx, cy + 4, cx, cy + r);
+    // Crosshair lines (with gap for center circle)
+    int gap = 5;
+    graphics.DrawLine(&pen, cx - r, cy, cx - gap, cy);
+    graphics.DrawLine(&pen, cx + gap, cy, cx + r, cy);
+    graphics.DrawLine(&pen, cx, cy - r, cx, cy - gap);
+    graphics.DrawLine(&pen, cx, cy + gap, cx, cy + r);
     
-    // Center circle
-    graphics.DrawEllipse(&pen, cx - 4, cy - 4, 8, 8);
+    // Center circle with fill (AE anchor style)
+    int circleR = 4;
+    graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2, circleR * 2);
+    graphics.DrawEllipse(&pen, cx - circleR, cy - circleR, circleR * 2, circleR * 2);
     
-    // Draw number
+    // Draw preset number
     FontFamily fontFamily(L"Segoe UI");
     Font font(&fontFamily, 9, FontStyleBold, UnitPixel);
     SolidBrush textBrush(color);
