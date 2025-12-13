@@ -449,8 +449,14 @@ static void DrawSidePanels(HDC hdc) {
   }
 }
 
-// Draw the grid with marks and glow
+// Draw the grid with marks and glow using GDI+
 static void DrawGrid(HDC hdc) {
+  using namespace Gdiplus;
+  
+  Graphics graphics(hdc);
+  graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+  graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
+  
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridStartX = SIDE_PANEL_WIDTH + g_config.margin;
   int gridStartY = g_config.margin;
@@ -459,26 +465,32 @@ static void DrawGrid(HDC hdc) {
   int len = (int)(cellTotal * 0.4);
 
   bool compMode = g_settings.useCompMode;
-  COLORREF cellBgColor = COLOR_CELL_BG;
-  COLORREF lineColor = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
-  COLORREF glowInner = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
-  COLORREF glowMid = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
-  COLORREF glowOuter = compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER;
+  
+  // Helper to convert COLORREF to GDI+ Color
+  auto toColor = [](COLORREF c) { 
+    return Color(255, GetRValue(c), GetGValue(c), GetBValue(c)); 
+  };
+  
+  Color cellBgColor = toColor(COLOR_CELL_BG);
+  Color lineColor = toColor(compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE);
+  Color glowInnerColor = toColor(compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER);
+  Color glowMidColor = toColor(compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID);
+  Color glowOuterColor = toColor(compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER);
 
   // Draw cell backgrounds
+  SolidBrush cellBrush(cellBgColor);
   for (int y = 0; y < g_config.gridHeight; y++) {
     for (int x = 0; x < g_config.gridWidth; x++) {
       int cellLeft = gridStartX + x * cellTotal;
       int cellTop = gridStartY + y * cellTotal;
-      RECT cellRect = {cellLeft, cellTop, cellLeft + g_config.cellSize,
-                       cellTop + g_config.cellSize};
-      HBRUSH cellBrush = CreateSolidBrush(cellBgColor);
-      FillRect(hdc, &cellRect, cellBrush);
-      DeleteObject(cellBrush);
+      graphics.FillRectangle(&cellBrush, cellLeft, cellTop, g_config.cellSize, g_config.cellSize);
     }
   }
 
-  // Draw marks and dots
+  // Draw marks and dots using GDI+
+  Pen markPen(lineColor, 2.0f);
+  SolidBrush dotBrush(lineColor);
+  
   for (int y = 0; y < g_config.gridHeight; y++) {
     for (int x = 0; x < g_config.gridWidth; x++) {
       int cx = gridStartX + x * cellTotal + cellTotal / 2;
@@ -496,108 +508,68 @@ static void DrawGrid(HDC hdc) {
       int edgeOffset = cellTotal / 4;
       int markX = cx, markY = cy;
       if (isCorner || isEdge) {
-        if (isLeft)
-          markX -= edgeOffset;
-        if (isRight)
-          markX += edgeOffset;
-        if (isTop)
-          markY -= edgeOffset;
-        if (isBottom)
-          markY += edgeOffset;
+        if (isLeft) markX -= edgeOffset;
+        if (isRight) markX += edgeOffset;
+        if (isTop) markY -= edgeOffset;
+        if (isBottom) markY += edgeOffset;
       }
 
-      COLORREF markColor = isHover ? glowInner : lineColor;
-      HPEN linePen = CreatePen(PS_SOLID, 2, markColor);
-      SelectObject(hdc, linePen);
-      SelectObject(hdc, GetStockObject(NULL_BRUSH));
+      Color markColor = isHover ? glowInnerColor : lineColor;
+      Pen linePen(markColor, 2.0f);
 
       if (isCorner) {
         if (isTop && isLeft) {
-          MoveToEx(hdc, markX, markY + len, NULL);
-          LineTo(hdc, markX, markY);
-          LineTo(hdc, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY + len, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX + len, markY);
         } else if (isTop && isRight) {
-          MoveToEx(hdc, markX - len, markY, NULL);
-          LineTo(hdc, markX, markY);
-          LineTo(hdc, markX, markY + len);
+          graphics.DrawLine(&linePen, markX - len, markY, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX, markY + len);
         } else if (isBottom && isLeft) {
-          MoveToEx(hdc, markX, markY - len, NULL);
-          LineTo(hdc, markX, markY);
-          LineTo(hdc, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY - len, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX + len, markY);
         } else {
-          MoveToEx(hdc, markX - len, markY, NULL);
-          LineTo(hdc, markX, markY);
-          LineTo(hdc, markX, markY - len);
+          graphics.DrawLine(&linePen, markX - len, markY, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX, markY - len);
         }
       } else if (isEdge) {
         if (isTop) {
-          MoveToEx(hdc, markX - len, markY, NULL);
-          LineTo(hdc, markX + len, markY);
-          MoveToEx(hdc, markX, markY, NULL);
-          LineTo(hdc, markX, markY + len);
+          graphics.DrawLine(&linePen, markX - len, markY, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX, markY + len);
         } else if (isBottom) {
-          MoveToEx(hdc, markX - len, markY, NULL);
-          LineTo(hdc, markX + len, markY);
-          MoveToEx(hdc, markX, markY - len, NULL);
-          LineTo(hdc, markX, markY);
+          graphics.DrawLine(&linePen, markX - len, markY, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY - len, markX, markY);
         } else if (isLeft) {
-          MoveToEx(hdc, markX, markY - len, NULL);
-          LineTo(hdc, markX, markY + len);
-          MoveToEx(hdc, markX, markY, NULL);
-          LineTo(hdc, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY - len, markX, markY + len);
+          graphics.DrawLine(&linePen, markX, markY, markX + len, markY);
         } else {
-          MoveToEx(hdc, markX, markY - len, NULL);
-          LineTo(hdc, markX, markY + len);
-          MoveToEx(hdc, markX - len, markY, NULL);
-          LineTo(hdc, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY - len, markX, markY + len);
+          graphics.DrawLine(&linePen, markX - len, markY, markX, markY);
         }
       } else {
-        MoveToEx(hdc, cx - len, cy, NULL);
-        LineTo(hdc, cx + len, cy);
-        MoveToEx(hdc, cx, cy - len, NULL);
-        LineTo(hdc, cx, cy + len);
+        graphics.DrawLine(&linePen, cx - len, cy, cx + len, cy);
+        graphics.DrawLine(&linePen, cx, cy - len, cx, cy + len);
       }
-      DeleteObject(linePen);
 
       int anchorX = (isCorner || isEdge) ? markX : cx;
       int anchorY = (isCorner || isEdge) ? markY : cy;
 
-      HPEN circlePen = CreatePen(PS_SOLID, 1, lineColor);
-      HBRUSH circleBrush = CreateSolidBrush(lineColor);
-      SelectObject(hdc, circlePen);
-      SelectObject(hdc, circleBrush);
-      Ellipse(hdc, anchorX - radius, anchorY - radius, anchorX + radius,
-              anchorY + radius);
-      DeleteObject(circlePen);
-      DeleteObject(circleBrush);
+      // Draw center dot
+      SolidBrush dotBrush(lineColor);
+      graphics.FillEllipse(&dotBrush, anchorX - radius, anchorY - radius, radius * 2, radius * 2);
 
+      // Draw hover glow
       if (isHover) {
-        HPEN glowPen3 = CreatePen(PS_SOLID, 1, glowOuter);
-        HBRUSH glowBrush3 = CreateSolidBrush(glowOuter);
-        SelectObject(hdc, glowPen3);
-        SelectObject(hdc, glowBrush3);
-        Ellipse(hdc, anchorX - hoverRadius * 2, anchorY - hoverRadius * 2,
-                anchorX + hoverRadius * 2, anchorY + hoverRadius * 2);
-        DeleteObject(glowPen3);
-        DeleteObject(glowBrush3);
+        SolidBrush glowBrush3(glowOuterColor);
+        graphics.FillEllipse(&glowBrush3, anchorX - hoverRadius * 2, anchorY - hoverRadius * 2, 
+                             hoverRadius * 4, hoverRadius * 4);
 
-        HPEN glowPen2 = CreatePen(PS_SOLID, 1, glowMid);
-        HBRUSH glowBrush2 = CreateSolidBrush(glowMid);
-        SelectObject(hdc, glowPen2);
-        SelectObject(hdc, glowBrush2);
-        Ellipse(hdc, anchorX - hoverRadius - 3, anchorY - hoverRadius - 3,
-                anchorX + hoverRadius + 3, anchorY + hoverRadius + 3);
-        DeleteObject(glowPen2);
-        DeleteObject(glowBrush2);
+        SolidBrush glowBrush2(glowMidColor);
+        graphics.FillEllipse(&glowBrush2, anchorX - hoverRadius - 3, anchorY - hoverRadius - 3,
+                             (hoverRadius + 3) * 2, (hoverRadius + 3) * 2);
 
-        HPEN glowPen1 = CreatePen(PS_SOLID, 2, glowInner);
-        HBRUSH glowBrush1 = CreateSolidBrush(glowInner);
-        SelectObject(hdc, glowPen1);
-        SelectObject(hdc, glowBrush1);
-        Ellipse(hdc, anchorX - hoverRadius, anchorY - hoverRadius,
-                anchorX + hoverRadius, anchorY + hoverRadius);
-        DeleteObject(glowPen1);
-        DeleteObject(glowBrush1);
+        SolidBrush glowBrush1(glowInnerColor);
+        graphics.FillEllipse(&glowBrush1, anchorX - hoverRadius, anchorY - hoverRadius,
+                             hoverRadius * 2, hoverRadius * 2);
       }
     }
   }
