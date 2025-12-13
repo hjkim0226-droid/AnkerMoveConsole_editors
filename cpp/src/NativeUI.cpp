@@ -299,11 +299,18 @@ static void DrawIconBackground(HDC hdc, int cx, int cy, bool hover) {
   }
 }
 
-// Draw an icon based on type
+// Draw an icon based on type using GDI+
 static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
                      bool hover, bool active) {
-  // Draw hover background first
+  using namespace Gdiplus;
+  
+  // Draw hover background first (using GDI for simple rect)
   DrawIconBackground(hdc, cx, cy, hover);
+  
+  // Create GDI+ Graphics with anti-aliasing control
+  Graphics graphics(hdc);
+  graphics.SetSmoothingMode(SmoothingModeHighQuality); // or SmoothingModeNone for sharp
+  graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
   
   int r = ICON_SIZE / 2 - 6;
   int s = 3; // Small corner square size
@@ -313,10 +320,10 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   case NativeUI::OPT_CUSTOM_2:
   case NativeUI::OPT_CUSTOM_3: {
     // AE-style anchor point indicator with number
-    COLORREF color = hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
-    HPEN pen = CreatePen(PS_SOLID, 2, color); // Keep 2px for crisp lines
-    SelectObject(hdc, pen);
-    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    COLORREF colorRef = hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
+    Color color(GetRValue(colorRef), GetGValue(colorRef), GetBValue(colorRef));
+    Pen pen(color, 2.0f);
+    SolidBrush brush(color);
     
     // Crosshair lines
     MoveToEx(hdc, cx - r, cy, NULL);
