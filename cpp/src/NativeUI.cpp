@@ -332,14 +332,14 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     SolidBrush bgBrush(bgColor);
     
     // Crosshair lines (with gap for center circle)
-    int gap = 5;
+    int gap = 8;
     graphics.DrawLine(&pen, cx - r, cy, cx - gap, cy);
     graphics.DrawLine(&pen, cx + gap, cy, cx + r, cy);
     graphics.DrawLine(&pen, cx, cy - r, cx, cy - gap);
     graphics.DrawLine(&pen, cx, cy + gap, cx, cy + r);
     
-    // Center circle with fill (AE anchor style)
-    int circleR = 4;
+    // Center circle with fill (AE anchor style) - 70% larger
+    int circleR = 7;
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2, circleR * 2);
     graphics.DrawEllipse(&pen, cx - circleR, cy - circleR, circleR * 2, circleR * 2);
     
