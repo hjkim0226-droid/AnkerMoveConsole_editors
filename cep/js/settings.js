@@ -5,6 +5,7 @@
 
 class Settings {
     constructor() {
+        console.log('Settings constructor called');
         this.defaults = {
             gridWidth: 3,
             gridHeight: 3,
@@ -246,18 +247,26 @@ class Settings {
 
     bindSizeControl(elementId, settingKey) {
         const element = document.getElementById(elementId);
-        if (!element) return;
+        if (!element) {
+            console.warn('Element not found:', elementId);
+            return;
+        }
+        console.log('Binding size control:', elementId, 'for', settingKey);
 
         let startX = 0;
         let startValue = 0;
         let isDragging = false;
 
+        const self = this; // Capture this for closures
+        
         element.addEventListener('mousedown', (e) => {
             isDragging = true;
             startX = e.clientX;
-            startValue = this.settings[settingKey];
+            startValue = self.settings[settingKey];
             document.body.style.cursor = 'ew-resize';
+            element.style.color = 'var(--blue)';
             e.preventDefault();
+            console.log('Mousedown on', elementId, 'startValue:', startValue);
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -269,10 +278,11 @@ class Settings {
             const max = parseInt(element.dataset.max) || 7;
             newValue = Math.max(min, Math.min(max, newValue));
 
-            if (newValue !== this.settings[settingKey]) {
-                this.set(settingKey, newValue);
+            if (newValue !== self.settings[settingKey]) {
+                self.set(settingKey, newValue);
                 element.textContent = newValue;
-                this.buildPreviewGrid();
+                if (self.buildPreviewGrid) self.buildPreviewGrid();
+                console.log('Value changed:', settingKey, '=', newValue);
             }
         });
 
@@ -280,20 +290,22 @@ class Settings {
             if (isDragging) {
                 isDragging = false;
                 document.body.style.cursor = '';
+                element.style.color = '';
+                console.log('Mouseup, saved value:', self.settings[settingKey]);
             }
         });
 
         // Click to edit
         element.addEventListener('dblclick', () => {
-            const current = this.settings[settingKey];
+            const current = self.settings[settingKey];
             const input = prompt(`Enter value (3-7):`, current);
             if (input !== null) {
                 let val = parseInt(input);
                 if (!isNaN(val)) {
                     val = Math.max(3, Math.min(7, val));
-                    this.set(settingKey, val);
+                    self.set(settingKey, val);
                     element.textContent = val;
-                    this.buildPreviewGrid();
+                    if (self.buildPreviewGrid) self.buildPreviewGrid();
                 }
             }
         });

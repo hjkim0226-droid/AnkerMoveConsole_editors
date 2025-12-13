@@ -55,9 +55,9 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 #define COLOR_GLOW_OUTER_COMP RGB(110, 80, 42)
 
 // Side panel dimensions
-#define SIDE_PANEL_WIDTH 44
-#define ICON_SIZE 28
-#define ICON_SPACING 8
+#define SIDE_PANEL_WIDTH 52
+#define ICON_SIZE 34
+#define ICON_SPACING 16
 
 // Global state
 static HWND g_gridWnd = NULL;
@@ -369,13 +369,15 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
       graphics.DrawLine(&pen, cx - ps, cy, cx + ps, cy);
       graphics.DrawLine(&pen, cx, cy - ps, cx, cy + ps);
     } else {
-      // Selection: square with corner squares
+      // Selection: square with corner squares (centered on corners)
       graphics.DrawRectangle(&pen, cx - r, cy - r, r * 2, r * 2);
-      // Corner squares
-      graphics.FillRectangle(&brush, cx - r - 1, cy - r - 1, s + 1, s + 1);
-      graphics.FillRectangle(&brush, cx + r - s, cy - r - 1, s + 1, s + 1);
-      graphics.FillRectangle(&brush, cx - r - 1, cy + r - s, s + 1, s + 1);
-      graphics.FillRectangle(&brush, cx + r - s, cy + r - s, s + 1, s + 1);
+      // Corner squares - centered on each corner
+      int cs = s + 1; // corner square size
+      int half = cs / 2;
+      graphics.FillRectangle(&brush, cx - r - half, cy - r - half, cs, cs); // top-left
+      graphics.FillRectangle(&brush, cx + r - half, cy - r - half, cs, cs); // top-right
+      graphics.FillRectangle(&brush, cx - r - half, cy + r - half, cs, cs); // bottom-left
+      graphics.FillRectangle(&brush, cx + r - half, cy + r - half, cs, cs); // bottom-right
     }
     break;
   }
@@ -388,10 +390,12 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Color bgColor = toColor(COLOR_BG);
     SolidBrush bgBrush(bgColor);
     
-    // Filled rectangle
-    graphics.FillRectangle(&brush, cx - r, cy - r, r * 2, r * 2);
+    // Horizontal rectangle (wider than tall)
+    int w = r + 3;
+    int h = r - 3;
+    graphics.FillRectangle(&brush, cx - w, cy - h, w * 2, h * 2);
     // Circle cutout
-    int circleR = r / 2;
+    int circleR = h / 2;
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2, circleR * 2);
     break;
   }
@@ -399,25 +403,23 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   case NativeUI::OPT_SETTINGS: {
     COLORREF colorRef = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
     Color color = toColor(colorRef);
-    Pen pen(color, 2.5f);
-    SolidBrush brush(color);
+    Pen thickPen(color, 3.5f);
     
-    // Main circle
-    int mainR = r - 2;
-    graphics.DrawEllipse(&pen, cx - mainR, cy - mainR, mainR * 2, mainR * 2);
+    // Smaller center circle (no fill)
+    int innerR = 3;
+    graphics.DrawEllipse(&thickPen, cx - innerR, cy - innerR, innerR * 2, innerR * 2);
     
-    // 6 gear teeth
-    for (int i = 0; i < 6; i++) {
-      double angle = i * 3.14159 / 3;
-      int x1 = cx + (int)((mainR - 1) * cos(angle));
-      int y1 = cy + (int)((mainR - 1) * sin(angle));
-      int x2 = cx + (int)((mainR + 4) * cos(angle));
-      int y2 = cy + (int)((mainR + 4) * sin(angle));
-      graphics.DrawLine(&pen, x1, y1, x2, y2);
+    // 8 gear teeth (thick lines)
+    int teethInner = innerR + 2;
+    int teethOuter = r + 2;
+    for (int i = 0; i < 8; i++) {
+      double angle = i * 3.14159 / 4;
+      int x1 = cx + (int)(teethInner * cos(angle));
+      int y1 = cy + (int)(teethInner * sin(angle));
+      int x2 = cx + (int)(teethOuter * cos(angle));
+      int y2 = cy + (int)(teethOuter * sin(angle));
+      graphics.DrawLine(&thickPen, x1, y1, x2, y2);
     }
-    
-    // Center dot
-    graphics.FillEllipse(&brush, cx - 2, cy - 2, 4, 4);
     break;
   }
 
