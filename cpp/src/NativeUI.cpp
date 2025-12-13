@@ -338,7 +338,7 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
-    wchar_t num[2] = {L'1' + (type - NativeUI::OPT_CUSTOM_1), 0};
+    wchar_t num[2] = {static_cast<wchar_t>(L'1' + (type - NativeUI::OPT_CUSTOM_1)), 0};
     TextOutW(hdc, cx + r - 6, cy + r - 10, num, 1);
     SelectObject(hdc, oldFont);
     DeleteObject(hFont);

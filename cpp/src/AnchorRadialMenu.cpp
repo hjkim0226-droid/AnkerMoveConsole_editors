@@ -121,10 +121,10 @@ void LoadSettingsFromFile() {
     
     // Very simple parsing for key values
     const char* p;
-    if ((p = strstr(buffer, ""useCompMode":")) != NULL) {
+    if ((p = strstr(buffer, "\"useCompMode\":")) != NULL) {
       settings.useCompMode = (strstr(p, "true") != NULL && strstr(p, "true") < strstr(p, ","));
     }
-    if ((p = strstr(buffer, ""useMaskRecognition":")) != NULL) {
+    if ((p = strstr(buffer, "\"useMaskRecognition\":")) != NULL) {
       settings.useMaskRecognition = (strstr(p, "true") != NULL);
     }
     
