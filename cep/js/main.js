@@ -58,6 +58,7 @@ async function init() {
 
         debugLog('Creating CustomAnchor...');
         customAnchor = new CustomAnchor(settings);
+        window.customAnchor = customAnchor; // Expose for real-time updates
 
         debugLog('Creating Grid...');
         grid = new AnchorGrid(settings);

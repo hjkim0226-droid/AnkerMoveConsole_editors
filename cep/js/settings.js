@@ -322,6 +322,10 @@ class Settings {
                 self.set(settingKey, newValue);
                 element.textContent = newValue;
                 if (self.buildPreviewGrid) self.buildPreviewGrid();
+                // Also update custom anchor grid
+                if (window.customAnchor && window.customAnchor.updateUI) {
+                    window.customAnchor.updateUI();
+                }
                 console.log('Value changed:', settingKey, '=', newValue);
             }
         });
