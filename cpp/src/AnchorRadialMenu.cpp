@@ -205,6 +205,11 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
   config.spacing = 1;
   config.margin = 2;
 
+  // Apply opacity settings
+  NativeUI::GridSettings& settings = NativeUI::GetSettings();
+  settings.gridOpacity = g_loadedGridOpacity;
+  settings.cellOpacity = g_loadedCellOpacity;
+
   NativeUI::ShowGrid(mouseX, mouseY, config);
 }
 

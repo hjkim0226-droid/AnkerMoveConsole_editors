@@ -166,7 +166,9 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_windowX = mouseX - g_windowWidth / 2;
   g_windowY = mouseY - g_windowHeight / 2;
 
-  BYTE alpha = g_settings.transparentMode ? 200 : 255;
+  // Apply grid opacity setting (0-100 -> 0-255)
+  BYTE alpha = (BYTE)(g_settings.gridOpacity * 255 / 100);
+  if (alpha < 100) alpha = 100; // Minimum visibility
 
   if (g_gridWnd) {
     SetWindowPos(g_gridWnd, HWND_TOPMOST, g_windowX, g_windowY, g_windowWidth,
@@ -497,8 +499,10 @@ static void DrawGrid(HDC hdc) {
   Color glowMidColor = toColor(compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID);
   Color glowOuterColor = toColor(compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER);
 
-  // Draw cell backgrounds
-  SolidBrush cellBrush(cellBgColor);
+  // Draw cell backgrounds with opacity
+  BYTE cellAlpha = (BYTE)(g_settings.cellOpacity * 255 / 100);
+  Color cellBgWithAlpha(cellAlpha, GetRValue(COLOR_CELL_BG), GetGValue(COLOR_CELL_BG), GetBValue(COLOR_CELL_BG));
+  SolidBrush cellBrush(cellBgWithAlpha);
   for (int y = 0; y < g_config.gridHeight; y++) {
     for (int x = 0; x < g_config.gridWidth; x++) {
       int cellLeft = gridStartX + x * cellTotal;
