@@ -454,15 +454,17 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
         hover ? COLOR_ICON_HOVER : (maskOn ? COLOR_BLUE : COLOR_DARK_GRAY);
     Color color = toColor(colorRef);
     SolidBrush brush(color);
-    Color bgColor = toColor(COLOR_BG);
+    // Use hover background color when hovering for circle cutout
+    COLORREF bgColorRef = hover ? RGB(50, 60, 70) : COLOR_BG;
+    Color bgColor = toColor(bgColorRef);
     SolidBrush bgBrush(bgColor);
 
-    // Horizontal rectangle (wider than tall)
+    // Horizontal rectangle (10% taller than before)
     int w = r + 3;
-    int h = r - 3;
+    int h = (int)((r - 3) * 1.1f); // 10% taller
     graphics.FillRectangle(&brush, cx - w, cy - h, w * 2, h * 2);
-    // Circle cutout
-    int circleR = h / 2;
+    // Circle cutout (10% larger)
+    int circleR = (int)(h / 2 * 1.1f); // 10% larger
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
     break;
@@ -472,16 +474,18 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     COLORREF colorRef = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
     Color color = toColor(colorRef);
 
-    // Larger center circle (main part of gear)
-    int innerR = r - 4; // Bigger circle
-    Pen circlePen(color, 2.5f);
+    // 20% larger overall, 20% smaller center hole, 20% thicker teeth
+    int outerR = (int)(r * 1.2f);       // 20% larger
+    int innerR = (int)((r - 4) * 0.8f); // 20% smaller center
+
+    Pen circlePen(color, 3.0f); // 20% thicker (was 2.5)
     graphics.DrawEllipse(&circlePen, cx - innerR, cy - innerR, innerR * 2,
                          innerR * 2);
 
-    // 6 short gear teeth
-    Pen teethPen(color, 3.0f);
-    int teethInner = innerR - 1; // Start from circle edge
-    int teethOuter = innerR + 4; // Short teeth
+    // 6 short gear teeth (20% thicker)
+    Pen teethPen(color, 3.6f); // 20% thicker (was 3.0)
+    int teethInner = innerR - 1;
+    int teethOuter = outerR; // Extended to new outer radius
     for (int i = 0; i < 6; i++) {
       double angle = i * 3.14159 / 3;
       int x1 = cx + (int)(teethInner * cos(angle));
@@ -586,12 +590,13 @@ static void DrawGrid(HDC hdc) {
   graphics.SetSmoothingMode(SmoothingModeNone);
   graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
 
-  int cellTotal = g_config.cellSize + g_config.spacing;
+  // Use cellSize directly (no spacing - grid lines will separate)
+  int cellTotal = g_config.cellSize; // No spacing now
   int gridStartX = SIDE_PANEL_WIDTH + g_config.margin;
   int gridStartY = g_config.margin;
-  int radius = g_config.cellSize / 12;
-  int hoverRadius = g_config.cellSize / 12;
-  int len = (int)(cellTotal * 0.4);
+  int radius = g_config.cellSize / 10;     // Slightly larger dots
+  int hoverRadius = g_config.cellSize / 8; // Larger hover glow
+  int len = (int)(cellTotal * 0.3);        // Shorter marks (was 0.4)
 
   bool compMode = g_settings.useCompMode;
 
@@ -613,13 +618,28 @@ static void DrawGrid(HDC hdc) {
   Color cellBgWithAlpha(cellAlpha, GetRValue(COLOR_CELL_BG),
                         GetGValue(COLOR_CELL_BG), GetBValue(COLOR_CELL_BG));
   SolidBrush cellBrush(cellBgWithAlpha);
-  for (int y = 0; y < g_config.gridHeight; y++) {
-    for (int x = 0; x < g_config.gridWidth; x++) {
-      int cellLeft = gridStartX + x * cellTotal;
-      int cellTop = gridStartY + y * cellTotal;
-      graphics.FillRectangle(&cellBrush, cellLeft, cellTop, g_config.cellSize,
-                             g_config.cellSize);
-    }
+
+  // Fill entire grid area first
+  int gridWidth = g_config.gridWidth * cellTotal;
+  int gridHeight = g_config.gridHeight * cellTotal;
+  graphics.FillRectangle(&cellBrush, gridStartX, gridStartY, gridWidth,
+                         gridHeight);
+
+  // Draw gray grid lines (separators between cells)
+  Color gridLineColor(180, 80, 80, 80); // Semi-transparent gray
+  Pen gridPen(gridLineColor, 1.0f);
+
+  // Vertical lines
+  for (int x = 1; x < g_config.gridWidth; x++) {
+    int lineX = gridStartX + x * cellTotal;
+    graphics.DrawLine(&gridPen, lineX, gridStartY, lineX,
+                      gridStartY + gridHeight);
+  }
+  // Horizontal lines
+  for (int y = 1; y < g_config.gridHeight; y++) {
+    int lineY = gridStartY + y * cellTotal;
+    graphics.DrawLine(&gridPen, gridStartX, lineY, gridStartX + gridWidth,
+                      lineY);
   }
 
   // Draw marks and dots using GDI+
@@ -640,7 +660,8 @@ static void DrawGrid(HDC hdc) {
       bool isCorner = (isLeft || isRight) && (isTop || isBottom);
       bool isEdge = (isLeft || isRight || isTop || isBottom) && !isCorner;
 
-      int edgeOffset = cellTotal / 4;
+      // Reduced offset to move marks closer to center (was cellTotal/4)
+      int edgeOffset = cellTotal / 6;
       int markX = cx, markY = cy;
       if (isCorner || isEdge) {
         if (isLeft)
@@ -653,40 +674,48 @@ static void DrawGrid(HDC hdc) {
           markY += edgeOffset;
       }
 
+      // Different lengths for corner, edge, and center marks
+      int cornerLen = (int)(cellTotal * 0.35); // Longer for corners
+      int edgeLen = (int)(cellTotal * 0.25);   // Shorter for edges
+      int centerLen = (int)(cellTotal * 0.25); // Same as edges for center
+
       Color markColor = isHover ? glowInnerColor : lineColor;
       Pen linePen(markColor, 2.0f);
 
       if (isCorner) {
+        int L = cornerLen;
         if (isTop && isLeft) {
-          graphics.DrawLine(&linePen, markX, markY + len, markX, markY);
-          graphics.DrawLine(&linePen, markX, markY, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY + L, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX + L, markY);
         } else if (isTop && isRight) {
-          graphics.DrawLine(&linePen, markX - len, markY, markX, markY);
-          graphics.DrawLine(&linePen, markX, markY, markX, markY + len);
+          graphics.DrawLine(&linePen, markX - L, markY, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX, markY + L);
         } else if (isBottom && isLeft) {
-          graphics.DrawLine(&linePen, markX, markY - len, markX, markY);
-          graphics.DrawLine(&linePen, markX, markY, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY - L, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX + L, markY);
         } else {
-          graphics.DrawLine(&linePen, markX - len, markY, markX, markY);
-          graphics.DrawLine(&linePen, markX, markY, markX, markY - len);
+          graphics.DrawLine(&linePen, markX - L, markY, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX, markY - L);
         }
       } else if (isEdge) {
+        int L = edgeLen;
         if (isTop) {
-          graphics.DrawLine(&linePen, markX - len, markY, markX + len, markY);
-          graphics.DrawLine(&linePen, markX, markY, markX, markY + len);
+          graphics.DrawLine(&linePen, markX - L, markY, markX + L, markY);
+          graphics.DrawLine(&linePen, markX, markY, markX, markY + L);
         } else if (isBottom) {
-          graphics.DrawLine(&linePen, markX - len, markY, markX + len, markY);
-          graphics.DrawLine(&linePen, markX, markY - len, markX, markY);
+          graphics.DrawLine(&linePen, markX - L, markY, markX + L, markY);
+          graphics.DrawLine(&linePen, markX, markY - L, markX, markY);
         } else if (isLeft) {
-          graphics.DrawLine(&linePen, markX, markY - len, markX, markY + len);
-          graphics.DrawLine(&linePen, markX, markY, markX + len, markY);
+          graphics.DrawLine(&linePen, markX, markY - L, markX, markY + L);
+          graphics.DrawLine(&linePen, markX, markY, markX + L, markY);
         } else {
-          graphics.DrawLine(&linePen, markX, markY - len, markX, markY + len);
-          graphics.DrawLine(&linePen, markX - len, markY, markX, markY);
+          graphics.DrawLine(&linePen, markX, markY - L, markX, markY + L);
+          graphics.DrawLine(&linePen, markX - L, markY, markX, markY);
         }
       } else {
-        graphics.DrawLine(&linePen, cx - len, cy, cx + len, cy);
-        graphics.DrawLine(&linePen, cx, cy - len, cx, cy + len);
+        int L = centerLen;
+        graphics.DrawLine(&linePen, cx - L, cy, cx + L, cy);
+        graphics.DrawLine(&linePen, cx, cy - L, cx, cy + L);
       }
 
       int anchorX = (isCorner || isEdge) ? markX : cx;
