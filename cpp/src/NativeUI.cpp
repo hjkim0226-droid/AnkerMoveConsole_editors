@@ -156,8 +156,8 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_windowWidth =
       SIDE_PANEL_WIDTH + gridPixelsW + config.margin * 2 + SIDE_PANEL_WIDTH;
 
-  // Minimum height to prevent icon clipping (3 icons + spacing)
-  int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
+  // Minimum height to prevent icon clipping (4 rows: 3 custom + Copy/Paste)
+  int minHeight = ICON_SIZE * 4 + ICON_SPACING * 3 + 20;
   g_windowHeight = (gridPixelsH + config.margin * 2 > minHeight)
                        ? gridPixelsH + config.margin * 2
                        : minHeight;
@@ -375,8 +375,9 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   case NativeUI::OPT_CUSTOM_1:
   case NativeUI::OPT_CUSTOM_2:
   case NativeUI::OPT_CUSTOM_3: {
+    // Default: dark gray, hover: blue (like selection mode)
     COLORREF colorRef =
-        hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
+        hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_DARK_GRAY);
     Color color = toColor(colorRef);
     // Use hover background color when hovering, otherwise transparent key
     COLORREF bgColorRef = hover ? RGB(50, 60, 70) : COLOR_BG;
@@ -474,7 +475,8 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   }
 
   case NativeUI::OPT_SETTINGS: {
-    COLORREF colorRef = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
+    // Default: dark gray, hover: blue
+    COLORREF colorRef = hover ? COLOR_BLUE : COLOR_DARK_GRAY;
     Color color = toColor(colorRef);
 
     // Inner radius 2x larger (more empty center), teeth shorter
@@ -501,7 +503,8 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   }
 
   case NativeUI::OPT_COPY_ANCHOR: {
-    COLORREF colorRef = hover ? COLOR_ICON_HOVER : COLOR_ICON_NORMAL;
+    // Default: dark gray, hover: blue
+    COLORREF colorRef = hover ? COLOR_ICON_HOVER : COLOR_DARK_GRAY;
     Color color = toColor(colorRef);
     Pen pen(color, 2.0f);
 
@@ -569,20 +572,18 @@ static void DrawSidePanels(HDC hdc) {
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
   }
 
-  // Bottom area: Copy/Paste icons (below left panel icons)
-  int bottomY = iconY + 3 * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2 + 10;
-  // Only draw if window is tall enough
-  if (bottomY + ICON_SIZE / 2 < g_windowHeight - 5) {
-    // Copy icon
-    bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
-    DrawIcon(hdc, leftCx - ICON_SIZE / 2 - 2, bottomY,
-             NativeUI::OPT_COPY_ANCHOR, copyHover, false);
+  // Bottom area: Copy/Paste icons (below custom anchors)
+  int bottomY = iconY + 3 * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2;
 
-    // Paste icon
-    bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
-    DrawIcon(hdc, leftCx + ICON_SIZE / 2 + 2, bottomY,
-             NativeUI::OPT_PASTE_ANCHOR, pasteHover, g_hasClipboardAnchor);
-  }
+  // Copy icon (left side)
+  bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
+  DrawIcon(hdc, leftCx - ICON_SIZE / 2 - 2, bottomY, NativeUI::OPT_COPY_ANCHOR,
+           copyHover, false);
+
+  // Paste icon (right of copy)
+  bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
+  DrawIcon(hdc, leftCx + ICON_SIZE / 2 + 2, bottomY, NativeUI::OPT_PASTE_ANCHOR,
+           pasteHover, g_hasClipboardAnchor);
 }
 
 // Draw the grid with marks and glow using GDI+
