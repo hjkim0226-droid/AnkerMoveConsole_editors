@@ -296,8 +296,8 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
     return;
   }
 
-  // Check right panel (Mode controls)
-  if (relX >= g_windowWidth - SIDE_PANEL_WIDTH) {
+  // Check right panel (Mode controls) - limit to panel width only
+  if (relX >= g_windowWidth - SIDE_PANEL_WIDTH && relX < g_windowWidth) {
     int bottomButtonsHeight = ICON_SIZE + 10;
     int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
     int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
