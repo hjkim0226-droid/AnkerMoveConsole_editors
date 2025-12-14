@@ -300,7 +300,7 @@ class Settings {
             startX = e.clientX;
             startY = e.clientY;
             startValue = self.settings[settingKey];
-            document.body.style.cursor = isHeight ? 'ns-resize' : 'ew-resize';
+            document.body.style.cursor = 'ew-resize'; // Always horizontal
             element.style.color = 'var(--blue)';
             e.preventDefault();
             console.log('Mousedown on', elementId, 'startValue:', startValue);
