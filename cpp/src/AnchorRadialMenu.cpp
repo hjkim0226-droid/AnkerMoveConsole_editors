@@ -29,6 +29,11 @@ static const int DOUBLE_TAP_MS = 250; // Max time between double-tap
 static std::chrono::steady_clock::time_point g_lastYRelease;
 static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 
+// Settings loaded from CEP
+static int g_loadedGridWidth = 3;
+static int g_loadedGridHeight = 3;
+static int g_loadedGridScale = 2; // 0-4, default 2 (0%)
+
 // Define MissingSuiteError for AEGP_SuiteHandler
 void AEGP_SuiteHandler::MissingSuiteError() const {
   throw std::runtime_error("Missing AEGP Suite");
@@ -144,7 +149,7 @@ void LoadSettingsFromFile() {
     p += 12;
     int val = atoi(p);
     if (val >= 3 && val <= 7) {
-      // Store in config - we'll apply when showing grid
+      g_loadedGridWidth = val;
     }
   }
   // gridHeight
@@ -152,7 +157,15 @@ void LoadSettingsFromFile() {
     p += 13;
     int val = atoi(p);
     if (val >= 3 && val <= 7) {
-      // Store in config
+      g_loadedGridHeight = val;
+    }
+  }
+  // gridScale (0-4)
+  if ((p = strstr(buffer, "\"gridScale\":")) != NULL) {
+    p += 12;
+    int val = atoi(p);
+    if (val >= 0 && val <= 4) {
+      g_loadedGridScale = val;
     }
   }
 }
@@ -163,9 +176,14 @@ void LoadSettingsFromFile() {
  *****************************************************************************/
 void ShowAnchorGrid(int mouseX, int mouseY) {
   NativeUI::GridConfig config;
-  config.gridWidth = 3;  // TODO: read from settings
-  config.gridHeight = 3; // TODO: read from settings
-  config.cellSize = 40;
+  config.gridWidth = g_loadedGridWidth;
+  config.gridHeight = g_loadedGridHeight;
+  
+  // Scale: 0=-40%, 1=-20%, 2=0%, 3=+20%, 4=+40%
+  int baseSize = 40;
+  float scaleFactors[] = {0.6f, 0.8f, 1.0f, 1.2f, 1.4f};
+  config.cellSize = (int)(baseSize * scaleFactors[g_loadedGridScale]);
+  
   config.spacing = 1;
   config.margin = 2;
 
@@ -177,8 +195,8 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
  * Apply anchor point to selected layers based on grid position
  *****************************************************************************/
 void ApplyAnchorToLayers(int gridX, int gridY) {
-  int gridW = 3; // TODO: get from settings
-  int gridH = 3; // TODO: get from settings
+  int gridW = g_loadedGridWidth;
+  int gridH = g_loadedGridHeight;
 
   char script[5000];
   snprintf(

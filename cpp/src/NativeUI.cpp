@@ -34,8 +34,8 @@ static ULONG_PTR g_gdiplusToken = 0;
 static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 
 // Color palette - Selection Mode (Cyan/Teal)
-#define COLOR_BG RGB(0, 0, 0)         // Transparent (color keyed out)
-#define COLOR_CELL_BG RGB(20, 20, 20) // Cell background
+#define COLOR_BG RGB(1, 1, 1)         // Transparent key (unique dark color)
+#define COLOR_CELL_BG RGB(35, 35, 40) // Cell background
 #define COLOR_GRID_LINE RGB(90, 140, 170)
 #define COLOR_GLOW_INNER RGB(74, 207, 255)
 #define COLOR_GLOW_MID RGB(42, 122, 154)
