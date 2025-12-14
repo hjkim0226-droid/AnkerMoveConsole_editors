@@ -55,10 +55,10 @@ async function init() {
         debugLog('Creating Settings...');
         settings = new Settings();
         debugLog('Settings created, gridWidth=' + settings.get('gridWidth'));
-        
+
         debugLog('Creating CustomAnchor...');
         customAnchor = new CustomAnchor(settings);
-        
+
         debugLog('Creating Grid...');
         grid = new AnchorGrid(settings);
         grid.build();
@@ -66,6 +66,13 @@ async function init() {
 
         // Apply theme
         applyTheme();
+
+        // Reload settings from file when panel gets focus (sync with C++ toggle)
+        window.addEventListener('focus', () => {
+            if (settings && settings.loadFromFile) {
+                settings.loadFromFile();
+            }
+        });
 
         console.log('Anchor Grid panel initialized');
 

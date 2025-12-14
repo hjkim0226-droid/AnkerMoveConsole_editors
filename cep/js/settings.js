@@ -80,6 +80,40 @@ class Settings {
         }
     }
 
+    loadFromFile() {
+        // Load settings from file (syncs with C++ plugin changes)
+        try {
+            const os = require('os');
+            const path = require('path');
+            const fs = require('fs');
+            let settingsPath;
+
+            if (os.platform() === 'win32') {
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+            } else {
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+            }
+
+            if (fs.existsSync(settingsPath)) {
+                const json = fs.readFileSync(settingsPath, 'utf8');
+                const parsed = JSON.parse(json);
+
+                // Only update mode settings (what C++ can change)
+                if (typeof parsed.useCompMode === 'boolean') {
+                    this.settings.useCompMode = parsed.useCompMode;
+                }
+                if (typeof parsed.useMaskRecognition === 'boolean') {
+                    this.settings.useMaskRecognition = parsed.useMaskRecognition;
+                }
+
+                this.applyToUI();
+                console.log('Settings loaded from file');
+            }
+        } catch (e) {
+            console.error('Failed to load settings from file:', e);
+        }
+    }
+
     get(key) {
         return this.settings[key];
     }
