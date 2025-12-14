@@ -484,27 +484,29 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     // Default: dark gray, hover: blue
     COLORREF colorRef = hover ? COLOR_BLUE : COLOR_DARK_GRAY;
     Color color = toColor(colorRef);
+    SolidBrush brush(color);
 
-    // Inner radius 2x larger (more empty center), teeth shorter
-    int innerR = (int)((r - 4) * 1.6f); // 2x the original size
-    int outerR = innerR + 3;            // Short teeth (only 3px beyond circle)
+    // FxConsole style gear: 8 teeth, filled shape
+    int outerR = r - 2;  // Outer radius (teeth tips)
+    int innerR = r - 6;  // Inner radius (between teeth)
+    int centerR = r / 3; // Center hole
 
-    Pen circlePen(color, 2.5f);
-    graphics.DrawEllipse(&circlePen, cx - innerR, cy - innerR, innerR * 2,
-                         innerR * 2);
-
-    // 6 short gear teeth
-    Pen teethPen(color, 3.5f);
-    int teethInner = innerR; // Start from circle edge
-    int teethOuter = outerR; // Short teeth
-    for (int i = 0; i < 6; i++) {
-      double angle = i * 3.14159 / 3;
-      int x1 = cx + (int)(teethInner * cos(angle));
-      int y1 = cy + (int)(teethInner * sin(angle));
-      int x2 = cx + (int)(teethOuter * cos(angle));
-      int y2 = cy + (int)(teethOuter * sin(angle));
-      graphics.DrawLine(&teethPen, x1, y1, x2, y2);
+    // Draw gear using polygon with 16 points (8 teeth)
+    Point gearPoints[16];
+    for (int i = 0; i < 16; i++) {
+      double angle = i * 3.14159 / 8.0 - 3.14159 / 16.0; // Offset for alignment
+      int radius = (i % 2 == 0) ? outerR : innerR; // Alternate outer/inner
+      gearPoints[i].X = cx + (int)(radius * cos(angle));
+      gearPoints[i].Y = cy + (int)(radius * sin(angle));
     }
+    graphics.FillPolygon(&brush, gearPoints, 16);
+
+    // Cut out center circle (use bg color)
+    COLORREF bgColorRef = hover ? RGB(50, 60, 70) : COLOR_BG;
+    Color bgColor = toColor(bgColorRef);
+    SolidBrush bgBrush(bgColor);
+    graphics.FillEllipse(&bgBrush, cx - centerR, cy - centerR, centerR * 2,
+                         centerR * 2);
     break;
   }
 
