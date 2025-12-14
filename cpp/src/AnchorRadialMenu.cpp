@@ -445,43 +445,46 @@ void HideAndApplyAnchor() {
   int mouseX = 0, mouseY = 0;
   KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
 
+  // First check if hovering on a mode toggle - don't hide, just toggle and
+  // repaint
+  NativeUI::GridSettings &settings = NativeUI::GetSettings();
+  NativeUI::ExtendedOption hoverOpt = NativeUI::OPT_NONE;
+  int hoverX = -1, hoverY = -1;
+  NativeUI::GetHoverCell(&hoverX, &hoverY);
+
+  // Get current hover option from the grid
+  // We need to peek at the hover state before hiding
+  extern NativeUI::ExtendedOption g_hoverExtOption;
+  hoverOpt = g_hoverExtOption;
+
+  // Handle mode toggles WITHOUT hiding the grid
+  if (hoverOpt == NativeUI::OPT_COMP_MODE) {
+    settings.useCompMode = !settings.useCompMode;
+    NativeUI::InvalidateGrid(); // Just repaint, don't close
+    return;
+  }
+  if (hoverOpt == NativeUI::OPT_MASK_MODE) {
+    settings.useMaskRecognition = !settings.useMaskRecognition;
+    NativeUI::InvalidateGrid(); // Just repaint, don't close
+    return;
+  }
+
+  // For all other options, hide the grid first
   NativeUI::GridResult result = NativeUI::HideGrid(mouseX, mouseY);
 
   // Handle extended menu options (side panel icons)
   if (result.extendedOption != NativeUI::OPT_NONE) {
-    NativeUI::GridSettings &settings = NativeUI::GetSettings();
     switch (result.extendedOption) {
     // Left panel: Custom anchors
     case NativeUI::OPT_CUSTOM_1:
-      // Apply custom anchor preset 1
-      // Apply custom anchor preset 1
       ApplyCustomAnchor(settings.customAnchor1X, settings.customAnchor1Y);
       break;
     case NativeUI::OPT_CUSTOM_2:
-      // Apply custom anchor preset 2
       ApplyCustomAnchor(settings.customAnchor2X, settings.customAnchor2Y);
       break;
     case NativeUI::OPT_CUSTOM_3:
-      // Apply custom anchor preset 3
       ApplyCustomAnchor(settings.customAnchor3X, settings.customAnchor3Y);
       break;
-    // Right panel: Mode controls - toggle and re-show grid
-    case NativeUI::OPT_COMP_MODE:
-      settings.useCompMode = !settings.useCompMode;
-      // Re-show grid so user can see the mode change and continue
-      ShowAnchorGrid(mouseX, mouseY);
-      // Set toggle mode so grid stays on Y release (user must click to apply)
-      g_toggleClickMode = true;
-      g_globals.menu_visible = true;
-      return; // Don't close - we just re-showed
-    case NativeUI::OPT_MASK_MODE:
-      settings.useMaskRecognition = !settings.useMaskRecognition;
-      // Re-show grid so user can see the mode change and continue
-      ShowAnchorGrid(mouseX, mouseY);
-      // Set toggle mode so grid stays on Y release
-      g_toggleClickMode = true;
-      g_globals.menu_visible = true;
-      return; // Don't close - we just re-showed
     case NativeUI::OPT_SETTINGS:
       // Open CEP panel via Window menu
       ExecuteScript("(function(){"

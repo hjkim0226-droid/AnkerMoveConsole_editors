@@ -85,6 +85,9 @@ bool HasClipboardAnchor();
 void GetClipboardAnchor(float *outX, float *outY);
 void SetClipboardAnchor(float x, float y);
 
+// Redraw the grid window (for mode toggle without closing)
+void InvalidateGrid();
+
 } // namespace NativeUI
 
 #endif // NATIVEUI_H

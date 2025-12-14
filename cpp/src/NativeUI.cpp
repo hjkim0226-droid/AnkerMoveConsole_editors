@@ -249,6 +249,12 @@ void SetClipboardAnchor(float x, float y) {
   g_clipboardAnchorY = y;
 }
 
+void InvalidateGrid() {
+  if (g_hwnd && IsWindow(g_hwnd)) {
+    InvalidateRect(g_hwnd, NULL, FALSE);
+  }
+}
+
 } // namespace NativeUI
 
 // Calculate hover cell or extended option from screen coordinates
