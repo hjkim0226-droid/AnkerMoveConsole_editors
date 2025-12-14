@@ -158,9 +158,10 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
 
   // Minimum height to prevent icon clipping (3 icons)
   int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
-  g_windowHeight = (gridPixelsH + config.margin * 2 > minHeight)
-                       ? gridPixelsH + config.margin * 2
-                       : minHeight;
+  // Add extra space for Copy/Paste buttons below grid
+  int gridHeightWithButtons = gridPixelsH + config.margin * 2 + ICON_SIZE + 10;
+  g_windowHeight =
+      (gridHeightWithButtons > minHeight) ? gridHeightWithButtons : minHeight;
 
   // Center window on mouse
   g_windowX = mouseX - g_windowWidth / 2;
@@ -603,7 +604,24 @@ static void DrawSidePanels(HDC hdc) {
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
   }
 
-  // Copy/Paste buttons removed for cleaner layout
+  // Copy/Paste buttons below grid (centered)
+  int gridCenterX =
+      SIDE_PANEL_WIDTH + g_config.margin +
+      (g_config.gridWidth * (g_config.cellSize + g_config.spacing)) / 2;
+  int gridBottomY =
+      g_config.margin +
+      g_config.gridHeight * (g_config.cellSize + g_config.spacing) +
+      ICON_SIZE / 2 + 5;
+
+  // Copy icon
+  bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
+  DrawIcon(hdc, gridCenterX - ICON_SIZE / 2 - 5, gridBottomY,
+           NativeUI::OPT_COPY_ANCHOR, copyHover, false);
+
+  // Paste icon
+  bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
+  DrawIcon(hdc, gridCenterX + ICON_SIZE / 2 + 5, gridBottomY,
+           NativeUI::OPT_PASTE_ANCHOR, pasteHover, g_hasClipboardAnchor);
 }
 
 // Draw the grid with marks and glow using GDI+
