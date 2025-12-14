@@ -66,6 +66,11 @@ static int g_hoverCellX = -1;
 static int g_hoverCellY = -1;
 static NativeUI::ExtendedOption g_hoverExtOption = NativeUI::OPT_NONE;
 
+// Copy/Paste anchor clipboard
+static bool g_hasClipboardAnchor = false;
+static float g_clipboardAnchorX = 0.5f;
+static float g_clipboardAnchorY = 0.5f;
+
 // Forward declarations
 static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
                                     LPARAM lParam);
@@ -246,9 +251,11 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   g_hoverCellY = -1;
   g_hoverExtOption = NativeUI::OPT_NONE;
 
-  // Check left panel (Custom Anchors)
+  // Check left panel (Custom Anchors and Copy/Paste)
   if (relX < SIDE_PANEL_WIDTH && relX >= 0) {
     int iconY = (g_windowHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
+
+    // Check custom anchor icons
     for (int i = 0; i < 3; i++) {
       int top = iconY + i * (ICON_SIZE + ICON_SPACING);
       if (relY >= top && relY < top + ICON_SIZE) {
@@ -257,6 +264,23 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
         return;
       }
     }
+
+    // Check Copy/Paste icons (below custom anchors)
+    int bottomY = iconY + 3 * (ICON_SIZE + ICON_SPACING) + 10;
+    if (relY >= bottomY - ICON_SIZE / 2 && relY < bottomY + ICON_SIZE / 2) {
+      int leftCx = SIDE_PANEL_WIDTH / 2;
+      // Copy icon on the left
+      if (relX < leftCx) {
+        g_hoverExtOption = NativeUI::OPT_COPY_ANCHOR;
+        return;
+      }
+      // Paste icon on the right
+      else {
+        g_hoverExtOption = NativeUI::OPT_PASTE_ANCHOR;
+        return;
+      }
+    }
+
     return;
   }
 
@@ -454,6 +478,43 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     break;
   }
 
+  case NativeUI::OPT_COPY_ANCHOR: {
+    COLORREF colorRef = hover ? COLOR_ICON_HOVER : COLOR_ICON_NORMAL;
+    Color color = toColor(colorRef);
+    Pen pen(color, 2.0f);
+
+    // Two overlapping rectangles (copy icon)
+    int size = r - 2;
+    int offset = 4;
+    // Back rectangle
+    graphics.DrawRectangle(&pen, cx - size + offset, cy - size + offset,
+                           size * 2 - offset * 2, size * 2 - offset * 2);
+    // Front rectangle (offset)
+    graphics.DrawRectangle(&pen, cx - size, cy - size, size * 2 - offset * 2,
+                           size * 2 - offset * 2);
+    break;
+  }
+
+  case NativeUI::OPT_PASTE_ANCHOR: {
+    // Dim if no clipboard data
+    COLORREF colorRef =
+        hover ? COLOR_ICON_HOVER
+              : (g_hasClipboardAnchor ? COLOR_BLUE : COLOR_DARK_GRAY);
+    Color color = toColor(colorRef);
+    Pen pen(color, 2.0f);
+    SolidBrush brush(color);
+
+    // Clipboard icon
+    int w = r - 2;
+    int h = r + 2;
+    // Main board
+    graphics.DrawRectangle(&pen, cx - w, cy - h + 4, w * 2, h * 2 - 4);
+    // Clip at top
+    int clipW = w / 2;
+    graphics.FillRectangle(&brush, cx - clipW, cy - h, clipW * 2, 6);
+    break;
+  }
+
   default:
     break;
   }
@@ -484,6 +545,21 @@ static void DrawSidePanels(HDC hdc) {
     int cy = iconY + i * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2;
     bool hover = (g_hoverExtOption == rightOpts[i]);
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
+  }
+
+  // Bottom area: Copy/Paste icons (below left panel icons)
+  int bottomY = iconY + 3 * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2 + 10;
+  // Only draw if window is tall enough
+  if (bottomY + ICON_SIZE / 2 < g_windowHeight - 5) {
+    // Copy icon
+    bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
+    DrawIcon(hdc, leftCx - ICON_SIZE / 2 - 2, bottomY,
+             NativeUI::OPT_COPY_ANCHOR, copyHover, false);
+
+    // Paste icon
+    bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
+    DrawIcon(hdc, leftCx + ICON_SIZE / 2 + 2, bottomY,
+             NativeUI::OPT_PASTE_ANCHOR, pasteHover, g_hasClipboardAnchor);
   }
 }
 

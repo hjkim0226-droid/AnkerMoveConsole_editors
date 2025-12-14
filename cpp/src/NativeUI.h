@@ -29,7 +29,10 @@ enum ExtendedOption {
   // Right side: Mode controls
   OPT_COMP_MODE, // Toggle Composition mode
   OPT_MASK_MODE, // Toggle Mask recognition
-  OPT_SETTINGS   // Open settings panel
+  OPT_SETTINGS,  // Open settings panel
+  // Bottom: Extended features
+  OPT_COPY_ANCHOR, // Copy anchor ratio
+  OPT_PASTE_ANCHOR // Paste anchor ratio
 };
 
 // Grid result

@@ -470,6 +470,49 @@ void HideAndApplyAnchor() {
                     "}"
                     "})();");
       break;
+    // Copy/Paste anchor
+    case NativeUI::OPT_COPY_ANCHOR: {
+      // Get current anchor ratio from selected layer
+      char resultBuf[256] = {0};
+      ExecuteScript("(function(){"
+                    "var c=app.project.activeItem;"
+                    "if(!c||!(c instanceof CompItem))return 'null';"
+                    "if(c.selectedLayers.length==0)return 'null';"
+                    "var L=c.selectedLayers[0];"
+                    "var b=L.sourceRectAtTime(c.time,false);"
+                    "if(!b||b.width<=0||b.height<=0)return 'null';"
+                    "var ap=L.property('ADBE Transform Group').property('ADBE "
+                    "Anchor Point').value;"
+                    "var rx=(ap[0]-b.left)/b.width;"
+                    "var ry=(ap[1]-b.top)/b.height;"
+                    "return rx.toFixed(4)+','+ry.toFixed(4);"
+                    "})();",
+                    resultBuf, sizeof(resultBuf));
+      // Parse result
+      if (resultBuf[0] != 'n' && resultBuf[0] != '\0') {
+        float rx = 0.5f, ry = 0.5f;
+        if (sscanf(resultBuf, "%f,%f", &rx, &ry) == 2) {
+          // Store in NativeUI's clipboard variables (need to expose these)
+          extern bool g_hasClipboardAnchor;
+          extern float g_clipboardAnchorX;
+          extern float g_clipboardAnchorY;
+          g_hasClipboardAnchor = true;
+          g_clipboardAnchorX = rx;
+          g_clipboardAnchorY = ry;
+        }
+      }
+      break;
+    }
+    case NativeUI::OPT_PASTE_ANCHOR: {
+      // Apply copied anchor ratio
+      extern bool g_hasClipboardAnchor;
+      extern float g_clipboardAnchorX;
+      extern float g_clipboardAnchorY;
+      if (g_hasClipboardAnchor) {
+        ApplyCustomAnchor(g_clipboardAnchorX, g_clipboardAnchorY);
+      }
+      break;
+    }
     default:
       break;
     }
