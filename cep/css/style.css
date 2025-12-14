@@ -109,7 +109,7 @@ body {
     background: rgba(74, 207, 255, 0.3);
 }
 
-/* Anchor mark style - crosshair */
+/* Anchor mark style - circle only */
 .preview-cell .mark {
     width: 100%;
     height: 100%;
@@ -119,38 +119,22 @@ body {
     position: relative;
 }
 
-.preview-cell .mark::before,
-.preview-cell .mark::after {
+/* Circle marker */
+.preview-cell .mark::before {
     content: '';
     position: absolute;
-    background: rgba(90, 140, 170, 0.8);
-}
-
-.preview-cell .mark::before {
-    width: 40%;
-    height: 2px;
-}
-
-.preview-cell .mark::after {
-    width: 2px;
-    height: 40%;
-}
-
-.preview-cell:hover .mark::before,
-.preview-cell:hover .mark::after {
-    background: rgba(74, 207, 255, 1);
-}
-
-/* Center dot */
-.preview-cell .mark .dot {
-    width: 4px;
-    height: 4px;
+    width: 8px;
+    height: 8px;
     background: rgba(90, 140, 170, 0.8);
     border-radius: 50%;
-    position: absolute;
 }
 
-.preview-cell:hover .mark .dot {
+/* Remove after (was crosshair vertical line) */
+.preview-cell .mark::after {
+    display: none;
+}
+
+.preview-cell:hover .mark::before {
     background: rgba(74, 207, 255, 1);
     box-shadow: 0 0 6px rgba(74, 207, 255, 0.8);
 }
