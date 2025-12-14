@@ -158,15 +158,17 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
 
   // Minimum height to prevent icon clipping (3 icons)
   int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
-  // Grid area height + bottom buttons space
+  // Grid area height + space for buttons below
   int bottomButtonsHeight = ICON_SIZE + 10;
   int gridAreaHeight = gridPixelsH + config.margin * 2;
-  g_windowHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
-  g_windowHeight += bottomButtonsHeight; // Add space below grid for buttons
+  int baseHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
+  g_windowHeight = baseHeight + bottomButtonsHeight;
 
-  // Center window on mouse (only grid area, not buttons)
+  // Center GRID on mouse (not window) - grid center is at margin +
+  // gridPixelsH/2
+  int gridCenterY = config.margin + gridPixelsH / 2;
   g_windowX = mouseX - g_windowWidth / 2;
-  g_windowY = mouseY - (g_windowHeight - bottomButtonsHeight) / 2;
+  g_windowY = mouseY - gridCenterY;
 
   // Apply grid opacity setting (0-100 -> 0-255)
   BYTE alpha = (BYTE)(g_settings.gridOpacity * 255 / 100);
