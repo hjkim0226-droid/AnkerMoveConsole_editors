@@ -71,7 +71,8 @@ async function init() {
         // Listen for mode changes from C++ plugin via CSXSEvent
         csInterface.addEventListener('anchorGridModeChanged', (event) => {
             try {
-                const data = JSON.parse(event.data);
+                // event.data may be string or object depending on source
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                 if (typeof data.useCompMode === 'boolean') {
                     settings.settings.useCompMode = data.useCompMode;
                 }
