@@ -309,10 +309,8 @@ class Settings {
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
 
-            // Height uses Y axis, Width uses X axis
-            const diff = isHeight
-                ? Math.floor((startY - e.clientY) / 20)  // Inverted: drag up = increase
-                : Math.floor((e.clientX - startX) / 20);
+            // Both width and height use X axis (horizontal drag)
+            const diff = Math.floor((e.clientX - startX) / 20);
             let newValue = startValue + diff;
             const min = parseInt(element.dataset.min) || 3;
             const max = parseInt(element.dataset.max) || 7;
