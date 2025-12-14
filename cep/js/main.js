@@ -67,10 +67,21 @@ async function init() {
         // Apply theme
         applyTheme();
 
-        // Reload settings from file when panel gets focus (sync with C++ toggle)
-        window.addEventListener('focus', () => {
-            if (settings && settings.loadFromFile) {
-                settings.loadFromFile();
+        // Listen for mode changes from C++ plugin via CSXSEvent
+        csInterface.addEventListener('anchorGridModeChanged', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (typeof data.useCompMode === 'boolean') {
+                    settings.settings.useCompMode = data.useCompMode;
+                }
+                if (typeof data.useMaskRecognition === 'boolean') {
+                    settings.settings.useMaskRecognition = data.useMaskRecognition;
+                }
+                settings.updateModeButtons();
+                settings.save(); // Persist to localStorage
+                debugLog('Mode synced from popup: compMode=' + data.useCompMode + ', mask=' + data.useMaskRecognition);
+            } catch (e) {
+                debugLog('Error parsing mode event: ' + e.message);
             }
         });
 

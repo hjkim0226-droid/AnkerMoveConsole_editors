@@ -561,14 +561,26 @@ void HideAndApplyAnchor() {
   // Get current hover option from the grid using getter function
   NativeUI::ExtendedOption hoverOpt = NativeUI::GetHoverExtOption();
 
-  // Handle mode toggles - toggle setting, then proceed to hide grid
+  // Handle mode toggles - toggle setting, then notify CEP
   if (hoverOpt == NativeUI::OPT_COMP_MODE) {
     settings.useCompMode = !settings.useCompMode;
     SaveSettingsToFile(); // Persist to file
+    // Notify CEP of change via ExtendScript
+    char script[128];
+    snprintf(script, sizeof(script), "notifyModeChange(%s, %s)",
+             settings.useCompMode ? "true" : "false",
+             settings.useMaskRecognition ? "true" : "false");
+    ExecuteScript(script);
     // Don't return - fall through to hide grid
   } else if (hoverOpt == NativeUI::OPT_MASK_MODE) {
     settings.useMaskRecognition = !settings.useMaskRecognition;
     SaveSettingsToFile(); // Persist to file
+    // Notify CEP of change via ExtendScript
+    char script[128];
+    snprintf(script, sizeof(script), "notifyModeChange(%s, %s)",
+             settings.useCompMode ? "true" : "false",
+             settings.useMaskRecognition ? "true" : "false");
+    ExecuteScript(script);
     // Don't return - fall through to hide grid
   }
 

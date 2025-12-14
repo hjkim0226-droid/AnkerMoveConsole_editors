@@ -274,3 +274,33 @@ function getLayerAnchorRatio() {
         return "Error: " + e.toString();
     }
 }
+
+/**
+ * Dispatch CSXS Event to CEP panel
+ * Called from C++ to notify CEP of mode toggle changes
+ */
+function dispatchCEPEvent(eventType, eventData) {
+    try {
+        var xLib = new ExternalObject("lib:PlugPlugExternalObject");
+        if (xLib) {
+            var event = new CSXSEvent();
+            event.type = eventType;
+            event.data = JSON.stringify(eventData);
+            event.dispatch();
+            return "OK";
+        }
+        return "Error: PlugPlugExternalObject not available";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Notify CEP of mode change (called by C++ plugin)
+ */
+function notifyModeChange(useCompMode, useMaskRecognition) {
+    return dispatchCEPEvent("anchorGridModeChanged", {
+        useCompMode: useCompMode,
+        useMaskRecognition: useMaskRecognition
+    });
+}
