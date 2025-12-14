@@ -458,10 +458,24 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       // Calculate anchor in appropriate coordinate space
       "var nx,ny;"
       "if(useCompMode){"
-      // Composition mode: calculate in comp space, then convert to layer local
+      // Composition mode: convert comp coord to layer local
+      // Get layer transform properties
+      "var pos=L.position.value;"
+      "var anc=L.anchorPoint.value;"
+      "var sc=L.scale.value;"
+      "var rot=L.rotation.value*Math.PI/180;"
+      // Target position in comp space
       "var compX=c.width*px,compY=c.height*py;"
-      "var localPt=L.fromComp([compX,compY],c.time);"
-      "nx=localPt[0];ny=localPt[1];"
+      // Translate: comp coord relative to layer position
+      "var dx=compX-pos[0],dy=compY-pos[1];"
+      // Reverse rotation
+      "var cos_r=Math.cos(-rot),sin_r=Math.sin(-rot);"
+      "var rx=dx*cos_r-dy*sin_r,ry=dx*sin_r+dy*cos_r;"
+      // Reverse scale
+      "var sx=100/sc[0],sy=100/sc[1];"
+      "rx=rx*sx;ry=ry*sy;"
+      // Add anchor offset to get local coord
+      "nx=rx+anc[0];ny=ry+anc[1];"
       "}else{"
       // Selection mode: already in layer local coordinates
       "nx=b.left+b.width*px;ny=b.top+b.height*py;"
