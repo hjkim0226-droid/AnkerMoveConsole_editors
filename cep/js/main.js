@@ -85,6 +85,13 @@ async function init() {
             }
         });
 
+        // Sync when panel gets focus (catches changes made while panel was in background)
+        window.addEventListener('focus', () => {
+            if (settings && settings.loadFromFile) {
+                settings.loadFromFile();
+            }
+        });
+
         console.log('Anchor Grid panel initialized');
 
     } catch (error) {
