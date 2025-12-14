@@ -419,9 +419,9 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     graphics.DrawEllipse(&pen, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
 
-    // Draw preset number inside circle
+    // Draw preset number inside circle - 20% larger font
     FontFamily fontFamily(L"Segoe UI");
-    Font font(&fontFamily, 10, FontStyleBold, UnitPixel);
+    Font font(&fontFamily, 12, FontStyleBold, UnitPixel);
     SolidBrush textBrush(color);
     StringFormat format;
     format.SetAlignment(StringAlignmentCenter);
