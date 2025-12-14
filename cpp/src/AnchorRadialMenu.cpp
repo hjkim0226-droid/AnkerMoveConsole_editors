@@ -292,6 +292,89 @@ void LoadSettingsFromFile() {
 }
 
 /*****************************************************************************
+ * SaveSettingsToFile
+ * Write mode settings to CEP's settings file (only useCompMode and
+ *useMaskRecognition)
+ *****************************************************************************/
+void SaveSettingsToFile() {
+#ifdef MSWindows
+  char path[512];
+  const char *appdata = getenv("APPDATA");
+  if (!appdata)
+    return;
+  snprintf(path, sizeof(path),
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json",
+           appdata);
+#else
+  char path[512];
+  const char *home = getenv("HOME");
+  if (!home)
+    return;
+  snprintf(path, sizeof(path),
+           "%s/Library/Application "
+           "Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+           home);
+#endif
+
+  // Read existing file
+  char buffer[2048] = {0};
+  FILE *f = fopen(path, "r");
+  if (f) {
+    size_t len = fread(buffer, 1, sizeof(buffer) - 1, f);
+    buffer[len] = '\0';
+    fclose(f);
+  }
+
+  NativeUI::GridSettings &settings = NativeUI::GetSettings();
+
+  // Update useCompMode and useMaskRecognition in the JSON
+  char newBuffer[2048];
+  char *p;
+
+  // Simple replacement: find and replace the values
+  strcpy(newBuffer, buffer);
+
+  // Update useCompMode
+  if ((p = strstr(newBuffer, "\"useCompMode\":")) != NULL) {
+    char *valStart = p + 14;
+    char *valEnd = strchr(valStart, ',');
+    if (!valEnd)
+      valEnd = strchr(valStart, '}');
+    if (valEnd) {
+      char temp[2048];
+      strncpy(temp, newBuffer, valStart - newBuffer);
+      temp[valStart - newBuffer] = '\0';
+      strcat(temp, settings.useCompMode ? "true" : "false");
+      strcat(temp, valEnd);
+      strcpy(newBuffer, temp);
+    }
+  }
+
+  // Update useMaskRecognition
+  if ((p = strstr(newBuffer, "\"useMaskRecognition\":")) != NULL) {
+    char *valStart = p + 21;
+    char *valEnd = strchr(valStart, ',');
+    if (!valEnd)
+      valEnd = strchr(valStart, '}');
+    if (valEnd) {
+      char temp[2048];
+      strncpy(temp, newBuffer, valStart - newBuffer);
+      temp[valStart - newBuffer] = '\0';
+      strcat(temp, settings.useMaskRecognition ? "true" : "false");
+      strcat(temp, valEnd);
+      strcpy(newBuffer, temp);
+    }
+  }
+
+  // Write back
+  f = fopen(path, "w");
+  if (f) {
+    fputs(newBuffer, f);
+    fclose(f);
+  }
+}
+
+/*****************************************************************************
  * ShowAnchorGrid
  * Show the native anchor grid at specified position
  *****************************************************************************/
@@ -467,9 +550,11 @@ void HideAndApplyAnchor() {
   // Handle mode toggles - toggle setting, then proceed to hide grid
   if (hoverOpt == NativeUI::OPT_COMP_MODE) {
     settings.useCompMode = !settings.useCompMode;
+    SaveSettingsToFile(); // Persist to file
     // Don't return - fall through to hide grid
   } else if (hoverOpt == NativeUI::OPT_MASK_MODE) {
     settings.useMaskRecognition = !settings.useMaskRecognition;
+    SaveSettingsToFile(); // Persist to file
     // Don't return - fall through to hide grid
   }
 
