@@ -85,6 +85,13 @@ async function init() {
             }
         });
 
+        // Backup: Poll file for changes every 2 seconds
+        setInterval(() => {
+            if (settings && settings.loadFromFile) {
+                settings.loadFromFile();
+            }
+        }, 2000);
+
         console.log('Anchor Grid panel initialized');
 
     } catch (error) {
