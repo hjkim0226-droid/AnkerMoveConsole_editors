@@ -16,7 +16,7 @@
 
     <!-- Grid Preview Section -->
     <div class="section">
-        <div class="section-title">Grid Preview</div>
+        <div class="section-title" data-i18n="gridPreview">Grid Preview</div>
         <div class="grid-preview-container">
             <div id="preview-grid" class="preview-grid"></div>
         </div>
@@ -24,7 +24,7 @@
 
     <!-- Grid Size Section -->
     <div class="section">
-        <div class="section-title">Grid Size</div>
+        <div class="section-title" data-i18n="gridSize">Grid Size</div>
         <div class="grid-size-row">
             <div class="size-control">
                 <span class="size-label">Width:</span>
@@ -40,7 +40,7 @@
 
     <!-- Grid Scale Slider -->
     <div class="section">
-        <div class="section-title">Grid Scale</div>
+        <div class="section-title" data-i18n="gridScale">Grid Scale</div>
         <div class="scale-slider-container">
             <span class="scale-label">-40%</span>
             <input type="range" id="grid-scale" class="scale-slider" min="0" max="4" value="1" step="1">
@@ -51,7 +51,7 @@
 
     <!-- Mode Section -->
     <div class="section">
-        <div class="section-title">Mode</div>
+        <div class="section-title" data-i18n="mode">Mode</div>
         <div class="mode-row">
             <button class="mode-btn active selection" id="btn-selection">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -61,7 +61,7 @@
                     <rect x="2" y="18" width="4" height="4" fill="currentColor" />
                     <rect x="18" y="18" width="4" height="4" fill="currentColor" />
                 </svg>
-                <span>Selection</span>
+                <span data-i18n="selection">Selection</span>
             </button>
             <button class="mode-btn composition" id="btn-composition">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -69,7 +69,7 @@
                     <line x1="12" y1="9" x2="12" y2="15" />
                     <line x1="9" y1="12" x2="15" y2="12" />
                 </svg>
-                <span>Composition</span>
+                <span data-i18n="composition">Composition</span>
             </button>
         </div>
         <div class="mode-row">
@@ -78,20 +78,20 @@
                     <rect x="2" y="2" width="20" height="20" rx="2" />
                     <circle cx="12" cy="12" r="5" fill="var(--bg-color)" />
                 </svg>
-                <span>Mask ON</span>
+                <span data-i18n="maskOn">Mask ON</span>
             </button>
             <button class="mode-btn mask-off" id="btn-mask-off">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="2" y="2" width="20" height="20" rx="2" />
                 </svg>
-                <span>Mask OFF</span>
+                <span data-i18n="maskOff">Mask OFF</span>
             </button>
         </div>
     </div>
 
     <!-- Custom Anchor Section -->
     <div class="section">
-        <div class="section-title">Custom Anchors</div>
+        <div class="section-title" data-i18n="customAnchors">Custom Anchors</div>
         <div class="custom-anchor-container">
             <div class="custom-anchor-icons">
                 <button class="custom-btn active" id="custom-1" data-preset="1">
@@ -145,7 +145,7 @@
 
     <!-- Transparency Section -->
     <div class="section">
-        <div class="section-title">Transparency</div>
+        <div class="section-title" data-i18n="transparency">Transparency</div>
         <div class="slider-row">
             <span class="slider-label">Grid BG:</span>
             <input type="range" id="grid-opacity" class="opacity-slider" min="0" max="100" value="75">

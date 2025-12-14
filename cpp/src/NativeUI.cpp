@@ -140,15 +140,27 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_hoverCellY = -1;
   g_hoverExtOption = OPT_NONE;
 
+  // Fixed grid size target (constant regardless of cell count)
+  const int TARGET_GRID_SIZE = 150; // pixels
+  
+  // Calculate cellSize to maintain constant grid size
+  int maxDim = (config.gridWidth > config.gridHeight) ? config.gridWidth : config.gridHeight;
+  g_config.cellSize = (TARGET_GRID_SIZE - (maxDim - 1) * config.spacing) / maxDim;
+  
   // Calculate window size
-  int cellTotal = config.cellSize + config.spacing;
+  int cellTotal = g_config.cellSize + config.spacing;
   int gridPixelsW = config.gridWidth * cellTotal;
   int gridPixelsH = config.gridHeight * cellTotal;
 
   // Window: [left panel] [grid] [right panel]
   g_windowWidth =
       SIDE_PANEL_WIDTH + gridPixelsW + config.margin * 2 + SIDE_PANEL_WIDTH;
-  g_windowHeight = gridPixelsH + config.margin * 2;
+  
+  // Minimum height to prevent icon clipping (3 icons + spacing)
+  int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
+  g_windowHeight = (gridPixelsH + config.margin * 2 > minHeight) 
+      ? gridPixelsH + config.margin * 2 
+      : minHeight;
 
   // Center window on mouse
   g_windowX = mouseX - g_windowWidth / 2;
@@ -597,7 +609,8 @@ static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
     HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
     SelectObject(memDC, memBitmap);
 
-    HBRUSH bgBrush = CreateSolidBrush(COLOR_BG);
+    // Fill with exact color key for clean transparency
+    HBRUSH bgBrush = CreateSolidBrush(RGB(1, 1, 1));  // Must match COLOR_BG
     FillRect(memDC, &rect, bgBrush);
     DeleteObject(bgBrush);
 

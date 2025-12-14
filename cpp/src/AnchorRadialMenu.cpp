@@ -33,6 +33,8 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 static int g_loadedGridWidth = 3;
 static int g_loadedGridHeight = 3;
 static int g_loadedGridScale = 2; // 0-4, default 2 (0%)
+static int g_loadedGridOpacity = 75; // 0-100%
+static int g_loadedCellOpacity = 50; // 0-100%
 
 // Define MissingSuiteError for AEGP_SuiteHandler
 void AEGP_SuiteHandler::MissingSuiteError() const {
@@ -166,6 +168,22 @@ void LoadSettingsFromFile() {
     int val = atoi(p);
     if (val >= 0 && val <= 4) {
       g_loadedGridScale = val;
+    }
+  }
+  // gridOpacity
+  if ((p = strstr(buffer, "\"gridOpacity\":")) != NULL) {
+    p += 14;
+    int val = atoi(p);
+    if (val >= 0 && val <= 100) {
+      g_loadedGridOpacity = val;
+    }
+  }
+  // cellOpacity
+  if ((p = strstr(buffer, "\"cellOpacity\":")) != NULL) {
+    p += 14;
+    int val = atoi(p);
+    if (val >= 0 && val <= 100) {
+      g_loadedCellOpacity = val;
     }
   }
 }
