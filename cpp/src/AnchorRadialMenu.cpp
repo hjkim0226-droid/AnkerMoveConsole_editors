@@ -454,16 +454,13 @@ void HideAndApplyAnchor() {
   // Get current hover option from the grid using getter function
   NativeUI::ExtendedOption hoverOpt = NativeUI::GetHoverExtOption();
 
-  // Handle mode toggles WITHOUT hiding the grid
+  // Handle mode toggles - toggle setting, then proceed to hide grid
   if (hoverOpt == NativeUI::OPT_COMP_MODE) {
     settings.useCompMode = !settings.useCompMode;
-    NativeUI::InvalidateGrid(); // Just repaint, don't close
-    return;
-  }
-  if (hoverOpt == NativeUI::OPT_MASK_MODE) {
+    // Don't return - fall through to hide grid
+  } else if (hoverOpt == NativeUI::OPT_MASK_MODE) {
     settings.useMaskRecognition = !settings.useMaskRecognition;
-    NativeUI::InvalidateGrid(); // Just repaint, don't close
-    return;
+    // Don't return - fall through to hide grid
   }
 
   // For all other options, hide the grid first
