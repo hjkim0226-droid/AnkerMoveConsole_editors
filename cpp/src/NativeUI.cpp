@@ -276,7 +276,7 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   g_hoverCellY = -1;
   g_hoverExtOption = NativeUI::OPT_NONE;
 
-  // Check left panel (Custom Anchors and Copy/Paste)
+  // Check left panel (Custom Anchors only)
   if (relX < SIDE_PANEL_WIDTH && relX >= 0) {
     int iconY = (g_windowHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
 
@@ -289,23 +289,6 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
         return;
       }
     }
-
-    // Check Copy/Paste icons (below custom anchors)
-    int bottomY = iconY + 3 * (ICON_SIZE + ICON_SPACING) + 10;
-    if (relY >= bottomY - ICON_SIZE / 2 && relY < bottomY + ICON_SIZE / 2) {
-      int leftCx = SIDE_PANEL_WIDTH / 2;
-      // Copy icon on the left
-      if (relX < leftCx) {
-        g_hoverExtOption = NativeUI::OPT_COPY_ANCHOR;
-        return;
-      }
-      // Paste icon on the right
-      else {
-        g_hoverExtOption = NativeUI::OPT_PASTE_ANCHOR;
-        return;
-      }
-    }
-
     return;
   }
 
@@ -330,6 +313,28 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
       }
     }
     return;
+  }
+
+  // Check Copy/Paste buttons (below grid center)
+  int bottomButtonsHeight = ICON_SIZE + 10;
+  int gridCenterX = SIDE_PANEL_WIDTH + g_config.margin + gridPixelsW / 2;
+  int gridBottomY = g_config.margin + gridPixelsH + ICON_SIZE / 2 + 5;
+
+  if (relY >= gridBottomY - ICON_SIZE / 2 &&
+      relY < gridBottomY + ICON_SIZE / 2) {
+    int copyX = gridCenterX - ICON_SIZE / 2 - 5;
+    int pasteX = gridCenterX + ICON_SIZE / 2 + 5;
+
+    // Copy button
+    if (relX >= copyX - ICON_SIZE / 2 && relX < copyX + ICON_SIZE / 2) {
+      g_hoverExtOption = NativeUI::OPT_COPY_ANCHOR;
+      return;
+    }
+    // Paste button
+    if (relX >= pasteX - ICON_SIZE / 2 && relX < pasteX + ICON_SIZE / 2) {
+      g_hoverExtOption = NativeUI::OPT_PASTE_ANCHOR;
+      return;
+    }
   }
 
   // Check grid cells
