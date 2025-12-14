@@ -289,6 +289,55 @@ void LoadSettingsFromFile() {
       g_loadedCellOpacity = val;
     }
   }
+
+  // customAnchors array - parse [{x:50,y:50},{x:50,y:50},{x:50,y:50}]
+  if ((p = strstr(buffer, "\"customAnchors\":")) != NULL) {
+    // Find the array start
+    p = strchr(p, '[');
+    if (p) {
+      NativeUI::GridSettings &settings = NativeUI::GetSettings();
+      // Parse each anchor object
+      for (int i = 0; i < 3; i++) {
+        // Find "x":
+        char *xp = strstr(p, "\"x\":");
+        if (!xp)
+          break;
+        xp += 4;
+        int xVal = atoi(xp);
+
+        // Find "y":
+        char *yp = strstr(xp, "\"y\":");
+        if (!yp)
+          break;
+        yp += 4;
+        int yVal = atoi(yp);
+
+        // Convert from 0-100 percent to 0.0-1.0 ratio
+        float rx = xVal / 100.0f;
+        float ry = yVal / 100.0f;
+
+        switch (i) {
+        case 0:
+          settings.customAnchor1X = rx;
+          settings.customAnchor1Y = ry;
+          break;
+        case 1:
+          settings.customAnchor2X = rx;
+          settings.customAnchor2Y = ry;
+          break;
+        case 2:
+          settings.customAnchor3X = rx;
+          settings.customAnchor3Y = ry;
+          break;
+        }
+
+        // Move to next object
+        p = strchr(yp, '}');
+        if (!p)
+          break;
+      }
+    }
+  }
 }
 
 /*****************************************************************************
@@ -480,12 +529,14 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       // Selection mode: already in layer local coordinates
       "nx=b.left+b.width*px;ny=b.top+b.height*py;"
       "}"
-      "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
+      "var ap=L.property('ADBE Transform Group').property('ADBE Anchor "
+      "Point');"
       "var pp=L.property('ADBE Transform Group').property('ADBE Position');"
       "if(!ap||!pp)continue;"
       "var oa=ap.value,pos=pp.value;"
       "var dx=nx-oa[0],dy=ny-oa[1];"
-      "var sc=L.property('ADBE Transform Group').property('ADBE Scale').value;"
+      "var sc=L.property('ADBE Transform Group').property('ADBE "
+      "Scale').value;"
       "var sx=sc[0]/100,sy=sc[1]/100;"
       "var rot=L.property('ADBE Transform Group').property('ADBE Rotate "
       "Z').value*Math.PI/180;"
@@ -522,12 +573,14 @@ void ApplyCustomAnchor(float ratioX, float ratioY) {
       "var b=L.sourceRectAtTime(c.time,false);"
       "if(!b||b.width<=0||b.height<=0)continue;"
       "var nx=b.left+b.width*rx,ny=b.top+b.height*ry;"
-      "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
+      "var ap=L.property('ADBE Transform Group').property('ADBE Anchor "
+      "Point');"
       "var pp=L.property('ADBE Transform Group').property('ADBE Position');"
       "if(!ap||!pp)continue;"
       "var oa=ap.value,pos=pp.value;"
       "var dx=nx-oa[0],dy=ny-oa[1];"
-      "var sc=L.property('ADBE Transform Group').property('ADBE Scale').value;"
+      "var sc=L.property('ADBE Transform Group').property('ADBE "
+      "Scale').value;"
       "var sx=sc[0]/100,sy=sc[1]/100;"
       "var rot=L.property('ADBE Transform Group').property('ADBE Rotate "
       "Z').value*Math.PI/180;"
@@ -673,7 +726,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: user is typing in text field OR After Effects is not in foreground
+  // Skip if: user is typing in text field OR After Effects is not in
+  // foreground
   if (y_key_held && !g_globals.key_was_held && !alt_held &&
       !IsTextInputFocused() && IsAfterEffectsForeground()) {
     if (HasSelectedLayers()) {
