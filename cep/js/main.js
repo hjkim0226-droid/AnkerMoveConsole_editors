@@ -14,11 +14,33 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 });
 
+// Debug output to UI
+function debugLog(msg) {
+    console.log(msg);
+    const debugEl = document.getElementById('debug-output');
+    if (debugEl) {
+        debugEl.innerHTML = '[' + new Date().toLocaleTimeString() + '] ' + msg + '<br>' + debugEl.innerHTML;
+        debugEl.innerHTML = debugEl.innerHTML.substring(0, 2000); // Limit size
+    }
+    const errorEl = document.getElementById('error-message');
+    if (errorEl && msg.toLowerCase().includes('error')) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('visible');
+    }
+}
+window.debugLog = debugLog;
+
 async function init() {
+    debugLog('Init starting...');
     try {
         // Initialize CSInterface
+        if (typeof CSInterface === 'undefined') {
+            debugLog('ERROR: CSInterface not loaded!');
+            return;
+        }
         csInterface = new CSInterface();
         window.csInterface = csInterface;
+        debugLog('CSInterface created');
 
         // Load ExtendScript
         const jsxPath = csInterface.getSystemPath(SystemPath.EXTENSION) + '/jsx/anchor.jsx';
@@ -30,10 +52,17 @@ async function init() {
         }
 
         // Initialize modules
+        debugLog('Creating Settings...');
         settings = new Settings();
+        debugLog('Settings created, gridWidth=' + settings.get('gridWidth'));
+        
+        debugLog('Creating CustomAnchor...');
         customAnchor = new CustomAnchor(settings);
+        
+        debugLog('Creating Grid...');
         grid = new AnchorGrid(settings);
         grid.build();
+        debugLog('Grid built');
 
         // Apply theme
         applyTheme();
@@ -41,6 +70,7 @@ async function init() {
         console.log('Anchor Grid panel initialized');
 
     } catch (error) {
+        debugLog('ERROR: ' + error.message);
         showError('Failed to initialize: ' + error.message);
     }
 }
