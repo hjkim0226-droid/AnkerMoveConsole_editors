@@ -319,26 +319,38 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
 /*****************************************************************************
  * ApplyAnchorToLayers
  * Apply anchor point to selected layers based on grid position
+ * Respects composition mode and mask recognition settings
  *****************************************************************************/
 void ApplyAnchorToLayers(int gridX, int gridY) {
   int gridW = g_loadedGridWidth;
   int gridH = g_loadedGridHeight;
 
-  char script[5000];
+  // Get current mode settings
+  NativeUI::GridSettings &settings = NativeUI::GetSettings();
+  bool useCompMode = settings.useCompMode;
+  bool useMaskMode = settings.useMaskRecognition;
+
+  char script[6000];
   snprintf(
       script, sizeof(script),
       "(function(){"
       "var gx=%d,gy=%d,gridW=%d,gridH=%d;"
+      "var useCompMode=%s,useMaskMode=%s;"
       "var c=app.project.activeItem;"
       "if(!c||!(c instanceof CompItem))return;"
       "if(c.selectedLayers.length==0)return;"
       "app.beginUndoGroup('Set Anchor');"
       "for(var i=0;i<c.selectedLayers.length;i++){"
       "var L=c.selectedLayers[i];"
-      // Function to get mask bounds
-      "function getMaskBounds(layer){"
-      "var masks=layer.property('ADBE Mask Parade');"
-      "if(!masks||masks.numProperties==0)return null;"
+      "var b=null;"
+      // Composition mode: use comp bounds
+      "if(useCompMode){"
+      "b={left:0,top:0,width:c.width,height:c.height};"
+      "}else{"
+      // Selection mode: try mask first if enabled, then sourceRect
+      "if(useMaskMode){"
+      "var masks=L.property('ADBE Mask Parade');"
+      "if(masks&&masks.numProperties>0){"
       "var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;"
       "for(var m=1;m<=masks.numProperties;m++){"
       "var mask=masks.property(m);"
@@ -352,12 +364,12 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "if(pt[1]<minY)minY=pt[1];"
       "if(pt[1]>maxY)maxY=pt[1];"
       "}}"
-      "if(minX==Infinity)return null;"
-      "return{left:minX,top:minY,width:maxX-minX,height:maxY-minY};"
-      "}"
-      // Check for masks first, then fall back to sourceRectAtTime
-      "var b=getMaskBounds(L);"
+      "if(minX!=Infinity){"
+      "b={left:minX,top:minY,width:maxX-minX,height:maxY-minY};"
+      "}}}"
+      // Fall back to sourceRectAtTime
       "if(!b)b=L.sourceRectAtTime(c.time,false);"
+      "}"
       "if(!b||b.width<=0||b.height<=0)continue;"
       "var px=gx/(gridW-1),py=gy/(gridH-1);"
       "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
@@ -378,7 +390,8 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "}"
       "app.endUndoGroup();"
       "})();",
-      gridX, gridY, gridW, gridH);
+      gridX, gridY, gridW, gridH, useCompMode ? "true" : "false",
+      useMaskMode ? "true" : "false");
 
   ExecuteScript(script);
 }
@@ -452,13 +465,17 @@ void HideAndApplyAnchor() {
       // Apply custom anchor preset 3
       ApplyCustomAnchor(settings.customAnchor3X, settings.customAnchor3Y);
       break;
-    // Right panel: Mode controls
+    // Right panel: Mode controls - toggle and re-show grid
     case NativeUI::OPT_COMP_MODE:
       settings.useCompMode = !settings.useCompMode;
-      break;
+      // Re-show grid so user can see the mode change and continue
+      ShowAnchorGrid(mouseX, mouseY);
+      return; // Don't close - we just re-showed
     case NativeUI::OPT_MASK_MODE:
       settings.useMaskRecognition = !settings.useMaskRecognition;
-      break;
+      // Re-show grid so user can see the mode change and continue
+      ShowAnchorGrid(mouseX, mouseY);
+      return; // Don't close - we just re-showed
     case NativeUI::OPT_SETTINGS:
       // Open CEP panel via Window menu
       ExecuteScript("(function(){"

@@ -462,12 +462,12 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Color bgColor = toColor(bgColorRef);
     SolidBrush bgBrush(bgColor);
 
-    // Horizontal rectangle (10% taller than before)
+    // Horizontal rectangle (20% taller - 10% more than before)
     int w = r + 3;
-    int h = (int)((r - 3) * 1.1f); // 10% taller
+    int h = (int)((r - 3) * 1.2f); // 20% taller total
     graphics.FillRectangle(&brush, cx - w, cy - h, w * 2, h * 2);
-    // Circle cutout (10% larger)
-    int circleR = (int)(h / 2 * 1.1f); // 10% larger
+    // Circle cutout (30% larger than original)
+    int circleR = (int)(h / 2 * 1.3f); // 30% larger
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
     break;
@@ -609,12 +609,22 @@ static void DrawGrid(HDC hdc) {
   };
 
   Color cellBgColor = toColor(COLOR_CELL_BG);
-  Color lineColor = toColor(compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE);
-  Color glowInnerColor =
-      toColor(compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER);
-  Color glowMidColor = toColor(compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID);
-  Color glowOuterColor =
-      toColor(compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER);
+
+  // Apply gridOpacity (mark opacity) to line/mark colors
+  BYTE markAlpha = (BYTE)(g_settings.gridOpacity * 255 / 100);
+  COLORREF lineColorRef = compMode ? COLOR_GRID_LINE_COMP : COLOR_GRID_LINE;
+  Color lineColor(markAlpha, GetRValue(lineColorRef), GetGValue(lineColorRef),
+                  GetBValue(lineColorRef));
+
+  COLORREF glowInnerRef = compMode ? COLOR_GLOW_INNER_COMP : COLOR_GLOW_INNER;
+  Color glowInnerColor(255, GetRValue(glowInnerRef), GetGValue(glowInnerRef),
+                       GetBValue(glowInnerRef)); // Glow stays full
+  COLORREF glowMidRef = compMode ? COLOR_GLOW_MID_COMP : COLOR_GLOW_MID;
+  Color glowMidColor(255, GetRValue(glowMidRef), GetGValue(glowMidRef),
+                     GetBValue(glowMidRef));
+  COLORREF glowOuterRef = compMode ? COLOR_GLOW_OUTER_COMP : COLOR_GLOW_OUTER;
+  Color glowOuterColor(255, GetRValue(glowOuterRef), GetGValue(glowOuterRef),
+                       GetBValue(glowOuterRef));
 
   // Draw cell backgrounds with opacity
   BYTE cellAlpha = (BYTE)(g_settings.cellOpacity * 255 / 100);
