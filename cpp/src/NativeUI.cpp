@@ -156,8 +156,8 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_windowWidth =
       SIDE_PANEL_WIDTH + gridPixelsW + config.margin * 2 + SIDE_PANEL_WIDTH;
 
-  // Minimum height to prevent icon clipping (4 rows: 3 custom + Copy/Paste)
-  int minHeight = ICON_SIZE * 4 + ICON_SPACING * 3 + 20;
+  // Minimum height to prevent icon clipping (3 icons)
+  int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
   g_windowHeight = (gridPixelsH + config.margin * 2 > minHeight)
                        ? gridPixelsH + config.margin * 2
                        : minHeight;
@@ -488,11 +488,12 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Color color = toColor(colorRef);
     SolidBrush brush(color);
 
-    // User-style gear: 6 wide teeth, large center hole
-    int outerR = r - 1;                       // Outer radius (teeth tips)
-    int midR = r - 4;                         // Mid radius (teeth base)
-    int innerR = r - 7;                       // Inner radius (valleys)
-    int centerR = (int)((r / 2 - 1) * 0.85f); // Center hole 15% smaller
+    // User-style gear: 6 wide teeth, large center hole - 40% larger
+    int baseR = (int)(r * 1.4f);                  // 40% larger
+    int outerR = baseR - 1;                       // Outer radius (teeth tips)
+    int midR = baseR - 4;                         // Mid radius (teeth base)
+    int innerR = baseR - 7;                       // Inner radius (valleys)
+    int centerR = (int)((baseR / 2 - 1) * 0.85f); // Center hole 15% smaller
 
     // Draw gear using polygon with 24 points (6 teeth, 4 points each)
     Point gearPoints[24];
@@ -602,18 +603,7 @@ static void DrawSidePanels(HDC hdc) {
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
   }
 
-  // Bottom area: Copy/Paste icons (below custom anchors)
-  int bottomY = iconY + 3 * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2;
-
-  // Copy icon (left side)
-  bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
-  DrawIcon(hdc, leftCx - ICON_SIZE / 2 - 2, bottomY, NativeUI::OPT_COPY_ANCHOR,
-           copyHover, false);
-
-  // Paste icon (right of copy)
-  bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
-  DrawIcon(hdc, leftCx + ICON_SIZE / 2 + 2, bottomY, NativeUI::OPT_PASTE_ANCHOR,
-           pasteHover, g_hasClipboardAnchor);
+  // Copy/Paste buttons removed for cleaner layout
 }
 
 // Draw the grid with marks and glow using GDI+
