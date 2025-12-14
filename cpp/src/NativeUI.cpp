@@ -488,20 +488,40 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Color color = toColor(colorRef);
     SolidBrush brush(color);
 
-    // FxConsole style gear: 8 teeth, filled shape
-    int outerR = r - 2;  // Outer radius (teeth tips)
-    int innerR = r - 6;  // Inner radius (between teeth)
-    int centerR = r / 3; // Center hole
+    // User-style gear: 6 wide teeth, large center hole
+    int outerR = r - 1;                       // Outer radius (teeth tips)
+    int midR = r - 4;                         // Mid radius (teeth base)
+    int innerR = r - 7;                       // Inner radius (valleys)
+    int centerR = (int)((r / 2 - 1) * 0.85f); // Center hole 15% smaller
 
-    // Draw gear using polygon with 16 points (8 teeth)
-    Point gearPoints[16];
-    for (int i = 0; i < 16; i++) {
-      double angle = i * 3.14159 / 8.0 - 3.14159 / 16.0; // Offset for alignment
-      int radius = (i % 2 == 0) ? outerR : innerR; // Alternate outer/inner
-      gearPoints[i].X = cx + (int)(radius * cos(angle));
-      gearPoints[i].Y = cy + (int)(radius * sin(angle));
+    // Draw gear using polygon with 24 points (6 teeth, 4 points each)
+    Point gearPoints[24];
+    for (int i = 0; i < 6; i++) {
+      double baseAngle = i * 3.14159 * 2. / 6. - 3.14159 / 2.; // Start from top
+      double toothWidth = 3.14159 / 9.;                        // Width of tooth
+      double valleyWidth = 3.14159 / 18.; // Width of valley
+
+      // Tooth left edge (inner to outer)
+      gearPoints[i * 4 + 0].X = cx + (int)(midR * cos(baseAngle - toothWidth));
+      gearPoints[i * 4 + 0].Y = cy + (int)(midR * sin(baseAngle - toothWidth));
+      // Tooth left tip
+      gearPoints[i * 4 + 1].X =
+          cx + (int)(outerR * cos(baseAngle - toothWidth / 2));
+      gearPoints[i * 4 + 1].Y =
+          cy + (int)(outerR * sin(baseAngle - toothWidth / 2));
+      // Tooth right tip
+      gearPoints[i * 4 + 2].X =
+          cx + (int)(outerR * cos(baseAngle + toothWidth / 2));
+      gearPoints[i * 4 + 2].Y =
+          cy + (int)(outerR * sin(baseAngle + toothWidth / 2));
+      // Tooth right edge (outer to inner)
+      gearPoints[i * 4 + 3].X = cx + (int)(midR * cos(baseAngle + toothWidth));
+      gearPoints[i * 4 + 3].Y = cy + (int)(midR * sin(baseAngle + toothWidth));
     }
-    graphics.FillPolygon(&brush, gearPoints, 16);
+    graphics.FillPolygon(&brush, gearPoints, 24);
+
+    // Fill inner body circle
+    graphics.FillEllipse(&brush, cx - midR, cy - midR, midR * 2, midR * 2);
 
     // Cut out center circle (use bg color)
     COLORREF bgColorRef = hover ? RGB(50, 60, 70) : COLOR_BG;
