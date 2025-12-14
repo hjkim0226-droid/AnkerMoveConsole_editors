@@ -178,6 +178,16 @@ class CustomAnchor {
         // Update coordinates display
         if (this.coordX) this.coordX.textContent = this.currentX;
         if (this.coordY) this.coordY.textContent = this.currentY;
+
+        // Update grid lines based on settings
+        if (this.editor && this.settings) {
+            const gridWidth = this.settings.get('gridWidth') || 3;
+            const gridHeight = this.settings.get('gridHeight') || 3;
+            // Calculate percentage for grid lines (e.g., 3 columns = 100/3 = 33.33%)
+            const cellW = 100 / gridWidth;
+            const cellH = 100 / gridHeight;
+            this.editor.style.backgroundSize = `${cellW}% ${cellH}%`;
+        }
     }
 
     // Get current anchor as ratio (0-1) for ExtendScript

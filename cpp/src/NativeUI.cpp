@@ -250,8 +250,8 @@ void SetClipboardAnchor(float x, float y) {
 }
 
 void InvalidateGrid() {
-  if (g_hwnd && IsWindow(g_hwnd)) {
-    InvalidateRect(g_hwnd, NULL, FALSE);
+  if (g_gridWnd && IsWindow(g_gridWnd)) {
+    InvalidateRect(g_gridWnd, NULL, FALSE);
   }
 }
 
