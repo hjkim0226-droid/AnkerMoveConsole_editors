@@ -470,11 +470,17 @@ void HideAndApplyAnchor() {
       settings.useCompMode = !settings.useCompMode;
       // Re-show grid so user can see the mode change and continue
       ShowAnchorGrid(mouseX, mouseY);
+      // Set toggle mode so grid stays on Y release (user must click to apply)
+      g_toggleClickMode = true;
+      g_globals.menu_visible = true;
       return; // Don't close - we just re-showed
     case NativeUI::OPT_MASK_MODE:
       settings.useMaskRecognition = !settings.useMaskRecognition;
       // Re-show grid so user can see the mode change and continue
       ShowAnchorGrid(mouseX, mouseY);
+      // Set toggle mode so grid stays on Y release
+      g_toggleClickMode = true;
+      g_globals.menu_visible = true;
       return; // Don't close - we just re-showed
     case NativeUI::OPT_SETTINGS:
       // Open CEP panel via Window menu
