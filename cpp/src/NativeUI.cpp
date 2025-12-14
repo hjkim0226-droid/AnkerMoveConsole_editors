@@ -280,7 +280,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 
   // Check left panel (Custom Anchors only)
   if (relX < SIDE_PANEL_WIDTH && relX >= 0) {
-    int iconY = (g_windowHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
+    int bottomButtonsHeight = ICON_SIZE + 10;
+    int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
+    int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
 
     // Check custom anchor icons
     for (int i = 0; i < 3; i++) {
@@ -296,7 +298,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 
   // Check right panel (Mode controls)
   if (relX >= g_windowWidth - SIDE_PANEL_WIDTH) {
-    int iconY = (g_windowHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
+    int bottomButtonsHeight = ICON_SIZE + 10;
+    int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
+    int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
     for (int i = 0; i < 3; i++) {
       int top = iconY + i * (ICON_SIZE + ICON_SPACING);
       if (relY >= top && relY < top + ICON_SIZE) {
@@ -498,18 +502,16 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     SolidBrush brush(color);
 
     // User-style gear: 6 wide teeth, large center hole - 40% larger
-    int baseR = (int)(r * 1.4f);                  // 40% larger
-    int outerR = baseR - 1;                       // Outer radius (teeth tips)
-    int midR = baseR - 4;                         // Mid radius (teeth base)
-    int innerR = baseR - 7;                       // Inner radius (valleys)
-    int centerR = (int)((baseR / 2 - 1) * 0.85f); // Center hole 15% smaller
+    int baseR = (int)(r * 1.4f);        // 40% larger
+    int outerR = baseR;                 // Outer radius (teeth tips)
+    int midR = (int)(baseR * 0.7f);     // Mid radius (teeth base) - 70%
+    int centerR = (int)(baseR * 0.35f); // Center hole - 35%
 
     // Draw gear using polygon with 24 points (6 teeth, 4 points each)
     Point gearPoints[24];
     for (int i = 0; i < 6; i++) {
       double baseAngle = i * 3.14159 * 2. / 6. - 3.14159 / 2.; // Start from top
-      double toothWidth = 3.14159 / 9.;                        // Width of tooth
-      double valleyWidth = 3.14159 / 18.; // Width of valley
+      double toothWidth = 3.14159 / 7.5;                       // Wider teeth
 
       // Tooth left edge (inner to outer)
       gearPoints[i * 4 + 0].X = cx + (int)(midR * cos(baseAngle - toothWidth));
@@ -548,8 +550,8 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Color color = toColor(colorRef);
     Pen pen(color, 2.0f);
 
-    // Two overlapping rectangles (copy icon)
-    int size = r - 2;
+    // Two overlapping rectangles (copy icon) - 20% larger
+    int size = (int)(r * 1.2f) - 2;
     int offset = 4;
     // Back rectangle
     graphics.DrawRectangle(&pen, cx - size + offset, cy - size + offset,
@@ -569,9 +571,9 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Pen pen(color, 2.0f);
     SolidBrush brush(color);
 
-    // Clipboard icon
-    int w = r - 2;
-    int h = r + 2;
+    // Clipboard icon - 20% larger
+    int w = (int)(r * 1.2f) - 2;
+    int h = (int)(r * 1.2f) + 2;
     // Main board
     graphics.DrawRectangle(&pen, cx - w, cy - h + 4, w * 2, h * 2 - 4);
     // Clip at top
@@ -587,7 +589,10 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
 
 // Draw side panels with icons
 static void DrawSidePanels(HDC hdc) {
-  int iconY = (g_windowHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
+  // Calculate icon Y based on grid area only (exclude bottom buttons)
+  int bottomButtonsHeight = ICON_SIZE + 10;
+  int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
+  int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
   int leftCx = SIDE_PANEL_WIDTH / 2;
   int rightCx = g_windowWidth - SIDE_PANEL_WIDTH / 2;
 
