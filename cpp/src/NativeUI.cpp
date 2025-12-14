@@ -545,19 +545,22 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   }
 
   case NativeUI::OPT_COPY_ANCHOR: {
-    // Default: dark gray, hover: blue
-    COLORREF colorRef = hover ? COLOR_ICON_HOVER : COLOR_DARK_GRAY;
+    // Orange if has clipboard data, blue if hover, else dark gray
+    COLORREF colorRef =
+        hover ? COLOR_ICON_HOVER
+              : (g_hasClipboardAnchor ? COLOR_ORANGE : COLOR_DARK_GRAY);
     Color color = toColor(colorRef);
     Pen pen(color, 2.0f);
+    SolidBrush brush(color);
 
-    // Two overlapping rectangles (copy icon) - 20% larger
-    int size = (int)(r * 1.2f) - 2;
+    // Two overlapping rectangles - 25% larger
+    int size = (int)(r * 1.25f) - 2;
     int offset = 4;
-    // Back rectangle
+    // Back rectangle (outline only)
     graphics.DrawRectangle(&pen, cx - size + offset, cy - size + offset,
                            size * 2 - offset * 2, size * 2 - offset * 2);
-    // Front rectangle (offset)
-    graphics.DrawRectangle(&pen, cx - size, cy - size, size * 2 - offset * 2,
+    // Front rectangle (filled)
+    graphics.FillRectangle(&brush, cx - size, cy - size, size * 2 - offset * 2,
                            size * 2 - offset * 2);
     break;
   }
@@ -571,9 +574,9 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Pen pen(color, 2.0f);
     SolidBrush brush(color);
 
-    // Clipboard icon - 20% larger
-    int w = (int)(r * 1.2f) - 2;
-    int h = (int)(r * 1.2f) + 2;
+    // Clipboard icon - smaller (was 1.2, now ~1.0)
+    int w = (int)(r * 1.0f) - 2;
+    int h = (int)(r * 1.0f) + 2;
     // Main board
     graphics.DrawRectangle(&pen, cx - w, cy - h + 4, w * 2, h * 2 - 4);
     // Clip at top
