@@ -384,15 +384,18 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     Pen pen(color, 2.0f);
     SolidBrush bgBrush(bgColor);
 
-    // Crosshair lines (with gap for center circle)
-    int gap = 8;
-    graphics.DrawLine(&pen, cx - r, cy, cx - gap, cy);
-    graphics.DrawLine(&pen, cx + gap, cy, cx + r, cy);
-    graphics.DrawLine(&pen, cx, cy - r, cx, cy - gap);
-    graphics.DrawLine(&pen, cx, cy + gap, cx, cy + r);
+    // +10% larger overall
+    int iconR = (int)(r * 1.1f); // 10% larger radius
 
-    // Center circle with fill (AE anchor style) - 20% larger than before
-    int circleR = 8; // Increased from 7 to 8 (about 15% larger, close to 20%)
+    // Crosshair lines (with gap for center circle)
+    int gap = 9; // Slightly larger gap
+    graphics.DrawLine(&pen, cx - iconR, cy, cx - gap, cy);
+    graphics.DrawLine(&pen, cx + gap, cy, cx + iconR, cy);
+    graphics.DrawLine(&pen, cx, cy - iconR, cx, cy - gap);
+    graphics.DrawLine(&pen, cx, cy + gap, cx, cy + iconR);
+
+    // Center circle with fill (AE anchor style) - 10% larger
+    int circleR = 9; // Increased from 8 to 9 (10% larger)
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
     graphics.DrawEllipse(&pen, cx - circleR, cy - circleR, circleR * 2,
@@ -474,18 +477,18 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     COLORREF colorRef = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
     Color color = toColor(colorRef);
 
-    // 20% larger overall, 20% smaller center hole, 20% thicker teeth
-    int outerR = (int)(r * 1.2f);       // 20% larger
-    int innerR = (int)((r - 4) * 0.8f); // 20% smaller center
+    // Inner radius 2x larger (more empty center), teeth shorter
+    int innerR = (int)((r - 4) * 1.6f); // 2x the original size
+    int outerR = innerR + 3;            // Short teeth (only 3px beyond circle)
 
-    Pen circlePen(color, 3.0f); // 20% thicker (was 2.5)
+    Pen circlePen(color, 2.5f);
     graphics.DrawEllipse(&circlePen, cx - innerR, cy - innerR, innerR * 2,
                          innerR * 2);
 
-    // 6 short gear teeth (20% thicker)
-    Pen teethPen(color, 3.6f); // 20% thicker (was 3.0)
-    int teethInner = innerR - 1;
-    int teethOuter = outerR; // Extended to new outer radius
+    // 6 short gear teeth
+    Pen teethPen(color, 3.5f);
+    int teethInner = innerR; // Start from circle edge
+    int teethOuter = outerR; // Short teeth
     for (int i = 0; i < 6; i++) {
       double angle = i * 3.14159 / 3;
       int x1 = cx + (int)(teethInner * cos(angle));

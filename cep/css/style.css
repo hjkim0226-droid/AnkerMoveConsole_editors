@@ -82,31 +82,77 @@ body {
 
 .preview-grid {
     display: grid;
-    gap: 2px;
-    background: var(--dark-gray);
-    padding: 4px;
+    gap: 0;
+    /* No gap - use borders instead */
+    background: #232328;
+    /* Matches popup cell bg */
+    padding: 0;
     border-radius: 4px;
     width: 150px;
     height: 150px;
+    overflow: hidden;
 }
 
 .preview-cell {
-    background: rgba(74, 158, 255, 0.2);
-    border-radius: 2px;
+    background: rgba(35, 35, 40, 0.8);
+    border: 1px solid rgba(80, 80, 80, 0.7);
+    /* Gray grid lines */
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.15s ease;
+    position: relative;
 }
 
 .preview-cell:hover {
-    background: rgba(74, 158, 255, 0.5);
+    background: rgba(74, 207, 255, 0.3);
 }
 
+/* Anchor mark style - crosshair */
 .preview-cell .mark {
-    color: var(--blue);
-    font-size: 10px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.preview-cell .mark::before,
+.preview-cell .mark::after {
+    content: '';
+    position: absolute;
+    background: rgba(90, 140, 170, 0.8);
+}
+
+.preview-cell .mark::before {
+    width: 40%;
+    height: 2px;
+}
+
+.preview-cell .mark::after {
+    width: 2px;
+    height: 40%;
+}
+
+.preview-cell:hover .mark::before,
+.preview-cell:hover .mark::after {
+    background: rgba(74, 207, 255, 1);
+}
+
+/* Center dot */
+.preview-cell .mark .dot {
+    width: 4px;
+    height: 4px;
+    background: rgba(90, 140, 170, 0.8);
+    border-radius: 50%;
+    position: absolute;
+}
+
+.preview-cell:hover .mark .dot {
+    background: rgba(74, 207, 255, 1);
+    box-shadow: 0 0 6px rgba(74, 207, 255, 0.8);
 }
 
 /* Grid Size Control */
@@ -450,6 +496,8 @@ body {
     color: var(--blue);
     min-width: 35px;
     text-align: right;
+    cursor: ew-resize;
+    user-select: none;
 }
 
 /* Shortcuts */
