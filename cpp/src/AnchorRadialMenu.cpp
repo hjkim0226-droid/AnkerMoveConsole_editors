@@ -748,6 +748,13 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     }
   }
 
+  // Safety: If grid visible, Y not held, and not toggle mode - force close
+  // This catches edge cases where key release was missed
+  if (g_globals.menu_visible && !y_key_held && !g_toggleClickMode) {
+    HideAndApplyAnchor();
+    g_globals.menu_visible = false;
+  }
+
   g_globals.key_was_held = y_key_held;
   *max_sleepPL = 33; // ~30fps for hover updates
 
