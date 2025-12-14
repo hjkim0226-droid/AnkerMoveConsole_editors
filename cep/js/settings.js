@@ -9,7 +9,7 @@ class Settings {
         this.defaults = {
             gridWidth: 3,
             gridHeight: 3,
-            gridScale: 1, // 0-4 representing -40% to +40%
+            gridScale: 2, // 0-4 representing -40% to +40% (default: 0%)
             useCompMode: false,
             useMaskRecognition: true,
             gridOpacity: 75,
@@ -50,24 +50,24 @@ class Settings {
             console.error('Failed to save settings:', e);
         }
     }
-    
+
     saveToFile() {
         if (!window.csInterface) return;
-        
+
         const json = JSON.stringify(this.settings, null, 2);
-        
+
         try {
             const os = require('os');
             const path = require('path');
             const fs = require('fs');
             let settingsPath;
-            
+
             if (os.platform() === 'win32') {
                 settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
             } else {
                 settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
             }
-            
+
             // Ensure directory exists
             const dir = path.dirname(settingsPath);
             if (!fs.existsSync(dir)) {
@@ -260,7 +260,7 @@ class Settings {
         const isHeight = settingKey.toLowerCase().includes('height');
 
         const self = this; // Capture this for closures
-        
+
         element.addEventListener('mousedown', (e) => {
             isDragging = true;
             startX = e.clientX;
@@ -276,7 +276,7 @@ class Settings {
             if (!isDragging) return;
 
             // Height uses Y axis, Width uses X axis
-            const diff = isHeight 
+            const diff = isHeight
                 ? Math.floor((startY - e.clientY) / 20)  // Inverted: drag up = increase
                 : Math.floor((e.clientX - startX) / 20);
             let newValue = startValue + diff;
