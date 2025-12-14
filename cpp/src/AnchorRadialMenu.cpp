@@ -14,6 +14,10 @@
 #include <cstring>
 #include <stdexcept>
 
+#ifdef MSWindows
+#include <windows.h>
+#endif
+
 #include "AEGP_SuiteHandler.h"
 #include "AE_GeneralPlug.h"
 #include "AE_Macros.h"
