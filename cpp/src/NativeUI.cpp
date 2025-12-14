@@ -339,7 +339,9 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     COLORREF colorRef =
         hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_ICON_NORMAL);
     Color color = toColor(colorRef);
-    Color bgColor = toColor(COLOR_BG);
+    // Use hover background color when hovering, otherwise transparent key
+    COLORREF bgColorRef = hover ? RGB(50, 60, 70) : COLOR_BG;
+    Color bgColor = toColor(bgColorRef);
     Pen pen(color, 2.0f);
     SolidBrush bgBrush(bgColor);
 
@@ -350,22 +352,25 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     graphics.DrawLine(&pen, cx, cy - r, cx, cy - gap);
     graphics.DrawLine(&pen, cx, cy + gap, cx, cy + r);
 
-    // Center circle with fill (AE anchor style) - 70% larger
-    int circleR = 7;
+    // Center circle with fill (AE anchor style) - 20% larger than before
+    int circleR = 8; // Increased from 7 to 8 (about 15% larger, close to 20%)
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
     graphics.DrawEllipse(&pen, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
 
-    // Draw preset number
+    // Draw preset number inside circle
     FontFamily fontFamily(L"Segoe UI");
-    Font font(&fontFamily, 9, FontStyleBold, UnitPixel);
+    Font font(&fontFamily, 10, FontStyleBold, UnitPixel);
     SolidBrush textBrush(color);
+    StringFormat format;
+    format.SetAlignment(StringAlignmentCenter);
+    format.SetLineAlignment(StringAlignmentCenter);
     wchar_t num[2] = {
         static_cast<wchar_t>(L'1' + (type - NativeUI::OPT_CUSTOM_1)), 0};
-    graphics.DrawString(num, 1, &font,
-                        PointF((REAL)(cx + r - 8), (REAL)(cy + r - 12)),
-                        &textBrush);
+    RectF textRect((REAL)(cx - circleR), (REAL)(cy - circleR),
+                   (REAL)(circleR * 2), (REAL)(circleR * 2));
+    graphics.DrawString(num, 1, &font, textRect, &format, &textBrush);
     break;
   }
 

@@ -81,6 +81,10 @@ class CustomAnchor {
 
     onMouseDown(e) {
         this.isDragging = true;
+        // Store drag start position
+        this.dragStartX = this.currentX;
+        this.dragStartY = this.currentY;
+        this.dragAxis = null; // Will be determined on first move with shift
         this.updatePositionFromMouse(e);
     }
 
@@ -92,6 +96,7 @@ class CustomAnchor {
     onMouseUp() {
         if (this.isDragging) {
             this.isDragging = false;
+            this.dragAxis = null;
             // Save to current preset
             this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
             this.savePresets();
@@ -105,15 +110,36 @@ class CustomAnchor {
         let x = ((e.clientX - rect.left) / rect.width) * 100;
         let y = ((e.clientY - rect.top) / rect.height) * 100;
 
-        // Shift: constrain to vertical (keep x at center or current start)
-        if (e.shiftKey) {
-            x = this.isDragging ? this.currentX : 50;
+        // Shift: constrain to axis (auto-detect from drag direction)
+        if (e.shiftKey && this.isDragging) {
+            const deltaX = Math.abs(x - this.dragStartX);
+            const deltaY = Math.abs(y - this.dragStartY);
+
+            // Determine axis on first significant movement
+            if (!this.dragAxis && (deltaX > 5 || deltaY > 5)) {
+                this.dragAxis = deltaX > deltaY ? 'horizontal' : 'vertical';
+            }
+
+            // Constrain based on determined axis
+            if (this.dragAxis === 'horizontal') {
+                y = this.dragStartY;
+            } else if (this.dragAxis === 'vertical') {
+                x = this.dragStartX;
+            }
         }
 
-        // Ctrl: snap to 5x5 grid (0, 25, 50, 75, 100)
+        // Ctrl: snap to grid (use settings gridWidth/gridHeight)
         if (e.ctrlKey || e.metaKey) {
-            x = Math.round(x / 25) * 25;
-            y = Math.round(y / 25) * 25;
+            // Get grid size from settings
+            const gridWidth = this.settings?.get('gridWidth') || 3;
+            const gridHeight = this.settings?.get('gridHeight') || 3;
+
+            // Calculate snap intervals
+            const snapX = 100 / (gridWidth - 1);
+            const snapY = 100 / (gridHeight - 1);
+
+            x = Math.round(x / snapX) * snapX;
+            y = Math.round(y / snapY) * snapY;
         }
 
         // Clamp to -20 to 120 (allow overflow)

@@ -27,12 +27,12 @@
         <div class="section-title" data-i18n="gridSize">Grid Size</div>
         <div class="grid-size-row">
             <div class="size-control">
-                <span class="size-label">Width:</span>
+                <span class="size-label" data-i18n="width">Width:</span>
                 <span class="size-value" id="grid-width" data-min="3" data-max="7">3</span>
             </div>
             <span class="size-separator">×</span>
             <div class="size-control">
-                <span class="size-label">Height:</span>
+                <span class="size-label" data-i18n="height">Height:</span>
                 <span class="size-value" id="grid-height" data-min="3" data-max="7">3</span>
             </div>
         </div>
@@ -133,8 +133,20 @@
                     <span id="anchor-x">50</span>% × <span id="anchor-y">50</span>%
                 </div>
                 <div class="anchor-controls">
-                    <button class="flip-btn" id="flip-h" title="Flip Horizontal">↔</button>
-                    <button class="flip-btn" id="flip-v" title="Flip Vertical">↕</button>
+                    <button class="flip-btn" id="flip-h" data-i18n-title="flipH">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <polygon points="4,12 10,6 10,18" fill="currentColor" />
+                            <line x1="12" y1="4" x2="12" y2="20" stroke="currentColor" stroke-width="2" />
+                            <polygon points="20,12 14,6 14,18" fill="none" stroke="currentColor" stroke-width="1.5" />
+                        </svg>
+                    </button>
+                    <button class="flip-btn" id="flip-v" data-i18n-title="flipV">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <polygon points="12,4 6,10 18,10" fill="currentColor" />
+                            <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" />
+                            <polygon points="12,20 6,14 18,14" fill="none" stroke="currentColor" stroke-width="1.5" />
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -147,12 +159,12 @@
     <div class="section">
         <div class="section-title" data-i18n="transparency">Transparency</div>
         <div class="slider-row">
-            <span class="slider-label">Grid BG:</span>
+            <span class="slider-label" data-i18n="gridBg">Grid BG:</span>
             <input type="range" id="grid-opacity" class="opacity-slider" min="0" max="100" value="75">
             <span class="slider-value" id="grid-opacity-value">75%</span>
         </div>
         <div class="slider-row">
-            <span class="slider-label">Cell BG:</span>
+            <span class="slider-label" data-i18n="cellBg">Cell BG:</span>
             <input type="range" id="cell-opacity" class="opacity-slider" min="0" max="100" value="50">
             <span class="slider-value" id="cell-opacity-value">50%</span>
         </div>
@@ -160,20 +172,20 @@
 
     <!-- Shortcuts Section -->
     <div class="section">
-        <div class="section-title">Shortcuts</div>
+        <div class="section-title" data-i18n="shortcuts">Shortcuts</div>
         <div class="shortcut-row">
-            <span class="shortcut-label">Hold Grid:</span>
+            <span class="shortcut-label" data-i18n="holdGrid">Hold Grid:</span>
             <span class="shortcut-key" id="key-hold">Y</span>
         </div>
         <div class="shortcut-row">
-            <span class="shortcut-label">Toggle Click:</span>
+            <span class="shortcut-label" data-i18n="toggleClick">Toggle Click:</span>
             <span class="shortcut-key" id="key-toggle">Y~Y</span>
         </div>
     </div>
 
     <!-- Language Section -->
     <div class="section">
-        <div class="section-title">Language</div>
+        <div class="section-title" data-i18n="language">Language</div>
         <select id="language-select" class="language-select">
             <option value="en">English</option>
             <option value="ko">한국어</option>
