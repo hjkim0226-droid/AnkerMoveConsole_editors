@@ -77,6 +77,41 @@ class CustomAnchor {
         // Flip buttons
         document.getElementById('flip-h')?.addEventListener('click', () => this.flipHorizontal());
         document.getElementById('flip-v')?.addEventListener('click', () => this.flipVertical());
+
+        // Paste button - paste from clipboard (stored anchor)
+        document.getElementById('paste-anchor')?.addEventListener('click', () => this.pasteAnchor());
+
+        // Coordinate input handlers
+        this.coordX?.addEventListener('change', (e) => this.setCoordX(parseInt(e.target.value)));
+        this.coordY?.addEventListener('change', (e) => this.setCoordY(parseInt(e.target.value)));
+    }
+
+    setCoordX(val) {
+        if (isNaN(val)) return;
+        this.currentX = Math.max(-20, Math.min(120, val));
+        this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+        this.savePresets();
+        this.updateUI();
+    }
+
+    setCoordY(val) {
+        if (isNaN(val)) return;
+        this.currentY = Math.max(-20, Math.min(120, val));
+        this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+        this.savePresets();
+        this.updateUI();
+    }
+
+    pasteAnchor() {
+        // Get clipboard anchor from localStorage or settings
+        const clipboard = this.settings.get('clipboardAnchor');
+        if (clipboard && typeof clipboard.x === 'number' && typeof clipboard.y === 'number') {
+            this.currentX = Math.round(clipboard.x * 100);
+            this.currentY = Math.round(clipboard.y * 100);
+            this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+            this.savePresets();
+            this.updateUI();
+        }
     }
 
     onMouseDown(e) {
@@ -175,17 +210,18 @@ class CustomAnchor {
             this.marker.style.top = visualY + '%';
         }
 
-        // Update coordinates display
-        if (this.coordX) this.coordX.textContent = this.currentX;
-        if (this.coordY) this.coordY.textContent = this.currentY;
+        // Update coordinates display (now inputs)
+        if (this.coordX) this.coordX.value = this.currentX;
+        if (this.coordY) this.coordY.value = this.currentY;
 
         // Update grid lines based on settings
+        // Grid cells = setting - 1 (e.g., 3x3 setting -> 2x2 grid cells)
         if (this.editor && this.settings) {
             const gridWidth = this.settings.get('gridWidth') || 3;
             const gridHeight = this.settings.get('gridHeight') || 3;
-            // Calculate percentage for grid lines (e.g., 3 columns = 100/3 = 33.33%)
-            const cellW = 100 / gridWidth;
-            const cellH = 100 / gridHeight;
+            // Grid cells = gridWidth - 1, so lines = gridWidth - 1 divisions
+            const cellW = 100 / (gridWidth - 1);
+            const cellH = 100 / (gridHeight - 1);
             this.editor.style.backgroundSize = `${cellW}% ${cellH}%`;
         }
     }

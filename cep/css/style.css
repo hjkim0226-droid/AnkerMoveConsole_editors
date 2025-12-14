@@ -431,7 +431,7 @@ body {
 }
 
 .flip-btn {
-    padding: 4px 12px;
+    padding: 4px 8px;
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -444,6 +444,45 @@ body {
 .flip-btn:hover {
     background: var(--hover-bg);
     color: var(--blue);
+}
+
+/* Anchor controls row - inline layout */
+.anchor-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.coord-input {
+    width: 50px;
+    padding: 4px 6px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.coord-input:focus {
+    outline: none;
+    border-color: var(--blue);
+}
+
+/* Remove spin buttons */
+.coord-input::-webkit-outer-spin-button,
+.coord-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.coord-sep,
+.coord-unit {
+    color: var(--text-secondary);
+    font-size: 12px;
 }
 
 .help-text {

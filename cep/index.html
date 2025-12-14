@@ -95,44 +95,48 @@
         <div class="custom-anchor-container">
             <div class="custom-anchor-icons">
                 <button class="custom-btn active" id="custom-1" data-preset="1">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="2" y1="12" x2="10" y2="12" />
-                        <line x1="14" y1="12" x2="22" y2="12" />
-                        <line x1="12" y1="2" x2="12" y2="10" />
-                        <line x1="12" y1="14" x2="12" y2="22" />
-                        <circle cx="12" cy="12" r="3" />
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="0" y1="14" x2="8" y2="14" />
+                        <line x1="20" y1="14" x2="28" y2="14" />
+                        <line x1="14" y1="0" x2="14" y2="8" />
+                        <line x1="14" y1="20" x2="14" y2="28" />
+                        <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
+                        <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
+                            stroke="none">1</text>
                     </svg>
-                    <span>1</span>
                 </button>
                 <button class="custom-btn" id="custom-2" data-preset="2">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="2" y1="12" x2="10" y2="12" />
-                        <line x1="14" y1="12" x2="22" y2="12" />
-                        <line x1="12" y1="2" x2="12" y2="10" />
-                        <line x1="12" y1="14" x2="12" y2="22" />
-                        <circle cx="12" cy="12" r="3" />
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="0" y1="14" x2="8" y2="14" />
+                        <line x1="20" y1="14" x2="28" y2="14" />
+                        <line x1="14" y1="0" x2="14" y2="8" />
+                        <line x1="14" y1="20" x2="14" y2="28" />
+                        <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
+                        <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
+                            stroke="none">2</text>
                     </svg>
-                    <span>2</span>
                 </button>
                 <button class="custom-btn" id="custom-3" data-preset="3">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="2" y1="12" x2="10" y2="12" />
-                        <line x1="14" y1="12" x2="22" y2="12" />
-                        <line x1="12" y1="2" x2="12" y2="10" />
-                        <line x1="12" y1="14" x2="12" y2="22" />
-                        <circle cx="12" cy="12" r="3" />
+                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="0" y1="14" x2="8" y2="14" />
+                        <line x1="20" y1="14" x2="28" y2="14" />
+                        <line x1="14" y1="0" x2="14" y2="8" />
+                        <line x1="14" y1="20" x2="14" y2="28" />
+                        <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
+                        <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
+                            stroke="none">3</text>
                     </svg>
-                    <span>3</span>
                 </button>
             </div>
             <div class="anchor-editor-container">
                 <div class="anchor-editor" id="anchor-editor">
                     <div class="anchor-marker" id="anchor-marker"></div>
                 </div>
-                <div class="anchor-coords">
-                    <span id="anchor-x">50</span>% × <span id="anchor-y">50</span>%
-                </div>
-                <div class="anchor-controls">
+                <div class="anchor-controls-row">
+                    <input type="number" id="anchor-x" class="coord-input" value="50" min="-20" max="120">
+                    <span class="coord-sep">×</span>
+                    <input type="number" id="anchor-y" class="coord-input" value="50" min="-20" max="120">
+                    <span class="coord-unit">%</span>
                     <button class="flip-btn" id="flip-h" data-i18n-title="flipH">
                         <svg viewBox="0 0 24 24" width="16" height="16">
                             <polygon points="4,12 10,6 10,18" fill="none" stroke="currentColor" stroke-width="1.5" />
@@ -145,6 +149,13 @@
                             <polygon points="12,4 6,10 18,10" fill="none" stroke="currentColor" stroke-width="1.5" />
                             <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" />
                             <polygon points="12,20 6,14 18,14" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <button class="flip-btn paste-btn" id="paste-anchor" data-i18n-title="pasteAnchor">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <rect x="6" y="8" width="12" height="14" rx="1" fill="none" stroke="currentColor"
+                                stroke-width="2" />
+                            <rect x="9" y="2" width="6" height="4" rx="1" fill="currentColor" />
                         </svg>
                     </button>
                 </div>
