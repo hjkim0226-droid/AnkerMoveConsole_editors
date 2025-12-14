@@ -403,22 +403,23 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   case NativeUI::OPT_SETTINGS: {
     COLORREF colorRef = hover ? COLOR_BLUE : COLOR_ICON_NORMAL;
     Color color = toColor(colorRef);
-    Pen thickPen(color, 3.5f);
     
-    // Smaller center circle (no fill)
-    int innerR = 3;
-    graphics.DrawEllipse(&thickPen, cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+    // Larger center circle (main part of gear)
+    int innerR = r - 4;  // Bigger circle
+    Pen circlePen(color, 2.5f);
+    graphics.DrawEllipse(&circlePen, cx - innerR, cy - innerR, innerR * 2, innerR * 2);
     
-    // 6 gear teeth (thick lines)
-    int teethInner = innerR + 2;
-    int teethOuter = r + 2;
+    // 6 short gear teeth
+    Pen teethPen(color, 3.0f);
+    int teethInner = innerR - 1;  // Start from circle edge
+    int teethOuter = innerR + 4;  // Short teeth
     for (int i = 0; i < 6; i++) {
       double angle = i * 3.14159 / 3;
       int x1 = cx + (int)(teethInner * cos(angle));
       int y1 = cy + (int)(teethInner * sin(angle));
       int x2 = cx + (int)(teethOuter * cos(angle));
       int y2 = cy + (int)(teethOuter * sin(angle));
-      graphics.DrawLine(&thickPen, x1, y1, x2, y2);
+      graphics.DrawLine(&teethPen, x1, y1, x2, y2);
     }
     break;
   }
