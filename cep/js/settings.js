@@ -163,10 +163,10 @@ class Settings {
                 cell.dataset.x = x;
                 cell.dataset.y = y;
 
-                // Add mark indicator
+                // Add mark indicator (CSS will render crosshair)
                 const mark = document.createElement('span');
                 mark.className = 'mark';
-                mark.textContent = '+';
+                // No text - CSS ::before and ::after create the crosshair
                 cell.appendChild(mark);
 
                 cell.addEventListener('click', () => {
