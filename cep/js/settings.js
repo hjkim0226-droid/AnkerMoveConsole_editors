@@ -254,16 +254,19 @@ class Settings {
         console.log('Binding size control:', elementId, 'for', settingKey);
 
         let startX = 0;
+        let startY = 0;
         let startValue = 0;
         let isDragging = false;
+        const isHeight = settingKey.toLowerCase().includes('height');
 
         const self = this; // Capture this for closures
         
         element.addEventListener('mousedown', (e) => {
             isDragging = true;
             startX = e.clientX;
+            startY = e.clientY;
             startValue = self.settings[settingKey];
-            document.body.style.cursor = 'ew-resize';
+            document.body.style.cursor = isHeight ? 'ns-resize' : 'ew-resize';
             element.style.color = 'var(--blue)';
             e.preventDefault();
             console.log('Mousedown on', elementId, 'startValue:', startValue);
@@ -272,7 +275,10 @@ class Settings {
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
 
-            const diff = Math.floor((e.clientX - startX) / 20);
+            // Height uses Y axis, Width uses X axis
+            const diff = isHeight 
+                ? Math.floor((startY - e.clientY) / 20)  // Inverted: drag up = increase
+                : Math.floor((e.clientX - startX) / 20);
             let newValue = startValue + diff;
             const min = parseInt(element.dataset.min) || 3;
             const max = parseInt(element.dataset.max) || 7;
