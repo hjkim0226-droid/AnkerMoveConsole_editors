@@ -88,6 +88,9 @@ void SetClipboardAnchor(float x, float y);
 // Redraw the grid window (for mode toggle without closing)
 void InvalidateGrid();
 
+// Get current hover extended option
+ExtendedOption GetHoverExtOption();
+
 } // namespace NativeUI
 
 #endif // NATIVEUI_H

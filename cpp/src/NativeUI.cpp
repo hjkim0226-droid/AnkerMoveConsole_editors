@@ -255,6 +255,8 @@ void InvalidateGrid() {
   }
 }
 
+ExtendedOption GetHoverExtOption() { return g_hoverExtOption; }
+
 } // namespace NativeUI
 
 // Calculate hover cell or extended option from screen coordinates

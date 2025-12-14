@@ -448,14 +448,11 @@ void HideAndApplyAnchor() {
   // First check if hovering on a mode toggle - don't hide, just toggle and
   // repaint
   NativeUI::GridSettings &settings = NativeUI::GetSettings();
-  NativeUI::ExtendedOption hoverOpt = NativeUI::OPT_NONE;
   int hoverX = -1, hoverY = -1;
   NativeUI::GetHoverCell(&hoverX, &hoverY);
 
-  // Get current hover option from the grid
-  // We need to peek at the hover state before hiding
-  extern NativeUI::ExtendedOption g_hoverExtOption;
-  hoverOpt = g_hoverExtOption;
+  // Get current hover option from the grid using getter function
+  NativeUI::ExtendedOption hoverOpt = NativeUI::GetHoverExtOption();
 
   // Handle mode toggles WITHOUT hiding the grid
   if (hoverOpt == NativeUI::OPT_COMP_MODE) {
