@@ -80,6 +80,11 @@ void GetHoverCell(int *outX, int *outY);
 // Get/Set settings
 GridSettings &GetSettings();
 
+// Clipboard anchor functions for Copy/Paste
+bool HasClipboardAnchor();
+void GetClipboardAnchor(float *outX, float *outY);
+void SetClipboardAnchor(float x, float y);
+
 } // namespace NativeUI
 
 #endif // NATIVEUI_H

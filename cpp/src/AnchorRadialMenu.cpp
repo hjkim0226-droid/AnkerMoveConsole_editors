@@ -492,24 +492,18 @@ void HideAndApplyAnchor() {
       if (resultBuf[0] != 'n' && resultBuf[0] != '\0') {
         float rx = 0.5f, ry = 0.5f;
         if (sscanf(resultBuf, "%f,%f", &rx, &ry) == 2) {
-          // Store in NativeUI's clipboard variables (need to expose these)
-          extern bool g_hasClipboardAnchor;
-          extern float g_clipboardAnchorX;
-          extern float g_clipboardAnchorY;
-          g_hasClipboardAnchor = true;
-          g_clipboardAnchorX = rx;
-          g_clipboardAnchorY = ry;
+          // Store using NativeUI clipboard functions
+          NativeUI::SetClipboardAnchor(rx, ry);
         }
       }
       break;
     }
     case NativeUI::OPT_PASTE_ANCHOR: {
       // Apply copied anchor ratio
-      extern bool g_hasClipboardAnchor;
-      extern float g_clipboardAnchorX;
-      extern float g_clipboardAnchorY;
-      if (g_hasClipboardAnchor) {
-        ApplyCustomAnchor(g_clipboardAnchorX, g_clipboardAnchorY);
+      if (NativeUI::HasClipboardAnchor()) {
+        float rx, ry;
+        NativeUI::GetClipboardAnchor(&rx, &ry);
+        ApplyCustomAnchor(rx, ry);
       }
       break;
     }

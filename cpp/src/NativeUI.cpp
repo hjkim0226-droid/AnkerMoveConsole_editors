@@ -234,6 +234,21 @@ void GetHoverCell(int *outX, int *outY) {
 
 GridSettings &GetSettings() { return g_settings; }
 
+bool HasClipboardAnchor() { return g_hasClipboardAnchor; }
+
+void GetClipboardAnchor(float *outX, float *outY) {
+  if (outX)
+    *outX = g_clipboardAnchorX;
+  if (outY)
+    *outY = g_clipboardAnchorY;
+}
+
+void SetClipboardAnchor(float x, float y) {
+  g_hasClipboardAnchor = true;
+  g_clipboardAnchorX = x;
+  g_clipboardAnchorY = y;
+}
+
 } // namespace NativeUI
 
 // Calculate hover cell or extended option from screen coordinates
