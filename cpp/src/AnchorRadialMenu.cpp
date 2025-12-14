@@ -29,10 +29,97 @@ static const int DOUBLE_TAP_MS = 250; // Max time between double-tap
 static std::chrono::steady_clock::time_point g_lastYRelease;
 static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 
+/*****************************************************************************
+ * IsTextInputFocused
+ * Check if focus is on a text input field (Edit, RichEdit, etc.)
+ * Returns true if user is typing in a text field
+ *****************************************************************************/
+#ifdef MSWindows
+bool IsTextInputFocused() {
+  HWND focused = GetFocus();
+  if (!focused) {
+    // GetFocus only works for current thread, try GetForegroundWindow +
+    // GetGUIThreadInfo
+    HWND fg = GetForegroundWindow();
+    if (fg) {
+      DWORD threadId = GetWindowThreadProcessId(fg, NULL);
+      GUITHREADINFO gti = {0};
+      gti.cbSize = sizeof(GUITHREADINFO);
+      if (GetGUIThreadInfo(threadId, &gti)) {
+        focused = gti.hwndFocus;
+      }
+    }
+  }
+
+  if (!focused)
+    return false;
+
+  char className[64] = {0};
+  GetClassNameA(focused, className, sizeof(className));
+
+  // Common text input class names
+  // "Edit" - standard Win32 edit control
+  // "RichEdit" - rich text edit variants
+  // "Scintilla" - code editors
+  // AE internal text fields may use these
+  if (_strnicmp(className, "Edit", 4) == 0 ||
+      _strnicmp(className, "RichEdit", 8) == 0 ||
+      _strnicmp(className, "RICHEDIT", 8) == 0 ||
+      _strnicmp(className, "Scintilla", 9) == 0) {
+    return true;
+  }
+
+  // Check window style for ES_MULTILINE or similar edit styles
+  LONG style = GetWindowLong(focused, GWL_STYLE);
+  if (style & ES_MULTILINE || style & ES_AUTOHSCROLL) {
+    // Likely an edit control even if class name differs
+    // But be careful - many controls have these styles
+  }
+
+  return false;
+}
+
+/*****************************************************************************
+ * IsAfterEffectsForeground
+ * Check if After Effects is the foreground (active) window
+ * Returns true only when AE is in focus
+ *****************************************************************************/
+bool IsAfterEffectsForeground() {
+  HWND fg = GetForegroundWindow();
+  if (!fg)
+    return false;
+
+  // Get window title
+  char title[256] = {0};
+  GetWindowTextA(fg, title, sizeof(title));
+
+  // Check if window title contains "After Effects"
+  // AE main window title format: "Adobe After Effects 2024 - project.aep"
+  if (strstr(title, "After Effects") != NULL) {
+    return true;
+  }
+
+  // Also check window class for AE
+  char className[64] = {0};
+  GetClassNameA(fg, className, sizeof(className));
+
+  // AE uses class names starting with "AE_"
+  if (_strnicmp(className, "AE_", 3) == 0) {
+    return true;
+  }
+
+  return false;
+}
+#else
+// macOS stub - TODO: implement NSTextField focus check
+bool IsTextInputFocused() { return false; }
+bool IsAfterEffectsForeground() { return true; } // Always true for now on macOS
+#endif
+
 // Settings loaded from CEP
 static int g_loadedGridWidth = 3;
 static int g_loadedGridHeight = 3;
-static int g_loadedGridScale = 2; // 0-4, default 2 (0%)
+static int g_loadedGridScale = 2;    // 0-4, default 2 (0%)
 static int g_loadedGridOpacity = 75; // 0-100%
 static int g_loadedCellOpacity = 50; // 0-100%
 
@@ -104,7 +191,6 @@ bool HasSelectedLayers() {
   return atoi(result) > 0;
 }
 
-
 /*****************************************************************************
  * LoadSettingsFromFile
  * Read settings from CEP's settings file (cross-platform)
@@ -113,38 +199,51 @@ void LoadSettingsFromFile() {
 #ifdef MSWindows
   // Windows: %APPDATA%\Adobe\CEP\extensions\com.anchor.grid\settings.json
   char path[512];
-  const char* appdata = getenv("APPDATA");
-  if (!appdata) return;
-  snprintf(path, sizeof(path), "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json", appdata);
+  const char *appdata = getenv("APPDATA");
+  if (!appdata)
+    return;
+  snprintf(path, sizeof(path),
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json",
+           appdata);
 #else
-  // macOS: ~/Library/Application Support/Adobe/CEP/extensions/com.anchor.grid/settings.json
+  // macOS: ~/Library/Application
+  // Support/Adobe/CEP/extensions/com.anchor.grid/settings.json
   char path[512];
-  const char* home = getenv("HOME");
-  if (!home) return;
-  snprintf(path, sizeof(path), "%s/Library/Application Support/Adobe/CEP/extensions/com.anchor.grid/settings.json", home);
+  const char *home = getenv("HOME");
+  if (!home)
+    return;
+  snprintf(path, sizeof(path),
+           "%s/Library/Application "
+           "Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+           home);
 #endif
 
   FILE *f = fopen(path, "r");
-  if (!f) return;
-  
+  if (!f)
+    return;
+
   char buffer[2048];
   size_t len = fread(buffer, 1, sizeof(buffer) - 1, f);
   buffer[len] = '\0';
   fclose(f);
-  
+
   // Parse simple JSON
-  NativeUI::GridSettings& settings = NativeUI::GetSettings();
-  
-  const char* p;
+  NativeUI::GridSettings &settings = NativeUI::GetSettings();
+
+  const char *p;
   // useCompMode
   if ((p = strstr(buffer, "\"useCompMode\":")) != NULL) {
     p += 14; // skip past key
-    settings.useCompMode = (strstr(p, "true") != NULL && (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
+    settings.useCompMode =
+        (strstr(p, "true") != NULL &&
+         (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
   }
   // useMaskRecognition
   if ((p = strstr(buffer, "\"useMaskRecognition\":")) != NULL) {
     p += 21;
-    settings.useMaskRecognition = (strstr(p, "true") != NULL && (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
+    settings.useMaskRecognition =
+        (strstr(p, "true") != NULL &&
+         (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
   }
   // gridWidth
   if ((p = strstr(buffer, "\"gridWidth\":")) != NULL) {
@@ -196,17 +295,17 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
   NativeUI::GridConfig config;
   config.gridWidth = g_loadedGridWidth;
   config.gridHeight = g_loadedGridHeight;
-  
+
   // Scale: 0=-40%, 1=-20%, 2=0%, 3=+20%, 4=+40%
   int baseSize = 40;
   float scaleFactors[] = {0.6f, 0.8f, 1.0f, 1.2f, 1.4f};
   config.cellSize = (int)(baseSize * scaleFactors[g_loadedGridScale]);
-  
+
   config.spacing = 1;
   config.margin = 2;
 
   // Apply opacity settings
-  NativeUI::GridSettings& settings = NativeUI::GetSettings();
+  NativeUI::GridSettings &settings = NativeUI::GetSettings();
   settings.gridOpacity = g_loadedGridOpacity;
   settings.cellOpacity = g_loadedCellOpacity;
 
@@ -280,7 +379,6 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
   ExecuteScript(script);
 }
 
-
 /*****************************************************************************
  * ApplyCustomAnchor
  * Apply a custom anchor point at specified ratio (0-1)
@@ -307,7 +405,8 @@ void ApplyCustomAnchor(float ratioX, float ratioY) {
       "var dx=nx-oa[0],dy=ny-oa[1];"
       "var sc=L.property('ADBE Transform Group').property('ADBE Scale').value;"
       "var sx=sc[0]/100,sy=sc[1]/100;"
-      "var rot=L.property('ADBE Transform Group').property('ADBE Rotate Z').value*Math.PI/180;"
+      "var rot=L.property('ADBE Transform Group').property('ADBE Rotate "
+      "Z').value*Math.PI/180;"
       "var rdx=(dx*Math.cos(rot)-dy*Math.sin(rot))*sx;"
       "var rdy=(dx*Math.sin(rot)+dy*Math.cos(rot))*sy;"
       "ap.setValue([nx,ny]);"
@@ -358,16 +457,14 @@ void HideAndApplyAnchor() {
       break;
     case NativeUI::OPT_SETTINGS:
       // Open CEP panel via Window menu
-      ExecuteScript(
-        "(function(){"
-        "try{"
-        "var menuId=app.findMenuCommandId('Anchor Grid');"
-        "if(menuId>0)app.executeCommand(menuId);"
-        "}catch(e){"
-        "alert('Please open Window > Extensions > Anchor Grid');"
-        "}"
-        "})();"
-      );
+      ExecuteScript("(function(){"
+                    "try{"
+                    "var menuId=app.findMenuCommandId('Anchor Grid');"
+                    "if(menuId>0)app.executeCommand(menuId);"
+                    "}catch(e){"
+                    "alert('Please open Window > Extensions > Anchor Grid');"
+                    "}"
+                    "})();");
       break;
     default:
       break;
@@ -394,12 +491,16 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  if (y_key_held && !g_globals.key_was_held && !alt_held) {
+  // Skip if: user is typing in text field OR After Effects is not in foreground
+  if (y_key_held && !g_globals.key_was_held && !alt_held &&
+      !IsTextInputFocused() && IsAfterEffectsForeground()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
-      auto timeSinceLastRelease = std::chrono::duration_cast<std::chrono::milliseconds>(
-          now - g_lastYRelease).count();
-      
+      auto timeSinceLastRelease =
+          std::chrono::duration_cast<std::chrono::milliseconds>(now -
+                                                                g_lastYRelease)
+              .count();
+
       if (timeSinceLastRelease < DOUBLE_TAP_MS) {
         // Double-tap detected - toggle click mode
         g_toggleClickMode = !g_toggleClickMode;
@@ -447,7 +548,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   // Y key just released
   else if (!y_key_held && g_globals.key_was_held) {
     g_lastYRelease = now;
-    
+
     // In toggle mode, don't hide on release
     if (!g_toggleClickMode && g_globals.menu_visible) {
       HideAndApplyAnchor();
@@ -455,7 +556,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     }
     g_waitingForHold = false;
   }
-  
+
   // In toggle mode, handle mouse click to apply
   if (g_toggleClickMode && g_globals.menu_visible) {
     if (KeyboardMonitor::IsMouseButtonPressed()) {
