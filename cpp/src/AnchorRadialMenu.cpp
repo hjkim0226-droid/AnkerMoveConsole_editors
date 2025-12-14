@@ -372,7 +372,17 @@ void ApplyAnchorToLayers(int gridX, int gridY) {
       "}"
       "if(!b||b.width<=0||b.height<=0)continue;"
       "var px=gx/(gridW-1),py=gy/(gridH-1);"
-      "var nx=b.left+b.width*px,ny=b.top+b.height*py;"
+      // Calculate anchor in appropriate coordinate space
+      "var nx,ny;"
+      "if(useCompMode){"
+      // Composition mode: calculate in comp space, then convert to layer local
+      "var compX=c.width*px,compY=c.height*py;"
+      "var localPt=L.fromComp([compX,compY],c.time);"
+      "nx=localPt[0];ny=localPt[1];"
+      "}else{"
+      // Selection mode: already in layer local coordinates
+      "nx=b.left+b.width*px;ny=b.top+b.height*py;"
+      "}"
       "var ap=L.property('ADBE Transform Group').property('ADBE Anchor Point');"
       "var pp=L.property('ADBE Transform Group').property('ADBE Position');"
       "if(!ap||!pp)continue;"
