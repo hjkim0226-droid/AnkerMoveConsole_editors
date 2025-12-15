@@ -341,6 +341,79 @@ void LoadSettingsFromFile() {
 }
 
 /*****************************************************************************
+ * SaveClipboardAnchorToFile
+ * Save clipboard anchor to settings.json for CEP panel access
+ *****************************************************************************/
+void SaveClipboardAnchorToFile(float rx, float ry) {
+#ifdef MSWindows
+  char path[512];
+  const char *appdata = getenv("APPDATA");
+  if (!appdata)
+    return;
+  snprintf(path, sizeof(path),
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json",
+           appdata);
+#else
+  char path[512];
+  const char *home = getenv("HOME");
+  if (!home)
+    return;
+  snprintf(path, sizeof(path),
+           "%s/Library/Application "
+           "Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+           home);
+#endif
+
+  // Read existing file
+  char buffer[4096] = {0};
+  FILE *f = fopen(path, "r");
+  if (f) {
+    size_t len = fread(buffer, 1, sizeof(buffer) - 1, f);
+    buffer[len] = '\0';
+    fclose(f);
+  }
+
+  // Check if clipboardAnchor already exists
+  char *p = strstr(buffer, "\"clipboardAnchor\":");
+  if (p) {
+    // Update existing value
+    char *valStart = strchr(p, '{');
+    char *valEnd = valStart ? strchr(valStart, '}') : NULL;
+    if (valStart && valEnd) {
+      char newBuffer[4096];
+      strncpy(newBuffer, buffer, valStart + 1 - buffer);
+      newBuffer[valStart + 1 - buffer] = '\0';
+      char newVal[64];
+      snprintf(newVal, sizeof(newVal), "\"x\":%.4f,\"y\":%.4f", rx, ry);
+      strcat(newBuffer, newVal);
+      strcat(newBuffer, valEnd);
+      f = fopen(path, "w");
+      if (f) {
+        fputs(newBuffer, f);
+        fclose(f);
+      }
+    }
+  } else {
+    // Add clipboardAnchor before the last }
+    char *lastBrace = strrchr(buffer, '}');
+    if (lastBrace) {
+      char newBuffer[4096];
+      strncpy(newBuffer, buffer, lastBrace - buffer);
+      newBuffer[lastBrace - buffer] = '\0';
+      char newVal[128];
+      snprintf(newVal, sizeof(newVal),
+               ",\"clipboardAnchor\":{\"x\":%.4f,\"y\":%.4f}}", rx, ry);
+      strcat(newBuffer, newVal);
+      f = fopen(path, "w");
+      if (f) {
+        fputs(newBuffer, f);
+        fclose(f);
+      }
+    }
+  }
+}
+
+/*****************************************************************************
  * SaveSettingsToFile
  * Write mode settings to CEP's settings file (only useCompMode and
  *useMaskRecognition)
@@ -688,6 +761,8 @@ void HideAndApplyAnchor() {
         if (sscanf(resultBuf, "%f,%f", &rx, &ry) == 2) {
           // Store using NativeUI clipboard functions
           NativeUI::SetClipboardAnchor(rx, ry);
+          // Also save to settings.json for CEP panel access
+          SaveClipboardAnchorToFile(rx, ry);
         }
       }
       break;
