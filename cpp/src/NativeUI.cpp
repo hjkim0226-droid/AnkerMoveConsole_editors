@@ -65,6 +65,9 @@ static int g_windowHeight = 0;
 static int g_hoverCellX = -1;
 static int g_hoverCellY = -1;
 static NativeUI::ExtendedOption g_hoverExtOption = NativeUI::OPT_NONE;
+// Grid offset for centering smaller grids within max dimension area
+static int g_gridOffsetX = 0;
+static int g_gridOffsetY = 0;
 
 // Copy/Paste anchor clipboard
 static bool g_hasClipboardAnchor = false;
@@ -138,39 +141,37 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_hoverCellY = -1;
   g_hoverExtOption = OPT_NONE;
 
-  // Fixed grid size target (constant regardless of cell count)
-  const int TARGET_GRID_SIZE = 150; // pixels
+  // Use cellSize from config (includes user scale setting)
+  // No recalculation - respect user's scale choice
+  int cellTotal = g_config.cellSize + g_config.spacing;
+  int gridPixelsW = g_config.gridWidth * cellTotal;
+  int gridPixelsH = g_config.gridHeight * cellTotal;
 
-  // Calculate cellSize to maintain constant grid size
-  int maxDim = (config.gridWidth > config.gridHeight) ? config.gridWidth
-                                                      : config.gridHeight;
-  g_config.cellSize =
-      (TARGET_GRID_SIZE - (maxDim - 1) * config.spacing) / maxDim;
-
-  // Calculate window size based on MAX dimension (for consistent icon
-  // positions)
-  int cellTotal = config.cellSize + config.spacing;
-  int gridPixelsW = config.gridWidth * cellTotal;
-  int gridPixelsH = config.gridHeight * cellTotal;
-  // Use max dimension for consistent window size (icons stay fixed)
+  // Window width/height based on MAX dimension for consistent icon positioning
+  int maxDim = (g_config.gridWidth > g_config.gridHeight) ? g_config.gridWidth
+                                                          : g_config.gridHeight;
   int maxGridPixels = maxDim * cellTotal;
 
-  // Window: [left panel] [grid] [right panel]
+  // Window: [left panel] [grid area based on max] [right panel]
   g_windowWidth =
-      SIDE_PANEL_WIDTH + maxGridPixels + config.margin * 2 + SIDE_PANEL_WIDTH;
+      SIDE_PANEL_WIDTH + maxGridPixels + g_config.margin * 2 + SIDE_PANEL_WIDTH;
 
-  // Minimum height to prevent icon clipping (3 icons)
+  // Height based on max dimension for consistent layout
   int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
-  // Grid area height based on MAX dimension + space for buttons below
   int bottomButtonsHeight = ICON_SIZE + 10;
-  int gridAreaHeight = maxGridPixels + config.margin * 2;
+  int gridAreaHeight = maxGridPixels + g_config.margin * 2;
   int baseHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
   g_windowHeight = baseHeight + bottomButtonsHeight;
 
-  // Center GRID on mouse (not window) - grid center is at margin +
-  // gridPixelsH/2
-  int gridCenterY = config.margin + gridPixelsH / 2;
-  g_windowX = mouseX - g_windowWidth / 2;
+  // Center the ACTUAL grid on mouse
+  // Grid is centered within the maxGridPixels area
+  g_gridOffsetX = (maxGridPixels - gridPixelsW) / 2;
+  g_gridOffsetY = (maxGridPixels - gridPixelsH) / 2;
+  int gridCenterX =
+      SIDE_PANEL_WIDTH + g_config.margin + g_gridOffsetX + gridPixelsW / 2;
+  int gridCenterY = g_config.margin + g_gridOffsetY + gridPixelsH / 2;
+
+  g_windowX = mouseX - gridCenterX;
   g_windowY = mouseY - gridCenterY;
 
   // Apply grid opacity setting (0-100 -> 0-255)
@@ -271,8 +272,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridPixelsW = g_config.gridWidth * cellTotal;
   int gridPixelsH = g_config.gridHeight * cellTotal;
-  int gridStartX = SIDE_PANEL_WIDTH + g_config.margin;
-  int gridStartY = g_config.margin;
+  // Apply grid offset for centered rectangular grids
+  int gridStartX = SIDE_PANEL_WIDTH + g_config.margin + g_gridOffsetX;
+  int gridStartY = g_config.margin + g_gridOffsetY;
 
   int relX = screenX - g_windowX;
   int relY = screenY - g_windowY;
@@ -324,15 +326,19 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
     return;
   }
 
-  // Check Copy/Paste buttons (below grid center)
+  // Check Copy/Paste buttons (below grid area, centered in window)
   int bottomButtonsHeight = ICON_SIZE + 10;
-  int gridCenterX = SIDE_PANEL_WIDTH + g_config.margin + gridPixelsW / 2;
-  int gridBottomY = g_config.margin + gridPixelsH + ICON_SIZE / 2 + 5;
+  int maxDim = (g_config.gridWidth > g_config.gridHeight) ? g_config.gridWidth
+                                                          : g_config.gridHeight;
+  int maxGridPixels = maxDim * cellTotal;
+  // Center buttons in the window (not based on actual grid size)
+  int windowCenterX = SIDE_PANEL_WIDTH + g_config.margin + maxGridPixels / 2;
+  int gridBottomY = g_config.margin + maxGridPixels + ICON_SIZE / 2 + 5;
 
   if (relY >= gridBottomY - ICON_SIZE / 2 &&
       relY < gridBottomY + ICON_SIZE / 2) {
-    int copyX = gridCenterX - ICON_SIZE / 2 - 5;
-    int pasteX = gridCenterX + ICON_SIZE / 2 + 5;
+    int copyX = windowCenterX - ICON_SIZE / 2 - 5;
+    int pasteX = windowCenterX + ICON_SIZE / 2 + 5;
 
     // Copy button
     if (relX >= copyX - ICON_SIZE / 2 && relX < copyX + ICON_SIZE / 2) {
@@ -623,23 +629,22 @@ static void DrawSidePanels(HDC hdc) {
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
   }
 
-  // Copy/Paste buttons below grid (centered)
-  int gridCenterX =
-      SIDE_PANEL_WIDTH + g_config.margin +
-      (g_config.gridWidth * (g_config.cellSize + g_config.spacing)) / 2;
-  int gridBottomY =
-      g_config.margin +
-      g_config.gridHeight * (g_config.cellSize + g_config.spacing) +
-      ICON_SIZE / 2 + 5;
+  // Copy/Paste buttons below grid (centered based on max grid size)
+  int cellTotal = g_config.cellSize + g_config.spacing;
+  int maxDim = (g_config.gridWidth > g_config.gridHeight) ? g_config.gridWidth
+                                                          : g_config.gridHeight;
+  int maxGridPixels = maxDim * cellTotal;
+  int windowCenterX = SIDE_PANEL_WIDTH + g_config.margin + maxGridPixels / 2;
+  int gridBottomY = g_config.margin + maxGridPixels + ICON_SIZE / 2 + 5;
 
   // Copy icon
   bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
-  DrawIcon(hdc, gridCenterX - ICON_SIZE / 2 - 5, gridBottomY,
+  DrawIcon(hdc, windowCenterX - ICON_SIZE / 2 - 5, gridBottomY,
            NativeUI::OPT_COPY_ANCHOR, copyHover, false);
 
   // Paste icon
   bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
-  DrawIcon(hdc, gridCenterX + ICON_SIZE / 2 + 5, gridBottomY,
+  DrawIcon(hdc, windowCenterX + ICON_SIZE / 2 + 5, gridBottomY,
            NativeUI::OPT_PASTE_ANCHOR, pasteHover, g_hasClipboardAnchor);
 }
 
@@ -653,8 +658,9 @@ static void DrawGrid(HDC hdc) {
 
   // Use cellSize directly (no spacing - grid lines will separate)
   int cellTotal = g_config.cellSize; // No spacing now
-  int gridStartX = SIDE_PANEL_WIDTH + g_config.margin;
-  int gridStartY = g_config.margin;
+  // Apply grid offset for centered rectangular grids
+  int gridStartX = SIDE_PANEL_WIDTH + g_config.margin + g_gridOffsetX;
+  int gridStartY = g_config.margin + g_gridOffsetY;
   int radius = g_config.cellSize / 10;     // Slightly larger dots
   int hoverRadius = g_config.cellSize / 8; // Larger hover glow
   int len = (int)(cellTotal * 0.3);        // Shorter marks (was 0.4)
