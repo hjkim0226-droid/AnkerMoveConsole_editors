@@ -68,6 +68,8 @@ static NativeUI::ExtendedOption g_hoverExtOption = NativeUI::OPT_NONE;
 // Grid offset for centering smaller grids within max dimension area
 static int g_gridOffsetX = 0;
 static int g_gridOffsetY = 0;
+// Fixed grid area size (calculated in ShowGrid, used in other functions)
+static int g_fixedGridPixels = 120;
 
 // Copy/Paste anchor clipboard
 static bool g_hasClipboardAnchor = false;
@@ -141,32 +143,61 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_hoverCellY = -1;
   g_hoverExtOption = OPT_NONE;
 
-  // FIXED window size based on 3x3 grid with current scale
-  // This stays constant regardless of actual grid dimensions
-  int cellTotal = g_config.cellSize + g_config.spacing;
-  int fixedGridPixels = 3 * cellTotal; // Always 3x3 for window frame
+  // FIXED grid area size with scale applied
+  // Base size 120px at scale 2 (0%), scales from 0.6x to 1.4x
+  float scaleFactors[] = {0.6f, 0.8f, 1.0f, 1.2f, 1.4f};
+  int scaleIndex = 2; // Default to middle (0%)
+  // Use config.cellSize to infer scale (40 base * factor)
+  if (g_config.cellSize <= 24)
+    scaleIndex = 0; // 40 * 0.6 = 24
+  else if (g_config.cellSize <= 32)
+    scaleIndex = 1; // 40 * 0.8 = 32
+  else if (g_config.cellSize <= 40)
+    scaleIndex = 2; // 40 * 1.0 = 40
+  else if (g_config.cellSize <= 48)
+    scaleIndex = 3; // 40 * 1.2 = 48
+  else
+    scaleIndex = 4; // 40 * 1.4 = 56
 
-  // Actual grid pixels (may vary based on width/height settings)
+  int baseGridSize = 120; // Fixed base size for grid area
+  g_fixedGridPixels = (int)(baseGridSize * scaleFactors[scaleIndex]);
+
+  // Calculate cellSize based on max dimension (like FX Console null parents)
+  int maxDim = (g_config.gridWidth > g_config.gridHeight) ? g_config.gridWidth
+                                                          : g_config.gridHeight;
+  int spacing = g_config.spacing;
+  int calculatedCellSize =
+      (g_fixedGridPixels - (maxDim - 1) * spacing) / maxDim;
+  if (calculatedCellSize < 10)
+    calculatedCellSize = 10; // Minimum cell size
+
+  // Override cellSize with calculated value
+  g_config.cellSize = calculatedCellSize;
+  int cellTotal = g_config.cellSize + spacing;
+
+  // Actual grid pixels (always fits within g_fixedGridPixels)
   int gridPixelsW = g_config.gridWidth * cellTotal;
   int gridPixelsH = g_config.gridHeight * cellTotal;
 
-  // Window: FIXED size based on 3x3
-  g_windowWidth = SIDE_PANEL_WIDTH + fixedGridPixels + g_config.margin * 2 +
+  // Window: FIXED size
+  g_windowWidth = SIDE_PANEL_WIDTH + g_fixedGridPixels + g_config.margin * 2 +
                   SIDE_PANEL_WIDTH;
 
   int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
   int bottomButtonsHeight = ICON_SIZE + 10;
-  int gridAreaHeight = fixedGridPixels + g_config.margin * 2;
+  int gridAreaHeight = g_fixedGridPixels + g_config.margin * 2;
   int baseHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
   g_windowHeight = baseHeight + bottomButtonsHeight;
 
-  // Grid offset: center the actual grid within the fixed 3x3 area
-  g_gridOffsetX = (fixedGridPixels - gridPixelsW) / 2;
-  g_gridOffsetY = (fixedGridPixels - gridPixelsH) / 2;
+  // Grid offset: center the actual grid within the fixed area
+  g_gridOffsetX = (g_fixedGridPixels - gridPixelsW) / 2;
+  g_gridOffsetY = (g_fixedGridPixels - gridPixelsH) / 2;
 
-  // Mouse at WINDOW CENTER (not grid center)
-  g_windowX = mouseX - g_windowWidth / 2;
-  g_windowY = mouseY - (g_windowHeight - bottomButtonsHeight) / 2;
+  // Mouse at WINDOW CENTER (grid area center)
+  int gridCenterX = SIDE_PANEL_WIDTH + g_config.margin + g_fixedGridPixels / 2;
+  int gridCenterY = g_config.margin + g_fixedGridPixels / 2;
+  g_windowX = mouseX - gridCenterX;
+  g_windowY = mouseY - gridCenterY;
 
   // Apply grid opacity setting (0-100 -> 0-255)
   BYTE alpha = (BYTE)(g_settings.gridOpacity * 255 / 100);
@@ -322,11 +353,11 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 
   // Check Copy/Paste buttons (below grid area, centered in window)
   int bottomButtonsHeight = ICON_SIZE + 10;
-  // Use FIXED 3x3 grid size for button positioning (same as window layout)
-  int fixedGridPixels = 3 * cellTotal;
-  // Center buttons in the window (not based on actual grid size)
-  int windowCenterX = SIDE_PANEL_WIDTH + g_config.margin + fixedGridPixels / 2;
-  int gridBottomY = g_config.margin + fixedGridPixels + ICON_SIZE / 2 + 5;
+  // Use global g_fixedGridPixels for button positioning
+  // Center buttons in the window
+  int windowCenterX =
+      SIDE_PANEL_WIDTH + g_config.margin + g_fixedGridPixels / 2;
+  int gridBottomY = g_config.margin + g_fixedGridPixels + ICON_SIZE / 2 + 5;
 
   if (relY >= gridBottomY - ICON_SIZE / 2 &&
       relY < gridBottomY + ICON_SIZE / 2) {
@@ -624,9 +655,10 @@ static void DrawSidePanels(HDC hdc) {
 
   // Copy/Paste buttons below grid (centered based on FIXED 3x3 grid size)
   int cellTotal = g_config.cellSize + g_config.spacing;
-  int fixedGridPixels = 3 * cellTotal; // Always 3x3 for consistent positioning
-  int windowCenterX = SIDE_PANEL_WIDTH + g_config.margin + fixedGridPixels / 2;
-  int gridBottomY = g_config.margin + fixedGridPixels + ICON_SIZE / 2 + 5;
+  // Use global g_fixedGridPixels for button positioning
+  int windowCenterX =
+      SIDE_PANEL_WIDTH + g_config.margin + g_fixedGridPixels / 2;
+  int gridBottomY = g_config.margin + g_fixedGridPixels + ICON_SIZE / 2 + 5;
 
   // Copy icon
   bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
