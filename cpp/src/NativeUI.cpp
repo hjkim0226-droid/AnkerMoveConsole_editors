@@ -147,20 +147,23 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_config.cellSize =
       (TARGET_GRID_SIZE - (maxDim - 1) * config.spacing) / maxDim;
 
-  // Calculate window size
+  // Calculate window size based on MAX dimension (for consistent icon
+  // positions)
   int cellTotal = config.cellSize + config.spacing;
   int gridPixelsW = config.gridWidth * cellTotal;
   int gridPixelsH = config.gridHeight * cellTotal;
+  // Use max dimension for consistent window size (icons stay fixed)
+  int maxGridPixels = maxDim * cellTotal;
 
   // Window: [left panel] [grid] [right panel]
   g_windowWidth =
-      SIDE_PANEL_WIDTH + gridPixelsW + config.margin * 2 + SIDE_PANEL_WIDTH;
+      SIDE_PANEL_WIDTH + maxGridPixels + config.margin * 2 + SIDE_PANEL_WIDTH;
 
   // Minimum height to prevent icon clipping (3 icons)
   int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
-  // Grid area height + space for buttons below
+  // Grid area height based on MAX dimension + space for buttons below
   int bottomButtonsHeight = ICON_SIZE + 10;
-  int gridAreaHeight = gridPixelsH + config.margin * 2;
+  int gridAreaHeight = maxGridPixels + config.margin * 2;
   int baseHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
   g_windowHeight = baseHeight + bottomButtonsHeight;
 
