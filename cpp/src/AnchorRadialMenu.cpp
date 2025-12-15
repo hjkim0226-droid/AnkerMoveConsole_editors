@@ -299,14 +299,14 @@ void LoadSettingsFromFile() {
       // Parse each anchor object
       for (int i = 0; i < 3; i++) {
         // Find "x":
-        char *xp = strstr(p, "\"x\":");
+        const char *xp = strstr(p, "\"x\":");
         if (!xp)
           break;
         xp += 4;
         int xVal = atoi(xp);
 
         // Find "y":
-        char *yp = strstr(xp, "\"y\":");
+        const char *yp = strstr(xp, "\"y\":");
         if (!yp)
           break;
         yp += 4;
