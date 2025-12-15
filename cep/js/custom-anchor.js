@@ -81,9 +81,54 @@ class CustomAnchor {
         // Paste button - paste from clipboard (stored anchor)
         document.getElementById('paste-anchor')?.addEventListener('click', () => this.pasteAnchor());
 
-        // Coordinate input handlers
+        // Coordinate input handlers - both change and drag
         this.coordX?.addEventListener('change', (e) => this.setCoordX(parseInt(e.target.value)));
         this.coordY?.addEventListener('change', (e) => this.setCoordY(parseInt(e.target.value)));
+
+        // Add drag-to-change functionality for coordinates
+        this.bindCoordDrag(this.coordX, 'x');
+        this.bindCoordDrag(this.coordY, 'y');
+    }
+
+    bindCoordDrag(element, axis) {
+        if (!element) return;
+
+        let isDragging = false;
+        let startX = 0;
+        let startValue = 0;
+        const self = this;
+
+        element.style.cursor = 'ew-resize';
+
+        element.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startValue = parseInt(element.value) || 50;
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const diff = Math.floor((e.clientX - startX) / 3); // 3px per 1%
+            let newValue = startValue + diff;
+            newValue = Math.max(-20, Math.min(120, newValue));
+
+            element.value = newValue;
+            if (axis === 'x') {
+                self.setCoordX(newValue);
+            } else {
+                self.setCoordY(newValue);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.cursor = '';
+            }
+        });
     }
 
     setCoordX(val) {
