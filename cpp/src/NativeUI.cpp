@@ -148,7 +148,7 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
       (TARGET_GRID_SIZE - (maxDim - 1) * config.spacing) / maxDim;
 
   // Calculate window size
-  int cellTotal = g_config.cellSize + config.spacing;
+  int cellTotal = config.cellSize + config.spacing;
   int gridPixelsW = config.gridWidth * cellTotal;
   int gridPixelsH = config.gridHeight * cellTotal;
 
