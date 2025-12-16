@@ -27,9 +27,22 @@ static const wchar_t* CONTROL_CLASS_NAME = L"AnchorSnapControlClass";
 static HWND g_hwnd = NULL;
 static bool g_isVisible = false;
 
+// Current mode
+static ControlUI::PanelMode g_currentMode = ControlUI::MODE_SEARCH;
+
+// Effect Controls tracking
+static HWND g_attachedWindow = NULL;         // Effect Controls window we're attached to
+static HWINEVENTHOOK g_winEventHook = NULL;  // Hook for position/close tracking
+static bool g_isCollapsed = false;           // Thin bar collapsed state
+static const int COLLAPSED_HEIGHT = 6;       // Height when collapsed
+
+// Forward declaration for event hook callback
+void CALLBACK WinEventProc(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD);
+
 // Search state
 static wchar_t g_searchQuery[256] = {0};
 static std::vector<ControlUI::EffectItem> g_searchResults;
+static std::vector<ControlUI::EffectItem> g_layerEffects;  // Effects on current layer
 static int g_selectedIndex = 0;
 static int g_hoverIndex = -1;
 
@@ -45,6 +58,10 @@ static const int SEARCH_HEIGHT = 36;
 static const int ITEM_HEIGHT = 32;
 static const int PADDING = 8;
 static const int MAX_VISIBLE_ITEMS = 8;
+static const int CLOSE_BUTTON_SIZE = 20;  // Close button [x] size
+
+// Hover state for close button
+static bool g_hoverCloseButton = false;
 
 // Colors
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -133,6 +150,12 @@ void Initialize() {
 }
 
 void Shutdown() {
+    // Unhook event listener
+    if (g_winEventHook) {
+        UnhookWinEvent(g_winEventHook);
+        g_winEventHook = NULL;
+    }
+
     if (g_hwnd) {
         DestroyWindow(g_hwnd);
         g_hwnd = NULL;
@@ -145,33 +168,92 @@ void Shutdown() {
     }
 }
 
-void ShowPanel() {
+// Attach to Effect Controls window and start tracking
+void AttachToEffectControls(HWND effectControlsWnd) {
+    if (!effectControlsWnd || g_attachedWindow == effectControlsWnd) return;
+
+    // Unhook previous if any
+    if (g_winEventHook) {
+        UnhookWinEvent(g_winEventHook);
+        g_winEventHook = NULL;
+    }
+
+    g_attachedWindow = effectControlsWnd;
+
+    // Get the thread ID of the Effect Controls window
+    DWORD threadId = GetWindowThreadProcessId(effectControlsWnd, NULL);
+
+    // Set up event hook for location change and destroy events
+    g_winEventHook = SetWinEventHook(
+        EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_DESTROY,
+        NULL, WinEventProc,
+        0, threadId,
+        WINEVENT_OUTOFCONTEXT
+    );
+}
+
+// Position search bar above the Effect Controls window
+void PositionAboveEffectControls() {
+    if (!g_hwnd || !g_attachedWindow || !IsWindow(g_attachedWindow)) return;
+
+    RECT ecRect;
+    GetWindowRect(g_attachedWindow, &ecRect);
+
+    // Get current window height
+    RECT myRect;
+    GetWindowRect(g_hwnd, &myRect);
+    int myHeight = myRect.bottom - myRect.top;
+
+    // Position above Effect Controls, same width
+    int newX = ecRect.left;
+    int newY = ecRect.top - myHeight;
+    int newWidth = ecRect.right - ecRect.left;
+    if (newWidth < WINDOW_WIDTH) newWidth = WINDOW_WIDTH;
+
+    SetWindowPos(g_hwnd, HWND_TOPMOST, newX, newY, newWidth, myHeight, SWP_NOACTIVATE);
+}
+
+void ShowPanel(PanelMode mode) {
     if (g_isVisible) return;
+
+    // Set mode
+    g_currentMode = mode;
 
     // Reset state
     g_searchQuery[0] = L'\0';
     g_searchResults.clear();
+    g_layerEffects.clear();
     g_selectedIndex = 0;
     g_hoverIndex = -1;
     g_result = ControlResult();
-
-    // Initial search (show all)
-    PerformSearch(L"");
 
     // Get mouse position
     POINT pt;
     GetCursorPos(&pt);
 
-    // Calculate window height based on results
-    int itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
-    int windowHeight = SEARCH_HEIGHT + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
+    int windowHeight;
+
+    if (mode == MODE_SEARCH) {
+        // Mode 1: Search mode - show search bar and results
+        PerformSearch(L"");
+        int itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
+        windowHeight = SEARCH_HEIGHT + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
+    } else {
+        // Mode 2: Effects list mode - show presets and layer effects
+        // TODO: Load layer effects from ExtendScript
+        int presetHeight = ITEM_HEIGHT;  // Preset row
+        int itemCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
+        int buttonsHeight = ITEM_HEIGHT;  // All on/off buttons
+        windowHeight = PADDING + presetHeight + PADDING + itemCount * ITEM_HEIGHT + buttonsHeight + PADDING;
+        if (windowHeight < 120) windowHeight = 120;  // Minimum height
+    }
 
     // Create window
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
             WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
             CONTROL_CLASS_NAME,
-            L"Effect Search",
+            mode == MODE_SEARCH ? L"Effect Search" : L"Effect Manager",
             WS_POPUP,
             pt.x - WINDOW_WIDTH / 2,
             pt.y - SEARCH_HEIGHT / 2,
@@ -199,11 +281,45 @@ void ShowPanel() {
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
+PanelMode GetCurrentMode() {
+    return g_currentMode;
+}
+
 void HidePanel() {
     if (!g_isVisible) return;
 
+    // Unhook event listener
+    if (g_winEventHook) {
+        UnhookWinEvent(g_winEventHook);
+        g_winEventHook = NULL;
+    }
+    g_attachedWindow = NULL;
+    g_isCollapsed = false;
+
     ShowWindow(g_hwnd, SW_HIDE);
     g_isVisible = false;
+}
+
+// Toggle collapsed state (thin bar)
+void SetCollapsed(bool collapsed) {
+    if (g_isCollapsed == collapsed) return;
+    g_isCollapsed = collapsed;
+
+    if (g_hwnd) {
+        RECT rc;
+        GetWindowRect(g_hwnd, &rc);
+
+        int newHeight;
+        if (collapsed) {
+            newHeight = COLLAPSED_HEIGHT;
+        } else {
+            int itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
+            newHeight = SEARCH_HEIGHT + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
+        }
+
+        SetWindowPos(g_hwnd, NULL, 0, 0, rc.right - rc.left, newHeight, SWP_NOMOVE | SWP_NOZORDER);
+        InvalidateRect(g_hwnd, NULL, TRUE);
+    }
 }
 
 bool IsVisible() {
@@ -238,6 +354,30 @@ void UpdateSearch(const wchar_t* query) {
 
 } // namespace ControlUI
 
+// WinEvent callback for tracking Effect Controls window position and close
+void CALLBACK WinEventProc(HWINEVENTHOOK hWinEventHook, DWORD event, HWND hwnd,
+                           LONG idObject, LONG idChild, DWORD dwEventThread, DWORD dwmsEventTime) {
+    // Only process events for the attached window
+    if (hwnd != g_attachedWindow) return;
+
+    switch (event) {
+        case EVENT_OBJECT_LOCATIONCHANGE:
+            // Effect Controls window moved - reposition our search bar
+            if (g_isVisible && g_currentMode == ControlUI::MODE_SEARCH) {
+                ControlUI::PositionAboveEffectControls();
+            }
+            break;
+
+        case EVENT_OBJECT_DESTROY:
+            // Effect Controls window closed - close our search bar
+            if (g_isVisible) {
+                g_result.cancelled = true;
+                ControlUI::HidePanel();
+            }
+            break;
+    }
+}
+
 // Search implementation
 void PerformSearch(const wchar_t* query) {
     g_searchResults.clear();
@@ -268,35 +408,50 @@ void PerformSearch(const wchar_t* query) {
     g_selectedIndex = 0;
 }
 
-// Draw the control panel
-void DrawControlPanel(HDC hdc, int width, int height) {
-    Graphics graphics(hdc);
-    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-    graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+// Draw search mode UI
+void DrawSearchMode(Graphics& graphics, int width, int height) {
+    // If collapsed, just draw a thin accent bar
+    if (g_isCollapsed) {
+        SolidBrush accentBrush(COLOR_ACCENT);
+        graphics.FillRectangle(&accentBrush, 0, 0, width, COLLAPSED_HEIGHT);
+        return;
+    }
 
-    // Background
-    SolidBrush bgBrush(COLOR_BG);
-    graphics.FillRectangle(&bgBrush, 0, 0, width, height);
-
-    // Border
-    Pen borderPen(COLOR_BORDER, 1);
-    graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
-
-    // Search box background
-    SolidBrush searchBgBrush(COLOR_SEARCH_BG);
-    RectF searchRect(PADDING, PADDING, width - PADDING * 2, SEARCH_HEIGHT);
-    graphics.FillRectangle(&searchBgBrush, searchRect);
-
-    // Search text
     FontFamily fontFamily(L"Segoe UI");
     Font searchFont(&fontFamily, 14, FontStyleRegular, UnitPixel);
+    Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
+    Font categoryFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    Font closeFont(&fontFamily, 14, FontStyleBold, UnitPixel);
     SolidBrush textBrush(COLOR_TEXT);
     SolidBrush dimBrush(COLOR_TEXT_DIM);
-
-    RectF textRect(PADDING + 8, PADDING + 8, width - PADDING * 2 - 16, SEARCH_HEIGHT - 16);
     StringFormat sf;
     sf.SetAlignment(StringAlignmentNear);
     sf.SetLineAlignment(StringAlignmentCenter);
+
+    // Close button [x] on the right
+    int closeX = width - PADDING - CLOSE_BUTTON_SIZE;
+    int closeY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+    RectF closeRect(closeX, closeY, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE);
+
+    // Close button background (highlight on hover)
+    if (g_hoverCloseButton) {
+        SolidBrush hoverBrush(Color(255, 180, 60, 60));
+        graphics.FillRectangle(&hoverBrush, closeRect);
+    }
+
+    // Draw X
+    StringFormat sfCenter;
+    sfCenter.SetAlignment(StringAlignmentCenter);
+    sfCenter.SetLineAlignment(StringAlignmentCenter);
+    graphics.DrawString(L"×", -1, &closeFont, closeRect, &sfCenter, &textBrush);
+
+    // Search box background (leave space for close button)
+    SolidBrush searchBgBrush(COLOR_SEARCH_BG);
+    RectF searchRect(PADDING, PADDING, width - PADDING * 3 - CLOSE_BUTTON_SIZE, SEARCH_HEIGHT);
+    graphics.FillRectangle(&searchBgBrush, searchRect);
+
+    // Search text
+    RectF textRect(PADDING + 8, PADDING + 8, width - PADDING * 3 - CLOSE_BUTTON_SIZE - 16, SEARCH_HEIGHT - 16);
 
     if (wcslen(g_searchQuery) > 0) {
         graphics.DrawString(g_searchQuery, -1, &searchFont, textRect, &sf, &textBrush);
@@ -304,23 +459,16 @@ void DrawControlPanel(HDC hdc, int width, int height) {
         graphics.DrawString(L"Search effects...", -1, &searchFont, textRect, &sf, &dimBrush);
     }
 
-    // Cursor blink (simple)
-    if (wcslen(g_searchQuery) > 0 || true) {
-        // Measure text width
-        RectF bounds;
-        graphics.MeasureString(g_searchQuery, -1, &searchFont, textRect, &sf, &bounds);
-
-        Pen cursorPen(COLOR_ACCENT, 2);
-        REAL cursorX = (REAL)(PADDING + 8) + bounds.Width + 2.0f;
-        REAL cursorY1 = (REAL)(PADDING + 10);
-        REAL cursorY2 = (REAL)(PADDING + SEARCH_HEIGHT - 10);
-        graphics.DrawLine(&cursorPen, cursorX, cursorY1, cursorX, cursorY2);
-    }
+    // Cursor
+    RectF bounds;
+    graphics.MeasureString(g_searchQuery, -1, &searchFont, textRect, &sf, &bounds);
+    Pen cursorPen(COLOR_ACCENT, 2);
+    REAL cursorX = (REAL)(PADDING + 8) + bounds.Width + 2.0f;
+    REAL cursorY1 = (REAL)(PADDING + 10);
+    REAL cursorY2 = (REAL)(PADDING + SEARCH_HEIGHT - 10);
+    graphics.DrawLine(&cursorPen, cursorX, cursorY1, cursorX, cursorY2);
 
     // Results
-    Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
-    Font categoryFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
-
     int y = PADDING + SEARCH_HEIGHT + PADDING;
     int visibleCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
 
@@ -355,6 +503,130 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     if (g_searchResults.empty() && wcslen(g_searchQuery) > 0) {
         RectF msgRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
         graphics.DrawString(L"No effects found", -1, &itemFont, msgRect, &sf, &dimBrush);
+    }
+}
+
+// Draw effects list mode UI (presets + layer effects)
+void DrawEffectsListMode(Graphics& graphics, int width, int height) {
+    FontFamily fontFamily(L"Segoe UI");
+    Font titleFont(&fontFamily, 12, FontStyleBold, UnitPixel);
+    Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
+    Font smallFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush dimBrush(COLOR_TEXT_DIM);
+    SolidBrush accentBrush(COLOR_ACCENT);
+    StringFormat sf;
+    sf.SetAlignment(StringAlignmentNear);
+    sf.SetLineAlignment(StringAlignmentCenter);
+
+    int y = PADDING;
+
+    // Preset slots row
+    int slotWidth = 30;
+    int slotSpacing = 8;
+    int presetStartX = PADDING;
+
+    // Draw 3 preset slots (★)
+    for (int i = 0; i < 3; i++) {
+        RectF slotRect(presetStartX + i * (slotWidth + slotSpacing), y, slotWidth, ITEM_HEIGHT);
+        SolidBrush slotBg(Color(255, 50, 50, 60));
+        graphics.FillRectangle(&slotBg, slotRect);
+
+        // Star icon
+        StringFormat sfCenter;
+        sfCenter.SetAlignment(StringAlignmentCenter);
+        sfCenter.SetLineAlignment(StringAlignmentCenter);
+        graphics.DrawString(L"★", -1, &titleFont, slotRect, &sfCenter, &dimBrush);
+    }
+
+    // [+Save] button
+    int saveX = presetStartX + 3 * (slotWidth + slotSpacing) + 20;
+    RectF saveRect(saveX, y, 60, ITEM_HEIGHT);
+    SolidBrush saveBg(Color(255, 60, 80, 60));
+    graphics.FillRectangle(&saveBg, saveRect);
+    StringFormat sfCenter;
+    sfCenter.SetAlignment(StringAlignmentCenter);
+    sfCenter.SetLineAlignment(StringAlignmentCenter);
+    graphics.DrawString(L"+Save", -1, &smallFont, saveRect, &sfCenter, &textBrush);
+
+    y += ITEM_HEIGHT + PADDING;
+
+    // Separator line
+    Pen sepPen(COLOR_BORDER, 1);
+    graphics.DrawLine(&sepPen, PADDING, y, width - PADDING, y);
+    y += PADDING;
+
+    // Layer effects list
+    int visibleCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
+
+    if (visibleCount == 0) {
+        RectF msgRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+        graphics.DrawString(L"No effects on layer", -1, &itemFont, msgRect, &sf, &dimBrush);
+        y += ITEM_HEIGHT;
+    } else {
+        for (int i = 0; i < visibleCount; i++) {
+            const auto& item = g_layerEffects[i];
+            RectF itemRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+
+            // Highlight hover
+            if (i == g_hoverIndex) {
+                SolidBrush hoverBrush(COLOR_ITEM_HOVER);
+                graphics.FillRectangle(&hoverBrush, itemRect);
+            }
+
+            // Expand/collapse icon
+            graphics.DrawString(L"▼", -1, &smallFont,
+                RectF(PADDING + 4, y, 16, ITEM_HEIGHT), &sf, &dimBrush);
+
+            // Effect name
+            SolidBrush* nameBrush = item.enabled ? &textBrush : &dimBrush;
+            RectF nameRect(PADDING + 24, y, width - PADDING * 2 - 60, ITEM_HEIGHT);
+            graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, nameBrush);
+
+            // Enable/disable toggle [👁]
+            RectF toggleRect(width - PADDING - 32, y + 4, 24, ITEM_HEIGHT - 8);
+            graphics.DrawString(item.enabled ? L"👁" : L"○", -1, &itemFont, toggleRect, &sfCenter,
+                item.enabled ? &accentBrush : &dimBrush);
+
+            y += ITEM_HEIGHT;
+        }
+    }
+
+    y += PADDING;
+
+    // Bottom buttons: [All On] [All Off]
+    int btnWidth = (width - PADDING * 3) / 2;
+
+    RectF allOnRect(PADDING, y, btnWidth, ITEM_HEIGHT - 4);
+    SolidBrush btnBg(Color(255, 50, 70, 50));
+    graphics.FillRectangle(&btnBg, allOnRect);
+    graphics.DrawString(L"All On", -1, &smallFont, allOnRect, &sfCenter, &textBrush);
+
+    RectF allOffRect(PADDING * 2 + btnWidth, y, btnWidth, ITEM_HEIGHT - 4);
+    SolidBrush btnBgOff(Color(255, 70, 50, 50));
+    graphics.FillRectangle(&btnBgOff, allOffRect);
+    graphics.DrawString(L"All Off", -1, &smallFont, allOffRect, &sfCenter, &textBrush);
+}
+
+// Draw the control panel
+void DrawControlPanel(HDC hdc, int width, int height) {
+    Graphics graphics(hdc);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+    graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+
+    // Background
+    SolidBrush bgBrush(COLOR_BG);
+    graphics.FillRectangle(&bgBrush, 0, 0, width, height);
+
+    // Border
+    Pen borderPen(COLOR_BORDER, 1);
+    graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
+
+    // Draw based on mode
+    if (g_currentMode == ControlUI::MODE_SEARCH) {
+        DrawSearchMode(graphics, width, height);
+    } else {
+        DrawEffectsListMode(graphics, width, height);
     }
 }
 
@@ -434,9 +706,40 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_MOUSEMOVE: {
+            int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            int startY = PADDING + SEARCH_HEIGHT + PADDING;
 
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            int width = rc.right;
+
+            // Track mouse leave for collapse feature
+            TRACKMOUSEEVENT tme = {0};
+            tme.cbSize = sizeof(TRACKMOUSEEVENT);
+            tme.dwFlags = TME_LEAVE;
+            tme.hwndTrack = hwnd;
+            TrackMouseEvent(&tme);
+
+            // If collapsed, expand on mouse enter
+            if (g_isCollapsed) {
+                ControlUI::SetCollapsed(false);
+                return 0;
+            }
+
+            // Check close button hover (in search mode)
+            if (g_currentMode == ControlUI::MODE_SEARCH) {
+                int closeX = width - PADDING - CLOSE_BUTTON_SIZE;
+                int closeY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+                bool wasHover = g_hoverCloseButton;
+                g_hoverCloseButton = (x >= closeX && x <= closeX + CLOSE_BUTTON_SIZE &&
+                                      y >= closeY && y <= closeY + CLOSE_BUTTON_SIZE);
+                if (wasHover != g_hoverCloseButton) {
+                    InvalidateRect(hwnd, NULL, TRUE);
+                }
+            }
+
+            // Check result items hover
+            int startY = PADDING + SEARCH_HEIGHT + PADDING;
             if (y >= startY) {
                 int idx = (y - startY) / ITEM_HEIGHT;
                 if (idx >= 0 && idx < (int)g_searchResults.size()) {
@@ -454,10 +757,36 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
 
-        case WM_LBUTTONDOWN: {
-            int y = HIWORD(lParam);
-            int startY = PADDING + SEARCH_HEIGHT + PADDING;
+        case WM_MOUSELEAVE: {
+            // Collapse when mouse leaves (only in search mode with attached window)
+            if (g_currentMode == ControlUI::MODE_SEARCH && g_attachedWindow) {
+                ControlUI::SetCollapsed(true);
+            }
+            return 0;
+        }
 
+        case WM_LBUTTONDOWN: {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            int width = rc.right;
+
+            // Check close button click (in search mode)
+            if (g_currentMode == ControlUI::MODE_SEARCH) {
+                int closeX = width - PADDING - CLOSE_BUTTON_SIZE;
+                int closeY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+                if (x >= closeX && x <= closeX + CLOSE_BUTTON_SIZE &&
+                    y >= closeY && y <= closeY + CLOSE_BUTTON_SIZE) {
+                    g_result.cancelled = true;
+                    ControlUI::HidePanel();
+                    return 0;
+                }
+            }
+
+            // Check result item click
+            int startY = PADDING + SEARCH_HEIGHT + PADDING;
             if (y >= startY) {
                 int idx = (y - startY) / ITEM_HEIGHT;
                 if (idx >= 0 && idx < (int)g_searchResults.size()) {
@@ -491,12 +820,13 @@ namespace ControlUI {
 
 void Initialize() {}
 void Shutdown() {}
-void ShowPanel() {}
+void ShowPanel(PanelMode) {}
 void HidePanel() {}
 bool IsVisible() { return false; }
 ControlResult GetResult() { return ControlResult(); }
 ControlSettings& GetSettings() { static ControlSettings s; return s; }
 void UpdateSearch(const wchar_t*) {}
+PanelMode GetCurrentMode() { return MODE_SEARCH; }
 
 } // namespace ControlUI
 

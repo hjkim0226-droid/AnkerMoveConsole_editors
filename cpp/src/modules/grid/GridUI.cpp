@@ -952,6 +952,13 @@ GridSettings &GetSettings() {
   static GridSettings s;
   return s;
 }
+bool HasClipboardAnchor() { return false; }
+void GetClipboardAnchor(float *outX, float *outY) {
+  if (outX) *outX = 0.5f;
+  if (outY) *outY = 0.5f;
+}
+void SetClipboardAnchor(float, float) {}
+ExtendedOption GetHoverExtOption() { return OPT_NONE; }
 } // namespace NativeUI
 
 #endif // MSWindows
