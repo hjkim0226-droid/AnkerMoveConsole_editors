@@ -42,7 +42,10 @@ class CustomAnchor {
     }
 
     savePresets() {
-        this.settings.set('customAnchors', this.presets);
+        // Deep copy to ensure settings gets a new array
+        const copy = this.presets.map(p => ({ x: p.x, y: p.y }));
+        this.settings.set('customAnchors', copy);
+        console.log('Saved presets:', copy);
     }
 
     selectPreset(index) {
