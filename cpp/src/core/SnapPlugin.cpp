@@ -1071,21 +1071,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       ControlUI::SetLayerEffects(effectsList);
       ControlUI::ShowPanel();
     } else {
-      // Mode 1: Open Effect Controls first, then show search panel
+      // Mode 1: Show search panel at mouse position
+      // TODO: Effect Controls 열기는 일단 비활성화 (AE freeze 문제)
       ControlUI::SetMode(ControlUI::MODE_SEARCH);
-      OpenEffectControls();
-
-      // Find Effect Controls window position and show panel there
-      RECT ecRect = FindEffectControlsWindow();
-      if (ecRect.right > ecRect.left && ecRect.bottom > ecRect.top) {
-        // Position at top-center of Effect Controls
-        int x = (ecRect.left + ecRect.right) / 2;
-        int y = ecRect.top + 50; // Below title bar
-        ControlUI::ShowPanelAt(x, y);
-      } else {
-        // Fallback to mouse position
-        ControlUI::ShowPanel();
-      }
+      ControlUI::ShowPanel();
     }
     g_controlVisible = true;
   }
