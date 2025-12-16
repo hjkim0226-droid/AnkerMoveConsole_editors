@@ -1072,11 +1072,12 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       ControlUI::SetLayerEffects(effectsList);
       ControlUI::ShowPanel();
     } else {
-      // Mode 1: Open Effect Controls directly via ExtendScript
+      // Mode 1: Open new locked Effect Controls viewer
       ControlUI::SetMode(ControlUI::MODE_SEARCH);
 
-      // Open Effect Controls panel (command ID 2163)
-      ExecuteScript("app.executeCommand(2163)");
+      // First open EC panel, then split with new locked viewer
+      // Command 2163 = Effect Controls, Command 3700 = Split with New Locked Viewer
+      ExecuteScript("app.executeCommand(2163); app.executeCommand(3700);");
 
       // Show search panel at mouse position
       ControlUI::ShowPanel();
@@ -1110,7 +1111,21 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                    "})();",
                    result.effectIndex, result.effectIndex + 1);
           ExecuteScript(script);
+        } else if (result.action == ControlUI::ACTION_EXPAND) {
+          // Expand this effect (collapse others)
+          char script[256];
+          snprintf(script, sizeof(script), "expandEffect(%d)", result.effectIndex);
+          ExecuteScript(script);
         }
+      } else if (result.action == ControlUI::ACTION_APPLY_PRESET) {
+        // Apply preset from quick slot
+        // TODO: Load preset from settings and apply
+        // For now, just log
+        char script[256];
+        snprintf(script, sizeof(script),
+                 "alert('Preset slot %d clicked. Preset feature coming soon.')",
+                 result.presetSlotIndex + 1);
+        ExecuteScript(script);
       } else {
         // Mode 1: Add new effect to layer
         char matchNameA[256];

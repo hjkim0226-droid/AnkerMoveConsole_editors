@@ -433,3 +433,295 @@ function removeEffectFromLayer(index) {
         return "Error: " + e.toString();
     }
 }
+
+// =========================================================================
+// Effect Expand/Collapse Functions
+// =========================================================================
+
+/**
+ * Expand a specific effect and collapse all others
+ * This selects the effect in Effect Controls panel
+ * @param {number} effectIndex - 0-based index of the effect to expand
+ */
+function expandEffect(effectIndex) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var layer = comp.selectedLayers[0];
+        var fx = layer.property("ADBE Effect Parade");
+
+        if (!fx || fx.numProperties === 0) {
+            return "Error: No effects on layer";
+        }
+
+        // Convert 0-based to 1-based index
+        var aeIndex = effectIndex + 1;
+
+        if (aeIndex < 1 || aeIndex > fx.numProperties) {
+            return "Error: Invalid effect index";
+        }
+
+        // Collapse all effects first
+        for (var i = 1; i <= fx.numProperties; i++) {
+            fx.property(i).selected = false;
+        }
+
+        // Expand the selected effect
+        fx.property(aeIndex).selected = true;
+
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+// =========================================================================
+// Effect Preset Functions
+// =========================================================================
+
+/**
+ * Get all properties of an effect for saving as preset
+ * @param {number} effectIndex - 0-based index of the effect
+ * @returns {string} JSON string of effect preset data
+ */
+function getEffectPresetData(effectIndex) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var layer = comp.selectedLayers[0];
+        var fx = layer.property("ADBE Effect Parade");
+
+        if (!fx || fx.numProperties === 0) {
+            return "Error: No effects on layer";
+        }
+
+        var aeIndex = effectIndex + 1;
+        if (aeIndex < 1 || aeIndex > fx.numProperties) {
+            return "Error: Invalid effect index";
+        }
+
+        var effect = fx.property(aeIndex);
+        var preset = {
+            matchName: effect.matchName,
+            name: effect.name,
+            properties: [],
+            expressions: []
+        };
+
+        // Get layer name for expression conversion
+        var layerName = layer.name;
+
+        // Iterate through effect properties
+        for (var i = 1; i <= effect.numProperties; i++) {
+            var prop = effect.property(i);
+
+            // Only get properties that can have values
+            if (prop.propertyValueType !== PropertyValueType.NO_VALUE) {
+                try {
+                    var propData = {
+                        index: i,
+                        name: prop.name,
+                        matchName: prop.matchName
+                    };
+
+                    // Get value if possible
+                    if (prop.numKeys === 0) {
+                        // Static value
+                        propData.value = prop.value;
+                    } else {
+                        // Has keyframes - get value at current time
+                        propData.value = prop.valueAtTime(comp.time, false);
+                        propData.hasKeyframes = true;
+                    }
+
+                    // Check for expression
+                    if (prop.expression && prop.expression.length > 0) {
+                        var expr = prop.expression;
+
+                        // Auto-convert self-references to thisLayer
+                        // Pattern: thisComp.layer("layerName") -> thisLayer
+                        var selfRefPattern = new RegExp('thisComp\\.layer\\(["\']' + escapeRegExp(layerName) + '["\']\\)', 'g');
+                        expr = expr.replace(selfRefPattern, 'thisLayer');
+
+                        preset.expressions.push({
+                            index: i,
+                            expression: expr,
+                            enabled: prop.expressionEnabled
+                        });
+                    }
+
+                    preset.properties.push(propData);
+                } catch (propErr) {
+                    // Skip properties that can't be read
+                }
+            }
+        }
+
+        return JSON.stringify(preset);
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Helper function to escape special regex characters
+ */
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Apply a preset to the selected layer
+ * @param {string} presetJson - JSON string of preset data
+ * @returns {string} "OK" or error message
+ */
+function applyEffectPreset(presetJson) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var preset = JSON.parse(presetJson);
+        if (!preset || !preset.matchName) {
+            return "Error: Invalid preset data";
+        }
+
+        app.beginUndoGroup("Apply Effect Preset");
+
+        for (var layerIdx = 0; layerIdx < comp.selectedLayers.length; layerIdx++) {
+            var layer = comp.selectedLayers[layerIdx];
+            var fx = layer.property("ADBE Effect Parade");
+
+            // Add the effect
+            if (!fx.canAddProperty(preset.matchName)) {
+                continue; // Skip if can't add this effect to this layer
+            }
+
+            var newEffect = fx.addProperty(preset.matchName);
+
+            // Apply property values
+            for (var i = 0; i < preset.properties.length; i++) {
+                var propData = preset.properties[i];
+                try {
+                    var prop = newEffect.property(propData.index);
+                    if (prop && prop.propertyValueType !== PropertyValueType.NO_VALUE) {
+                        if (!propData.hasKeyframes) {
+                            prop.setValue(propData.value);
+                        }
+                    }
+                } catch (setPropErr) {
+                    // Skip properties that can't be set
+                }
+            }
+
+            // Apply expressions
+            for (var j = 0; j < preset.expressions.length; j++) {
+                var exprData = preset.expressions[j];
+                try {
+                    var prop = newEffect.property(exprData.index);
+                    if (prop) {
+                        prop.expression = exprData.expression;
+                        prop.expressionEnabled = exprData.enabled;
+                    }
+                } catch (setExprErr) {
+                    // Skip expressions that can't be set
+                }
+            }
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Get all effects from selected layer as preset data (for multi-effect presets)
+ * @returns {string} JSON string of all effects preset data
+ */
+function getAllEffectsPresetData() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var layer = comp.selectedLayers[0];
+        var fx = layer.property("ADBE Effect Parade");
+
+        if (!fx || fx.numProperties === 0) {
+            return "Error: No effects on layer";
+        }
+
+        var allPresets = {
+            effects: []
+        };
+
+        // Get preset data for each effect
+        for (var i = 0; i < fx.numProperties; i++) {
+            var presetJson = getEffectPresetData(i);
+            if (presetJson.indexOf("Error:") !== 0) {
+                allPresets.effects.push(JSON.parse(presetJson));
+            }
+        }
+
+        return JSON.stringify(allPresets);
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Apply multiple effects from a preset
+ * @param {string} allPresetsJson - JSON string containing array of effect presets
+ * @returns {string} "OK" or error message
+ */
+function applyMultiEffectPreset(allPresetsJson) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var allPresets = JSON.parse(allPresetsJson);
+        if (!allPresets || !allPresets.effects || allPresets.effects.length === 0) {
+            return "Error: Invalid preset data";
+        }
+
+        app.beginUndoGroup("Apply Multi-Effect Preset");
+
+        // Apply each effect preset
+        for (var i = 0; i < allPresets.effects.length; i++) {
+            var presetJson = JSON.stringify(allPresets.effects[i]);
+            applyEffectPreset(presetJson);
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}

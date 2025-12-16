@@ -50,11 +50,14 @@ static ControlUI::ControlResult g_result;
 static const int WINDOW_WIDTH = 320;
 static const int SEARCH_HEIGHT = 36;
 static const int HEADER_HEIGHT = 32;  // Mode 2 header
+static const int PRESET_BAR_HEIGHT = 36;  // Mode 2 preset buttons
 static const int ITEM_HEIGHT = 32;
 static const int PADDING = 8;
 static const int MAX_VISIBLE_ITEMS = 8;
 static const int CLOSE_BUTTON_SIZE = 20;
 static const int ACTION_BUTTON_SIZE = 20;  // Delete, duplicate, move buttons
+static const int PRESET_BUTTON_WIDTH = 40;
+static const int PRESET_BUTTON_HEIGHT = 28;
 
 // Colors
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -66,9 +69,16 @@ static const Color COLOR_TEXT_DIM(255, 140, 140, 140);
 static const Color COLOR_ACCENT(255, 74, 207, 255);
 static const Color COLOR_BORDER(255, 60, 60, 70);
 static const Color COLOR_CLOSE_HOVER(255, 200, 60, 60);
+static const Color COLOR_PRESET_BG(255, 50, 50, 60);
+static const Color COLOR_PRESET_HOVER(255, 70, 100, 130);
+static const Color COLOR_PRESET_ACTIVE(255, 74, 158, 255);
 
 // Close button state
 static bool g_closeButtonHover = false;
+
+// Preset button state (Mode 2)
+static int g_hoveredPresetButton = -1;  // -1 = none, 0-2 = slot buttons
+static int g_presetSlots[3] = {-1, -1, -1};  // Assigned preset indices
 
 // Built-in effects list (common effects for search)
 static const wchar_t* BUILTIN_EFFECTS[][3] = {
@@ -187,10 +197,11 @@ void ShowPanelAt(int x, int y) {
         itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
         headerHeight = SEARCH_HEIGHT;
     } else {
-        // Mode 2: Effects list
+        // Mode 2: Effects list with preset bar and search
         itemCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
-        headerHeight = HEADER_HEIGHT;
+        headerHeight = HEADER_HEIGHT + PRESET_BAR_HEIGHT + SEARCH_HEIGHT;  // Header + presets + search
         if (itemCount == 0) itemCount = 1; // Show "No effects" message
+        g_hoveredPresetButton = -1;
     }
 
     int windowHeight = headerHeight + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
@@ -482,14 +493,34 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     Pen borderPen(COLOR_BORDER, 1);
     graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
 
-    // Header
+    // Fonts
+    FontFamily fontFamily(L"Segoe UI");
+    Font headerFont(&fontFamily, 12, FontStyleBold, UnitPixel);
+    Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
+    Font indexFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    Font presetFont(&fontFamily, 14, FontStyleBold, UnitPixel);
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush dimBrush(COLOR_TEXT_DIM);
+    SolidBrush accentBrush(COLOR_ACCENT);
+
+    StringFormat sf;
+    sf.SetAlignment(StringAlignmentNear);
+    sf.SetLineAlignment(StringAlignmentCenter);
+
+    StringFormat sfCenter;
+    sfCenter.SetAlignment(StringAlignmentCenter);
+    sfCenter.SetLineAlignment(StringAlignmentCenter);
+
+    int currentY = PADDING;
+
+    // ===== Header bar =====
     SolidBrush headerBgBrush(COLOR_SEARCH_BG);
-    RectF headerRect(PADDING, PADDING, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4, HEADER_HEIGHT);
+    RectF headerRect(PADDING, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4, HEADER_HEIGHT);
     graphics.FillRectangle(&headerBgBrush, headerRect);
 
     // Close button [x]
     int closeBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
-    int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+    int closeBtnY = currentY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
     RectF closeRect((REAL)closeBtnX, (REAL)closeBtnY, (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
 
     if (g_closeButtonHover) {
@@ -507,35 +538,65 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
         closeBtnX + margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
 
     // Header text
-    FontFamily fontFamily(L"Segoe UI");
-    Font headerFont(&fontFamily, 12, FontStyleBold, UnitPixel);
-    SolidBrush textBrush(COLOR_TEXT);
-    SolidBrush dimBrush(COLOR_TEXT_DIM);
-    SolidBrush accentBrush(COLOR_ACCENT);
-
-    RectF titleRect(PADDING + 8, PADDING, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 16, HEADER_HEIGHT);
-    StringFormat sf;
-    sf.SetAlignment(StringAlignmentNear);
-    sf.SetLineAlignment(StringAlignmentCenter);
+    RectF titleRect(PADDING + 8, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 16, HEADER_HEIGHT);
     graphics.DrawString(L"Layer Effects", -1, &headerFont, titleRect, &sf, &textBrush);
 
-    // Effects list
-    Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
-    Font indexFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    currentY += HEADER_HEIGHT + 4;
 
-    int y = PADDING + HEADER_HEIGHT + PADDING;
+    // ===== Preset buttons bar =====
+    int presetBarY = currentY;
+    int presetBtnSpacing = 4;
+    int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
+    int presetStartX = (width - totalPresetWidth) / 2;
+
+    for (int i = 0; i < 3; i++) {
+        int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + presetBtnSpacing);
+        int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
+
+        RectF btnRect((REAL)btnX, (REAL)btnY, (REAL)PRESET_BUTTON_WIDTH, (REAL)PRESET_BUTTON_HEIGHT);
+
+        // Button background
+        Color btnColor = (i == g_hoveredPresetButton) ? COLOR_PRESET_HOVER :
+                         (g_presetSlots[i] >= 0) ? COLOR_PRESET_ACTIVE : COLOR_PRESET_BG;
+        SolidBrush btnBrush(btnColor);
+        graphics.FillRectangle(&btnBrush, btnRect);
+
+        // Button border
+        Pen btnBorder(COLOR_BORDER, 1);
+        graphics.DrawRectangle(&btnBorder, btnRect);
+
+        // Button text
+        wchar_t btnText[4];
+        swprintf_s(btnText, L"%d", i + 1);
+        graphics.DrawString(btnText, -1, &presetFont, btnRect, &sfCenter, &textBrush);
+    }
+
+    currentY += PRESET_BAR_HEIGHT;
+
+    // ===== Search bar =====
+    SolidBrush searchBgBrush(COLOR_SEARCH_BG);
+    RectF searchRect(PADDING, currentY, width - PADDING * 2, SEARCH_HEIGHT);
+    graphics.FillRectangle(&searchBgBrush, searchRect);
+
+    // Search placeholder text
+    RectF searchTextRect(PADDING + 8, currentY, width - PADDING * 2 - 16, SEARCH_HEIGHT);
+    graphics.DrawString(L"Search effects...", -1, &itemFont, searchTextRect, &sf, &dimBrush);
+
+    currentY += SEARCH_HEIGHT + PADDING;
+
+    // ===== Effects list =====
     int visibleCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
 
     if (visibleCount == 0) {
         // No effects message
-        RectF msgRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+        RectF msgRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
         graphics.DrawString(L"No effects on layer", -1, &itemFont, msgRect, &sf, &dimBrush);
         return;
     }
 
     for (int i = 0; i < visibleCount; i++) {
         const auto& item = g_layerEffects[i];
-        RectF itemRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+        RectF itemRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
 
         // Highlight selected/hover
         if (i == g_selectedIndex) {
@@ -546,22 +607,24 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
             graphics.FillRectangle(&hoverBrush, itemRect);
         }
 
+        // Expand icon (▶)
+        RectF expandRect(PADDING + 4, currentY, 16, ITEM_HEIGHT);
+        graphics.DrawString(L"\u25B6", -1, &indexFont, expandRect, &sf, &dimBrush);
+
         // Effect index number
         wchar_t indexStr[8];
         swprintf_s(indexStr, L"%d.", item.index + 1);
-        RectF indexRect(PADDING + 4, y, 24, ITEM_HEIGHT);
+        RectF indexRect(PADDING + 20, currentY, 24, ITEM_HEIGHT);
         graphics.DrawString(indexStr, -1, &indexFont, indexRect, &sf, &dimBrush);
 
         // Effect name
-        RectF nameRect(PADDING + 28, y, width - PADDING * 2 - 100, ITEM_HEIGHT);
-        sf.SetLineAlignment(StringAlignmentCenter);
+        RectF nameRect(PADDING + 44, currentY, width - PADDING * 2 - 80, ITEM_HEIGHT);
         graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
 
-        // Action buttons (right side): Delete [x]
+        // Delete button [x]
         int btnX = width - PADDING - ACTION_BUTTON_SIZE - 4;
-        int btnY = y + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
+        int btnY = currentY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
 
-        // Delete button
         Pen deletePen(Color(255, 200, 80, 80), 1.5f);
         float btnMargin = 5.0f;
         graphics.DrawLine(&deletePen,
@@ -571,7 +634,7 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
             (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + btnMargin),
             (REAL)(btnX + btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
 
-        y += ITEM_HEIGHT;
+        currentY += ITEM_HEIGHT;
     }
 }
 
@@ -678,76 +741,165 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_MOUSEMOVE: {
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            int headerHeight = (g_panelMode == ControlUI::MODE_SEARCH) ? SEARCH_HEIGHT : HEADER_HEIGHT;
-            int startY = PADDING + headerHeight + PADDING;
-
-            // Check close button hover
             RECT rc;
             GetClientRect(hwnd, &rc);
-            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-            int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
-            bool wasCloseHover = g_closeButtonHover;
-            g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
-                                  y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
-            if (wasCloseHover != g_closeButtonHover) {
-                InvalidateRect(hwnd, NULL, TRUE);
-            }
+            bool needRedraw = false;
 
-            // Get item count based on mode
-            int itemCount = (g_panelMode == ControlUI::MODE_SEARCH)
-                ? (int)g_searchResults.size()
-                : (int)g_layerEffects.size();
+            if (g_panelMode == ControlUI::MODE_SEARCH) {
+                // Mode 1: Search mode
+                int headerHeight = SEARCH_HEIGHT;
+                int startY = PADDING + headerHeight + PADDING;
 
-            if (y >= startY) {
-                int idx = (y - startY) / ITEM_HEIGHT;
-                if (idx >= 0 && idx < itemCount) {
-                    if (g_hoverIndex != idx) {
-                        g_hoverIndex = idx;
-                        InvalidateRect(hwnd, NULL, TRUE);
+                // Check close button hover
+                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+                int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
+                bool wasCloseHover = g_closeButtonHover;
+                g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
+                                      y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
+                if (wasCloseHover != g_closeButtonHover) needRedraw = true;
+
+                // Check item hover
+                int itemCount = (int)g_searchResults.size();
+                if (y >= startY) {
+                    int idx = (y - startY) / ITEM_HEIGHT;
+                    if (idx >= 0 && idx < itemCount) {
+                        if (g_hoverIndex != idx) {
+                            g_hoverIndex = idx;
+                            needRedraw = true;
+                        }
                     }
+                } else if (g_hoverIndex != -1) {
+                    g_hoverIndex = -1;
+                    needRedraw = true;
                 }
             } else {
-                if (g_hoverIndex != -1) {
+                // Mode 2: Effects panel with preset buttons
+                // Layout: Header -> Presets -> Search -> Items
+                int headerY = PADDING;
+                int presetBarY = headerY + HEADER_HEIGHT + 4;
+                int searchBarY = presetBarY + PRESET_BAR_HEIGHT;
+                int itemsStartY = searchBarY + SEARCH_HEIGHT + PADDING;
+
+                // Check close button hover (in header)
+                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+                int closeBtnY = headerY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+                bool wasCloseHover = g_closeButtonHover;
+                g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
+                                      y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
+                if (wasCloseHover != g_closeButtonHover) needRedraw = true;
+
+                // Check preset button hover
+                int presetBtnSpacing = 4;
+                int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
+                int presetStartX = (rc.right - totalPresetWidth) / 2;
+                int oldHoveredPreset = g_hoveredPresetButton;
+                g_hoveredPresetButton = -1;
+
+                for (int i = 0; i < 3; i++) {
+                    int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + presetBtnSpacing);
+                    int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
+                    if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
+                        y >= btnY && y < btnY + PRESET_BUTTON_HEIGHT) {
+                        g_hoveredPresetButton = i;
+                        break;
+                    }
+                }
+                if (oldHoveredPreset != g_hoveredPresetButton) needRedraw = true;
+
+                // Check item hover
+                int itemCount = (int)g_layerEffects.size();
+                if (y >= itemsStartY) {
+                    int idx = (y - itemsStartY) / ITEM_HEIGHT;
+                    if (idx >= 0 && idx < itemCount) {
+                        if (g_hoverIndex != idx) {
+                            g_hoverIndex = idx;
+                            needRedraw = true;
+                        }
+                    }
+                } else if (g_hoverIndex != -1) {
                     g_hoverIndex = -1;
-                    InvalidateRect(hwnd, NULL, TRUE);
+                    needRedraw = true;
                 }
             }
+
+            if (needRedraw) InvalidateRect(hwnd, NULL, TRUE);
             return 0;
         }
 
         case WM_LBUTTONDOWN: {
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            int headerHeight = (g_panelMode == ControlUI::MODE_SEARCH) ? SEARCH_HEIGHT : HEADER_HEIGHT;
-            int startY = PADDING + headerHeight + PADDING;
-
-            // Check close button click
             RECT rc;
             GetClientRect(hwnd, &rc);
-            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-            int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
-            if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
-                y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
-                g_result.cancelled = true;
-                ControlUI::HidePanel();
-                return 0;
-            }
 
-            if (y >= startY) {
-                int idx = (y - startY) / ITEM_HEIGHT;
+            if (g_panelMode == ControlUI::MODE_SEARCH) {
+                // Mode 1: Search mode
+                int headerHeight = SEARCH_HEIGHT;
+                int startY = PADDING + headerHeight + PADDING;
 
-                if (g_panelMode == ControlUI::MODE_SEARCH) {
-                    // Mode 1: Select effect to add
+                // Check close button click
+                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+                int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
+                if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
+                    y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
+                    g_result.cancelled = true;
+                    ControlUI::HidePanel();
+                    return 0;
+                }
+
+                // Check item click
+                if (y >= startY) {
+                    int idx = (y - startY) / ITEM_HEIGHT;
                     if (idx >= 0 && idx < (int)g_searchResults.size()) {
                         g_result.effectSelected = true;
                         g_result.selectedEffect = g_searchResults[idx];
                         wcscpy_s(g_result.searchQuery, g_searchQuery);
                         ControlUI::HidePanel();
                     }
-                } else {
-                    // Mode 2: Check if clicked on delete button or effect name
+                }
+            } else {
+                // Mode 2: Effects panel with preset buttons
+                // Layout: Header -> Presets -> Search -> Items
+                int headerY = PADDING;
+                int presetBarY = headerY + HEADER_HEIGHT + 4;
+                int searchBarY = presetBarY + PRESET_BAR_HEIGHT;
+                int itemsStartY = searchBarY + SEARCH_HEIGHT + PADDING;
+
+                // Check close button click (in header)
+                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+                int closeBtnY = headerY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+                if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
+                    y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
+                    g_result.cancelled = true;
+                    ControlUI::HidePanel();
+                    return 0;
+                }
+
+                // Check preset button click
+                int presetBtnSpacing = 4;
+                int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
+                int presetStartX = (rc.right - totalPresetWidth) / 2;
+
+                for (int i = 0; i < 3; i++) {
+                    int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + presetBtnSpacing);
+                    int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
+                    if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
+                        y >= btnY && y < btnY + PRESET_BUTTON_HEIGHT) {
+                        // Preset button clicked
+                        if (g_presetSlots[i] >= 0) {
+                            g_result.action = ControlUI::ACTION_APPLY_PRESET;
+                            g_result.presetSlotIndex = i;
+                            ControlUI::HidePanel();
+                        }
+                        return 0;
+                    }
+                }
+
+                // Check effect item click
+                if (y >= itemsStartY) {
+                    int idx = (y - itemsStartY) / ITEM_HEIGHT;
                     if (idx >= 0 && idx < (int)g_layerEffects.size()) {
-                        int itemY = startY + idx * ITEM_HEIGHT;
+                        int itemY = itemsStartY + idx * ITEM_HEIGHT;
                         int btnX = rc.right - PADDING - ACTION_BUTTON_SIZE - 4;
                         int btnY = itemY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
 
@@ -759,8 +911,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             g_result.action = ControlUI::ACTION_DELETE;
                             g_result.effectIndex = g_layerEffects[idx].index;
                             ControlUI::HidePanel();
+                        } else {
+                            // Clicked on effect name -> expand this effect
+                            g_result.effectSelected = true;
+                            g_result.selectedEffect = g_layerEffects[idx];
+                            g_result.action = ControlUI::ACTION_EXPAND;
+                            g_result.effectIndex = g_layerEffects[idx].index;
+                            ControlUI::HidePanel();
                         }
-                        // Otherwise just select the effect (could add more actions later)
                     }
                 }
             }
