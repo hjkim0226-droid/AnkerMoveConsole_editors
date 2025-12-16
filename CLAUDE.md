@@ -46,7 +46,7 @@ cep/                    # CEP Panel (Settings UI)
 
 ## Key Bindings
 - **Y key (0.4s hold)**: Anchor Grid popup
-- **E key**: Effect Search popup (Control module)
+- **Shift+E**: Effect Search popup (Control module)
 
 ## Install Paths (Windows)
 - Plugin: `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorSnap.aex`

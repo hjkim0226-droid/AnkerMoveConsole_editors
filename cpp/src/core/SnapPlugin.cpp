@@ -37,10 +37,6 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 // Control module state
 static bool g_controlVisible = false;
 static bool g_eKeyWasHeld = false;
-static std::chrono::steady_clock::time_point g_eKeyPressTime;
-static bool g_eWaitingForHold = false;
-static int g_eMouseStartX = 0;
-static int g_eMouseStartY = 0;
 
 /*****************************************************************************
  * IsTextInputFocused
@@ -936,37 +932,17 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   g_globals.key_was_held = y_key_held;
 
   // =========================================================================
-  // CONTROL MODULE: E key for effect search (0.4s hold trigger)
+  // CONTROL MODULE: Shift+E for effect search (instant trigger)
   // =========================================================================
+  bool shift_held = KeyboardMonitor::IsShiftHeld();
   bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
+  bool shift_e_pressed = shift_held && e_key_held;
 
-  // E key just pressed - start waiting for hold
-  if (e_key_held && !g_eKeyWasHeld && !IsTextInputFocused() &&
+  // Shift+E just pressed - show panel immediately
+  if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
       IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
-    g_eKeyPressTime = now;
-    g_eWaitingForHold = true;
-    KeyboardMonitor::GetMousePosition(&g_eMouseStartX, &g_eMouseStartY);
-  }
-  // E key still held - check if hold duration reached
-  else if (e_key_held && g_eWaitingForHold && !g_controlVisible) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_eKeyPressTime)
-                       .count();
-    if (elapsed >= HOLD_DELAY_MS) {
-      // Update mouse position to current
-      KeyboardMonitor::GetMousePosition(&g_eMouseStartX, &g_eMouseStartY);
-      ControlUI::ShowPanel();
-      g_controlVisible = true;
-      g_eWaitingForHold = false;
-    }
-  }
-  // E key released before hold completed - cancel
-  else if (!e_key_held && g_eWaitingForHold) {
-    g_eWaitingForHold = false;
-  }
-  // E key released while panel visible - keep panel open (it has its own close logic)
-  else if (!e_key_held && g_eKeyWasHeld && g_controlVisible) {
-    // Panel stays open - user can interact with search
+    ControlUI::ShowPanel();
+    g_controlVisible = true;
   }
 
   // Check if Control panel closed and effect was selected
@@ -998,7 +974,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     }
   }
 
-  g_eKeyWasHeld = e_key_held;
+  g_eKeyWasHeld = shift_e_pressed;
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
