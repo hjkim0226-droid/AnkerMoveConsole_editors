@@ -88,13 +88,14 @@ cep/                    # CEP Panel (Settings UI)
 
 ## Development Notes (개발 노트)
 
-### Control 모듈 (E key) - 구현 예정 기능
+### Control 모듈 (Shift+E) - 진행 상황
 
-- [ ] E key 0.4s hold 트리거 (Y key와 동일한 방식)
-- [ ] Mode 1 (Search): Viewer/Timeline 포커스 → Search bar + Effect Controls
-- [ ] Mode 2 (Effects List): Effect Controls 포커스 → Presets + 레이어 이펙트 목록
-- [ ] Search bar가 Effect Controls 윈도우 위치 추적
-- [ ] 닫기 버튼 [x] 및 ESC 키
+- [x] Shift+E 즉시 트리거 (입력 방지를 위해 hold에서 변경)
+- [x] Mode 1 (Search): Viewer/Timeline 포커스 → Search bar
+- [x] Mode 2 (Effects List): Effect Controls 포커스 → 레이어 이펙트 목록
+- [x] 닫기 버튼 [x] 및 ESC 키
+- [ ] 이펙트 실제 삭제 연결 (ExtendScript)
+- [ ] 이펙트 검색 결과에서 실제 적용
 - [ ] Effect Controls 닫히면 자동 닫힘
 
 ### 중요한 교훈
@@ -130,3 +131,60 @@ ci: CI/CD 설정 변경
 4. GitHub Actions에서 Artifact 다운로드
 5. `install_windows.bat` 실행 (관리자 권한)
 6. After Effects 재시작
+
+---
+
+## ExtendScript API Reference
+
+### 이펙트 추가
+```javascript
+// matchName으로 이펙트 추가
+layer.Effects.addProperty("ADBE Gaussian Blur 2");
+
+// 추가 전 확인
+if (layer.Effects.canAddProperty("ADBE Gaussian Blur 2")) {
+    layer.Effects.addProperty("ADBE Gaussian Blur 2");
+}
+```
+
+### 이펙트 삭제
+```javascript
+// 인덱스로 삭제 (1-based)
+layer.Effects.property(1).remove();
+
+// 이름으로 삭제
+layer.Effects.property("Gaussian Blur").remove();
+```
+
+### 이펙트 목록 가져오기
+```javascript
+var fx = layer.Effects;
+for (var i = 1; i <= fx.numProperties; i++) {
+    var e = fx.property(i);
+    // e.name - 표시 이름
+    // e.matchName - 매치 이름 (스크립트용)
+}
+```
+
+### Effect Controls 패널 감지
+```javascript
+var v = app.activeViewer;
+if (v && v.type == ViewerType.VIEWER_EFFECT_CONTROLS) {
+    // Effect Controls 패널이 활성화됨
+}
+```
+
+---
+
+## 참고 문서 링크
+
+### Adobe 공식 문서
+- [After Effects Scripting Guide](https://ae-scripting.docsforadobe.dev/)
+- [First-Party Effect Match Names](https://ae-scripting.docsforadobe.dev/matchnames/effects/firstparty/)
+- [PropertyBase (remove 메서드)](https://ae-scripting.docsforadobe.dev/property/propertybase/)
+- [PropertyGroup (addProperty 메서드)](https://ae-scripting.docsforadobe.dev/property/propertygroup/)
+
+### CEP 개발
+- [Adobe CEP Resources](https://github.com/Adobe-CEP/CEP-Resources)
+- [Adobe CEP Samples](https://github.com/Adobe-CEP/Samples)
+- [After Effects Panel Sample](https://github.com/Adobe-CEP/Samples/tree/master/AfterEffectsPanel)
