@@ -74,6 +74,10 @@ static NativeUI::ExtendedOption g_hoverExtOption = NativeUI::OPT_NONE;
 // Grid offset for centering smaller grids within max dimension area
 static int g_gridOffsetX = 0;
 static int g_gridOffsetY = 0;
+// Vertical padding to center grid area when window is taller due to icons
+static int g_gridVerticalPadding = 0;
+// Scaled margin (base margin * scale factor)
+static int g_scaledMargin = 2;
 // Fixed grid area size (calculated in ShowGrid, used in other functions)
 static int g_fixedGridPixels = 120;
 
@@ -174,6 +178,10 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_iconSize = (int)(BASE_ICON_SIZE * g_currentScale);
   g_iconSpacing = (int)(BASE_ICON_SPACING * g_currentScale);
 
+  // Scale margin (base margin = 2)
+  g_scaledMargin = (int)(g_config.margin * g_currentScale);
+  if (g_scaledMargin < 1) g_scaledMargin = 1;
+
   // Calculate cellSize based on max dimension (like FX Console null parents)
   int maxDim = (g_config.gridWidth > g_config.gridHeight) ? g_config.gridWidth
                                                           : g_config.gridHeight;
@@ -191,24 +199,27 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   int gridPixelsW = g_config.gridWidth * cellTotal;
   int gridPixelsH = g_config.gridHeight * cellTotal;
 
-  // Window: FIXED size
-  g_windowWidth = g_sidePanelWidth + g_fixedGridPixels + g_config.margin * 2 +
+  // Window: FIXED size (use scaled margin)
+  g_windowWidth = g_sidePanelWidth + g_fixedGridPixels + g_scaledMargin * 2 +
                   g_sidePanelWidth;
 
   int minHeight =
       g_iconSize * 3 + g_iconSpacing * 2 + (int)(20 * g_currentScale);
   int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
-  int gridAreaHeight = g_fixedGridPixels + g_config.margin * 2;
+  int gridAreaHeight = g_fixedGridPixels + g_scaledMargin * 2;
   int baseHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
   g_windowHeight = baseHeight + bottomButtonsHeight;
+
+  // Calculate vertical padding to center grid area when window is taller due to icons
+  g_gridVerticalPadding = (baseHeight - gridAreaHeight) / 2;
 
   // Grid offset: center the actual grid within the fixed area
   g_gridOffsetX = (g_fixedGridPixels - gridPixelsW) / 2;
   g_gridOffsetY = (g_fixedGridPixels - gridPixelsH) / 2;
 
-  // Mouse at WINDOW CENTER (grid area center)
-  int gridCenterX = g_sidePanelWidth + g_config.margin + g_fixedGridPixels / 2;
-  int gridCenterY = g_config.margin + g_fixedGridPixels / 2;
+  // Mouse at WINDOW CENTER (grid area center, accounting for vertical padding)
+  int gridCenterX = g_sidePanelWidth + g_scaledMargin + g_fixedGridPixels / 2;
+  int gridCenterY = g_gridVerticalPadding + g_scaledMargin + g_fixedGridPixels / 2;
   g_windowX = mouseX - gridCenterX;
   g_windowY = mouseY - gridCenterY;
 
@@ -310,9 +321,9 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   int gridPixelsW = g_config.gridWidth * cellTotal;
   int gridPixelsH = g_config.gridHeight * cellTotal;
-  // Apply grid offset for centered rectangular grids
-  int gridStartX = g_sidePanelWidth + g_config.margin + g_gridOffsetX;
-  int gridStartY = g_config.margin + g_gridOffsetY;
+  // Apply grid offset for centered rectangular grids (with vertical padding)
+  int gridStartX = g_sidePanelWidth + g_scaledMargin + g_gridOffsetX;
+  int gridStartY = g_gridVerticalPadding + g_scaledMargin + g_gridOffsetY;
 
   int relX = screenX - g_windowX;
   int relY = screenY - g_windowY;
@@ -366,11 +377,11 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 
   // Check Copy/Paste buttons (below grid area, centered in window)
   int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
-  // Use global g_fixedGridPixels for button positioning
+  // Use global g_fixedGridPixels for button positioning (with scaled margin and vertical padding)
   // Center buttons in the window
   int windowCenterX =
-      g_sidePanelWidth + g_config.margin + g_fixedGridPixels / 2;
-  int gridBottomY = g_config.margin + g_fixedGridPixels + g_iconSize / 2 +
+      g_sidePanelWidth + g_scaledMargin + g_fixedGridPixels / 2;
+  int gridBottomY = g_gridVerticalPadding + g_scaledMargin + g_fixedGridPixels + g_iconSize / 2 +
                     (int)(5 * g_currentScale);
 
   if (relY >= gridBottomY - g_iconSize / 2 &&
@@ -669,12 +680,12 @@ static void DrawSidePanels(HDC hdc) {
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
   }
 
-  // Copy/Paste buttons below grid (centered based on FIXED 3x3 grid size)
+  // Copy/Paste buttons below grid (centered based on FIXED grid size)
   int cellTotal = g_config.cellSize + g_config.spacing;
-  // Use global g_fixedGridPixels for button positioning
+  // Use global g_fixedGridPixels for button positioning (with scaled margin and vertical padding)
   int windowCenterX =
-      g_sidePanelWidth + g_config.margin + g_fixedGridPixels / 2;
-  int gridBottomY = g_config.margin + g_fixedGridPixels + g_iconSize / 2 +
+      g_sidePanelWidth + g_scaledMargin + g_fixedGridPixels / 2;
+  int gridBottomY = g_gridVerticalPadding + g_scaledMargin + g_fixedGridPixels + g_iconSize / 2 +
                     (int)(5 * g_currentScale);
 
   // Copy icon
@@ -699,9 +710,9 @@ static void DrawGrid(HDC hdc) {
 
   // Use cellSize directly (no spacing - grid lines will separate)
   int cellTotal = g_config.cellSize; // No spacing now
-  // Apply grid offset for centered rectangular grids
-  int gridStartX = g_sidePanelWidth + g_config.margin + g_gridOffsetX;
-  int gridStartY = g_config.margin + g_gridOffsetY;
+  // Apply grid offset for centered rectangular grids (with vertical padding)
+  int gridStartX = g_sidePanelWidth + g_scaledMargin + g_gridOffsetX;
+  int gridStartY = g_gridVerticalPadding + g_scaledMargin + g_gridOffsetY;
   int radius = g_config.cellSize / 10;     // Slightly larger dots
   int hoverRadius = g_config.cellSize / 8; // Larger hover glow
   int len = (int)(cellTotal * 0.3);        // Shorter marks (was 0.4)

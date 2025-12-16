@@ -88,9 +88,11 @@ async function init() {
         });
 
         // Sync when panel gets focus (catches changes made while panel was in background)
+        // Also re-set settingsPanelOpen since panel may have been hidden/shown without reload
         window.addEventListener('focus', () => {
-            if (settings && settings.loadFromFile) {
+            if (settings) {
                 settings.loadFromFile();
+                settings.set('settingsPanelOpen', true);
             }
         });
 
