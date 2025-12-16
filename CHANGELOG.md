@@ -3,7 +3,9 @@
 ## [Unreleased]
 
 ### Added
-- E key: Effect Search popup (Control module)
+- E key (0.4s hold): Effect Search popup (Control module)
+- Close button [x] on Effect Search panel
+- ESC key closes Effect Search panel
 - CLAUDE.md: Model usage guidelines
 
 ### Fixed

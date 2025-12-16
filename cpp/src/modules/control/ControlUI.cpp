@@ -45,6 +45,7 @@ static const int SEARCH_HEIGHT = 36;
 static const int ITEM_HEIGHT = 32;
 static const int PADDING = 8;
 static const int MAX_VISIBLE_ITEMS = 8;
+static const int CLOSE_BUTTON_SIZE = 20;
 
 // Colors
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -55,6 +56,10 @@ static const Color COLOR_TEXT(255, 220, 220, 220);
 static const Color COLOR_TEXT_DIM(255, 140, 140, 140);
 static const Color COLOR_ACCENT(255, 74, 207, 255);
 static const Color COLOR_BORDER(255, 60, 60, 70);
+static const Color COLOR_CLOSE_HOVER(255, 200, 60, 60);
+
+// Close button state
+static bool g_closeButtonHover = false;
 
 // Built-in effects list (common effects for search)
 static const wchar_t* BUILTIN_EFFECTS[][3] = {
@@ -284,8 +289,28 @@ void DrawControlPanel(HDC hdc, int width, int height) {
 
     // Search box background
     SolidBrush searchBgBrush(COLOR_SEARCH_BG);
-    RectF searchRect(PADDING, PADDING, width - PADDING * 2, SEARCH_HEIGHT);
+    RectF searchRect(PADDING, PADDING, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4, SEARCH_HEIGHT);
     graphics.FillRectangle(&searchBgBrush, searchRect);
+
+    // Close button [x]
+    int closeBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
+    int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+    RectF closeRect((REAL)closeBtnX, (REAL)closeBtnY, (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
+
+    if (g_closeButtonHover) {
+        SolidBrush closeBgBrush(COLOR_CLOSE_HOVER);
+        graphics.FillRectangle(&closeBgBrush, closeRect);
+    }
+
+    // Draw X
+    Pen xPen(COLOR_TEXT, 2);
+    float margin = 5.0f;
+    graphics.DrawLine(&xPen,
+        closeBtnX + margin, closeBtnY + margin,
+        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
+    graphics.DrawLine(&xPen,
+        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + margin,
+        closeBtnX + margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
 
     // Search text
     FontFamily fontFamily(L"Segoe UI");
@@ -434,8 +459,21 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_MOUSEMOVE: {
+            int x = LOWORD(lParam);
             int y = HIWORD(lParam);
             int startY = PADDING + SEARCH_HEIGHT + PADDING;
+
+            // Check close button hover
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+            int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+            bool wasCloseHover = g_closeButtonHover;
+            g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
+                                  y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
+            if (wasCloseHover != g_closeButtonHover) {
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
 
             if (y >= startY) {
                 int idx = (y - startY) / ITEM_HEIGHT;
@@ -455,8 +493,21 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_LBUTTONDOWN: {
+            int x = LOWORD(lParam);
             int y = HIWORD(lParam);
             int startY = PADDING + SEARCH_HEIGHT + PADDING;
+
+            // Check close button click
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+            int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+            if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
+                y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
+                g_result.cancelled = true;
+                ControlUI::HidePanel();
+                return 0;
+            }
 
             if (y >= startY) {
                 int idx = (y - startY) / ITEM_HEIGHT;
