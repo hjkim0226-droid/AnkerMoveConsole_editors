@@ -310,3 +310,126 @@ function notifyModeChange(useCompMode, useMaskRecognition) {
         useMaskRecognition: useMaskRecognition
     });
 }
+
+// =========================================================================
+// Control Module - Effect Controls Functions
+// =========================================================================
+
+/**
+ * Open Effect Controls for the selected layer
+ * Command ID 2163 = Effect Controls panel
+ */
+function openEffectControls() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        // Open Effect Controls panel
+        app.executeCommand(2163);
+
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Get list of effects on the selected layer
+ * Returns: "name|matchName|index;name|matchName|index;..."
+ */
+function getLayerEffects() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var layer = comp.selectedLayers[0];
+        var fx = layer.property("ADBE Effect Parade");
+
+        if (!fx || fx.numProperties === 0) {
+            return "";  // No effects
+        }
+
+        var result = [];
+        for (var i = 1; i <= fx.numProperties; i++) {
+            var effect = fx.property(i);
+            result.push(effect.name + "|" + effect.matchName + "|" + (i - 1));
+        }
+
+        return result.join(";");
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Add effect to the selected layer by matchName
+ */
+function addEffectToLayer(matchName) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        app.beginUndoGroup("Add Effect");
+
+        for (var i = 0; i < comp.selectedLayers.length; i++) {
+            var layer = comp.selectedLayers[i];
+            var fx = layer.property("ADBE Effect Parade");
+
+            if (fx.canAddProperty(matchName)) {
+                fx.addProperty(matchName);
+            }
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Remove effect from the selected layer by index (0-based)
+ */
+function removeEffectFromLayer(index) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        app.beginUndoGroup("Remove Effect");
+
+        var layer = comp.selectedLayers[0];
+        var fx = layer.property("ADBE Effect Parade");
+
+        // Convert 0-based to 1-based index
+        var aeIndex = index + 1;
+
+        if (fx && aeIndex >= 1 && aeIndex <= fx.numProperties) {
+            fx.property(aeIndex).remove();
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}

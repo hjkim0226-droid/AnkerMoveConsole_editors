@@ -216,10 +216,36 @@ function checkIPCCommand() {
 
         // Handle commands
         if (command === 'OPEN_EFFECT_CONTROLS') {
-            // Open Effect Controls panel using executeCommand
+            // Open Effect Controls panel for selected layer
             if (csInterface) {
-                csInterface.evalScript('app.executeCommand(2163)', (result) => {
-                    debugLog('Effect Controls opened: ' + result);
+                csInterface.evalScript('openEffectControls()', (result) => {
+                    debugLog('Effect Controls: ' + result);
+                });
+            }
+        } else if (command === 'GET_LAYER_EFFECTS') {
+            // Get effects list from selected layer
+            if (csInterface) {
+                csInterface.evalScript('getLayerEffects()', (result) => {
+                    debugLog('Layer effects: ' + result);
+                    // Write result back to response file
+                    const responsePath = commandPath.replace('command.txt', 'response.txt');
+                    fs.writeFileSync(responsePath, result);
+                });
+            }
+        } else if (command.startsWith('ADD_EFFECT:')) {
+            // Add effect by matchName
+            const matchName = command.substring('ADD_EFFECT:'.length);
+            if (csInterface) {
+                csInterface.evalScript(`addEffectToLayer("${matchName}")`, (result) => {
+                    debugLog('Add effect result: ' + result);
+                });
+            }
+        } else if (command.startsWith('REMOVE_EFFECT:')) {
+            // Remove effect by index
+            const index = parseInt(command.substring('REMOVE_EFFECT:'.length), 10);
+            if (csInterface) {
+                csInterface.evalScript(`removeEffectFromLayer(${index})`, (result) => {
+                    debugLog('Remove effect result: ' + result);
                 });
             }
         }
