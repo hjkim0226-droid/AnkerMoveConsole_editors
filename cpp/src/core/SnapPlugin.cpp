@@ -36,7 +36,7 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 
 // Control module state
 static bool g_controlVisible = false;
-static bool g_semicolonWasHeld = false;
+static bool g_eKeyWasHeld = false;
 
 /*****************************************************************************
  * IsTextInputFocused
@@ -899,12 +899,12 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   g_globals.key_was_held = y_key_held;
 
   // =========================================================================
-  // CONTROL MODULE: Semicolon key (;) for effect search
+  // CONTROL MODULE: E key for effect search
   // =========================================================================
-  bool semicolon_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_SEMICOLON);
+  bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
 
-  // Semicolon just pressed - show Control panel
-  if (semicolon_held && !g_semicolonWasHeld && !IsTextInputFocused() &&
+  // E key just pressed - show Control panel
+  if (e_key_held && !g_eKeyWasHeld && !IsTextInputFocused() &&
       IsAfterEffectsForeground() && !g_globals.menu_visible) {
     ControlUI::ShowPanel();
     g_controlVisible = true;
@@ -917,12 +917,29 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
     if (result.effectSelected) {
       // Apply selected effect to layer via ExtendScript
-      // TODO: Call ExtendScript to apply effect
-      // For now, just log the selection
+      char matchNameA[256];
+      // Convert wide string to ANSI
+      WideCharToMultiByte(CP_ACP, 0, result.selectedEffect.matchName, -1,
+                          matchNameA, sizeof(matchNameA), NULL, NULL);
+
+      char script[1024];
+      snprintf(script, sizeof(script),
+               "(function(){"
+               "var c=app.project.activeItem;"
+               "if(!c||!(c instanceof CompItem))return;"
+               "if(c.selectedLayers.length==0)return;"
+               "app.beginUndoGroup('Add Effect');"
+               "for(var i=0;i<c.selectedLayers.length;i++){"
+               "try{c.selectedLayers[i].Effects.addProperty('%s');}catch(e){}"
+               "}"
+               "app.endUndoGroup();"
+               "})();",
+               matchNameA);
+      ExecuteScript(script);
     }
   }
 
-  g_semicolonWasHeld = semicolon_held;
+  g_eKeyWasHeld = e_key_held;
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
