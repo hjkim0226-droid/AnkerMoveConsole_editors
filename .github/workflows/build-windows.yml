@@ -39,7 +39,7 @@ jobs:
     - name: Build Release
       run: |
         cd cpp/build
-        cmake --build . --config Release
+        cmake --build . --config Release --clean-first
       shell: cmd
 
     - name: Find built plugin
