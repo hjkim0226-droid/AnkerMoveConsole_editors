@@ -22,19 +22,27 @@ if %errorLevel% == 0 (
 )
 
 echo 1. Cleaning up old installation...
-:: Clean old AnchorRadialMenu
+:: Clean old AnchorRadialMenu (both locations)
 if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorRadialMenu.aex" (
-    echo - Removing old AnchorRadialMenu plugin...
+    echo - Removing old AnchorRadialMenu plugin from MediaCore...
     del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorRadialMenu.aex"
+)
+if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\AnchorRadialMenu.aex" (
+    echo - Removing old AnchorRadialMenu plugin from After Effects...
+    del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\AnchorRadialMenu.aex"
 )
 if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid" (
     echo - Removing old com.anchor.grid extension...
     rmdir /s /q "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
 )
-:: Clean current AnchorSnap
+:: Clean current AnchorSnap (both locations)
 if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorSnap.aex" (
-    echo - Removing existing AnchorSnap plugin...
+    echo - Removing existing AnchorSnap plugin from MediaCore...
     del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorSnap.aex"
+)
+if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\AnchorSnap.aex" (
+    echo - Removing existing AnchorSnap plugin from After Effects...
+    del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\AnchorSnap.aex"
 )
 if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.snap" (
     echo - Removing existing com.anchor.snap extension...
@@ -49,8 +57,8 @@ if not exist "plugin\AnchorSnap.aex" (
     exit /b
 )
 
-mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2>nul
-copy /Y plugin\AnchorSnap.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
+mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects" 2>nul
+copy /Y plugin\AnchorSnap.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\"
 
 echo 3. Installing CEP Panel...
 if not exist "cep" (
