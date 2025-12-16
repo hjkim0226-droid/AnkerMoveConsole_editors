@@ -76,9 +76,17 @@ static const Color COLOR_PRESET_ACTIVE(255, 74, 158, 255);
 // Close button state
 static bool g_closeButtonHover = false;
 
+// New EC window button state (Mode 2)
+static bool g_newECButtonHover = false;
+static const int NEW_EC_BUTTON_SIZE = 20;
+
 // Preset button state (Mode 2)
 static int g_hoveredPresetButton = -1;  // -1 = none, 0-2 = slot buttons
 static int g_presetSlots[3] = {-1, -1, -1};  // Assigned preset indices
+
+// Delayed close timer (prevent immediate close on focus loss)
+static UINT_PTR g_closeTimerId = 0;
+static const UINT CLOSE_DELAY_MS = 100;
 
 // Built-in effects list (common effects for search)
 static const wchar_t* BUILTIN_EFFECTS[][3] = {
@@ -515,7 +523,7 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
 
     // ===== Header bar =====
     SolidBrush headerBgBrush(COLOR_SEARCH_BG);
-    RectF headerRect(PADDING, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4, HEADER_HEIGHT);
+    RectF headerRect(PADDING, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - NEW_EC_BUTTON_SIZE - 8, HEADER_HEIGHT);
     graphics.FillRectangle(&headerBgBrush, headerRect);
 
     // Close button [x]
@@ -537,8 +545,30 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
         closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + margin,
         closeBtnX + margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
 
+    // New EC window button [+] - left of close button
+    int newECBtnX = closeBtnX - NEW_EC_BUTTON_SIZE - 4;
+    int newECBtnY = currentY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+    RectF newECRect((REAL)newECBtnX, (REAL)newECBtnY, (REAL)NEW_EC_BUTTON_SIZE, (REAL)NEW_EC_BUTTON_SIZE);
+
+    if (g_newECButtonHover) {
+        SolidBrush newECBgBrush(COLOR_PRESET_HOVER);
+        graphics.FillRectangle(&newECBgBrush, newECRect);
+    }
+
+    // Draw + sign
+    Pen plusPen(COLOR_ACCENT, 2);
+    float plusMargin = 5.0f;
+    // Horizontal line
+    graphics.DrawLine(&plusPen,
+        (REAL)(newECBtnX + plusMargin), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE / 2),
+        (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE - plusMargin), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE / 2));
+    // Vertical line
+    graphics.DrawLine(&plusPen,
+        (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE / 2), (REAL)(newECBtnY + plusMargin),
+        (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE / 2), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE - plusMargin));
+
     // Header text
-    RectF titleRect(PADDING + 8, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 16, HEADER_HEIGHT);
+    RectF titleRect(PADDING + 8, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - NEW_EC_BUTTON_SIZE - 20, HEADER_HEIGHT);
     graphics.DrawString(L"Layer Effects", -1, &headerFont, titleRect, &sf, &textBrush);
 
     currentY += HEADER_HEIGHT + 4;
@@ -788,6 +818,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                                       y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
                 if (wasCloseHover != g_closeButtonHover) needRedraw = true;
 
+                // Check new EC button hover [+]
+                int newECBtnX = closeBtnX - NEW_EC_BUTTON_SIZE - 4;
+                int newECBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                bool wasNewECHover = g_newECButtonHover;
+                g_newECButtonHover = (x >= newECBtnX && x < newECBtnX + NEW_EC_BUTTON_SIZE &&
+                                      y >= newECBtnY && y < newECBtnY + NEW_EC_BUTTON_SIZE);
+                if (wasNewECHover != g_newECButtonHover) needRedraw = true;
+
                 // Check preset button hover
                 int presetBtnSpacing = 4;
                 int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
@@ -875,6 +913,16 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     return 0;
                 }
 
+                // Check new EC button click [+]
+                int newECBtnX = closeBtnX - NEW_EC_BUTTON_SIZE - 4;
+                int newECBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                if (x >= newECBtnX && x < newECBtnX + NEW_EC_BUTTON_SIZE &&
+                    y >= newECBtnY && y < newECBtnY + NEW_EC_BUTTON_SIZE) {
+                    g_result.action = ControlUI::ACTION_NEW_EC_WINDOW;
+                    ControlUI::HidePanel();
+                    return 0;
+                }
+
                 // Check preset button click
                 int presetBtnSpacing = 4;
                 int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
@@ -926,7 +974,18 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_KILLFOCUS: {
-            // Close when losing focus
+            // Check where focus went - if it's an AE window, don't close
+            HWND newFocus = (HWND)wParam;
+            if (newFocus) {
+                char className[64] = {0};
+                GetClassNameA(newFocus, className, sizeof(className));
+                // AE windows have class names starting with "AE_"
+                if (_strnicmp(className, "AE_", 3) == 0) {
+                    // Focus went to AE window, don't close
+                    return 0;
+                }
+            }
+            // Focus went elsewhere, close panel
             g_result.cancelled = true;
             ControlUI::HidePanel();
             return 0;

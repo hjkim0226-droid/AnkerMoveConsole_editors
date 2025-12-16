@@ -36,7 +36,8 @@ enum EffectAction {
     ACTION_MOVE_UP,     // Move effect up
     ACTION_MOVE_DOWN,   // Move effect down
     ACTION_EXPAND,      // Expand effect (collapse others)
-    ACTION_APPLY_PRESET // Apply preset from quick slot
+    ACTION_APPLY_PRESET, // Apply preset from quick slot
+    ACTION_NEW_EC_WINDOW // Open new locked EC window
 };
 
 // Control panel result

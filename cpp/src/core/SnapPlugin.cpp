@@ -1124,6 +1124,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
           snprintf(script, sizeof(script), "expandEffect(%d)", result.effectIndex);
           ExecuteScript(script);
         }
+      } else if (result.action == ControlUI::ACTION_NEW_EC_WINDOW) {
+        // Open new locked Effect Controls window
+        ExecuteScript("app.executeCommand(2163); app.executeCommand(3700);");
       } else if (result.action == ControlUI::ACTION_APPLY_PRESET) {
         // Apply preset from quick slot
         // TODO: Load preset from settings and apply
