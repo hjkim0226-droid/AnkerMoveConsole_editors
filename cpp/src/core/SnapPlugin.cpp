@@ -119,10 +119,64 @@ bool IsAfterEffectsForeground() {
 
   return false;
 }
+
+/*****************************************************************************
+ * IsEffectControlsFocused
+ * Check if Effect Controls panel is the active/focused panel in AE
+ * Uses ExtendScript to detect active panel type
+ *****************************************************************************/
+bool IsEffectControlsFocused() {
+  // Use ExtendScript to check activeViewer type
+  // Effect Controls is VIEWER_EFFECT_CONTROLS
+  char result[64] = {0};
+  ExecuteScript("(function(){"
+                "try{"
+                "var v=app.activeViewer;"
+                "if(v&&v.type==ViewerType.VIEWER_EFFECT_CONTROLS)return '1';"
+                "}catch(e){}"
+                "return '0';"
+                "})();",
+                result, sizeof(result));
+  return result[0] == '1';
+}
+
+/*****************************************************************************
+ * GetLayerEffectsList
+ * Get list of effects on selected layer for Mode 2
+ * Returns: "name1|matchName1|0;name2|matchName2|1;..."
+ *****************************************************************************/
+void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) {
+  outBuffer[0] = L'\0';
+
+  char resultBuf[4096] = {0};
+  ExecuteScript(
+      "(function(){"
+      "var c=app.project.activeItem;"
+      "if(!c||!(c instanceof CompItem))return '';"
+      "if(c.selectedLayers.length==0)return '';"
+      "var L=c.selectedLayers[0];"
+      "var fx=L.Effects;"
+      "if(!fx||fx.numProperties==0)return '';"
+      "var arr=[];"
+      "for(var i=1;i<=fx.numProperties;i++){"
+      "var e=fx.property(i);"
+      "arr.push(e.name+'|'+e.matchName+'|'+(i-1));"
+      "}"
+      "return arr.join(';');"
+      "})();",
+      resultBuf, sizeof(resultBuf));
+
+  // Convert to wide string
+  if (resultBuf[0] != '\0') {
+    MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, outBuffer, (int)bufSize);
+  }
+}
 #else
-// macOS stub - TODO: implement NSTextField focus check
+// macOS stub - TODO: implement
 bool IsTextInputFocused() { return false; }
-bool IsAfterEffectsForeground() { return true; } // Always true for now on macOS
+bool IsAfterEffectsForeground() { return true; }
+bool IsEffectControlsFocused() { return false; }
+void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
 #endif
 
 // Settings loaded from CEP
@@ -932,7 +986,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   g_globals.key_was_held = y_key_held;
 
   // =========================================================================
-  // CONTROL MODULE: Shift+E for effect search (instant trigger)
+  // CONTROL MODULE: Shift+E for effect search / layer effects
+  // Mode 1: Search effects (default)
+  // Mode 2: Layer effects list (when Effect Controls focused)
   // =========================================================================
   bool shift_held = KeyboardMonitor::IsShiftHeld();
   bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
@@ -941,36 +997,70 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   // Shift+E just pressed - show panel immediately
   if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
       IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
+
+    // Check if Effect Controls is focused -> Mode 2
+    if (IsEffectControlsFocused()) {
+      ControlUI::SetMode(ControlUI::MODE_EFFECTS);
+      // Get layer effects list
+      wchar_t effectsList[4096];
+      GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
+      ControlUI::SetLayerEffects(effectsList);
+    } else {
+      ControlUI::SetMode(ControlUI::MODE_SEARCH);
+    }
+
     ControlUI::ShowPanel();
     g_controlVisible = true;
   }
 
-  // Check if Control panel closed and effect was selected
+  // Check if Control panel closed and process result
   if (g_controlVisible && !ControlUI::IsVisible()) {
     g_controlVisible = false;
     ControlUI::ControlResult result = ControlUI::GetResult();
 
     if (result.effectSelected) {
-      // Apply selected effect to layer via ExtendScript
-      char matchNameA[256];
-      // Convert wide string to ANSI
-      WideCharToMultiByte(CP_ACP, 0, result.selectedEffect.matchName, -1,
-                          matchNameA, sizeof(matchNameA), NULL, NULL);
+      if (result.selectedEffect.isLayerEffect) {
+        // Mode 2: Handle layer effect action
+        if (result.action == ControlUI::ACTION_DELETE) {
+          // Delete effect from layer
+          char script[512];
+          snprintf(script, sizeof(script),
+                   "(function(){"
+                   "var c=app.project.activeItem;"
+                   "if(!c||!(c instanceof CompItem))return;"
+                   "if(c.selectedLayers.length==0)return;"
+                   "var L=c.selectedLayers[0];"
+                   "var fx=L.Effects;"
+                   "if(fx&&fx.numProperties>%d){"
+                   "app.beginUndoGroup('Delete Effect');"
+                   "fx.property(%d).remove();"
+                   "app.endUndoGroup();"
+                   "}"
+                   "})();",
+                   result.effectIndex, result.effectIndex + 1);
+          ExecuteScript(script);
+        }
+      } else {
+        // Mode 1: Add new effect to layer
+        char matchNameA[256];
+        WideCharToMultiByte(CP_ACP, 0, result.selectedEffect.matchName, -1,
+                            matchNameA, sizeof(matchNameA), NULL, NULL);
 
-      char script[1024];
-      snprintf(script, sizeof(script),
-               "(function(){"
-               "var c=app.project.activeItem;"
-               "if(!c||!(c instanceof CompItem))return;"
-               "if(c.selectedLayers.length==0)return;"
-               "app.beginUndoGroup('Add Effect');"
-               "for(var i=0;i<c.selectedLayers.length;i++){"
-               "try{c.selectedLayers[i].Effects.addProperty('%s');}catch(e){}"
-               "}"
-               "app.endUndoGroup();"
-               "})();",
-               matchNameA);
-      ExecuteScript(script);
+        char script[1024];
+        snprintf(script, sizeof(script),
+                 "(function(){"
+                 "var c=app.project.activeItem;"
+                 "if(!c||!(c instanceof CompItem))return;"
+                 "if(c.selectedLayers.length==0)return;"
+                 "app.beginUndoGroup('Add Effect');"
+                 "for(var i=0;i<c.selectedLayers.length;i++){"
+                 "try{c.selectedLayers[i].Effects.addProperty('%s');}catch(e){}"
+                 "}"
+                 "app.endUndoGroup();"
+                 "})();",
+                 matchNameA);
+        ExecuteScript(script);
+      }
     }
   }
 

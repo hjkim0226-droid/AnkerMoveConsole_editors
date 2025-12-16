@@ -27,11 +27,18 @@ static const wchar_t* CONTROL_CLASS_NAME = L"AnchorSnapControlClass";
 static HWND g_hwnd = NULL;
 static bool g_isVisible = false;
 
-// Search state
+// Panel mode
+static ControlUI::PanelMode g_panelMode = ControlUI::MODE_SEARCH;
+
+// Search state (Mode 1)
 static wchar_t g_searchQuery[256] = {0};
 static std::vector<ControlUI::EffectItem> g_searchResults;
 static int g_selectedIndex = 0;
 static int g_hoverIndex = -1;
+
+// Layer effects state (Mode 2)
+static std::vector<ControlUI::EffectItem> g_layerEffects;
+static int g_hoveredAction = -1;  // Which action button is hovered (0-3 for each effect row)
 
 // Settings
 static ControlUI::ControlSettings g_settings;
@@ -42,10 +49,12 @@ static ControlUI::ControlResult g_result;
 // UI Constants
 static const int WINDOW_WIDTH = 320;
 static const int SEARCH_HEIGHT = 36;
+static const int HEADER_HEIGHT = 32;  // Mode 2 header
 static const int ITEM_HEIGHT = 32;
 static const int PADDING = 8;
 static const int MAX_VISIBLE_ITEMS = 8;
 static const int CLOSE_BUTTON_SIZE = 20;
+static const int ACTION_BUTTON_SIZE = 20;  // Delete, duplicate, move buttons
 
 // Colors
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -116,7 +125,9 @@ static const wchar_t* BUILTIN_EFFECTS[][3] = {
 // Forward declarations
 LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 void DrawControlPanel(HDC hdc, int width, int height);
+void DrawEffectsPanel(HDC hdc, int width, int height);
 void PerformSearch(const wchar_t* query);
+void ParseLayerEffects(const wchar_t* effectList);
 
 namespace ControlUI {
 
@@ -150,49 +161,60 @@ void Shutdown() {
     }
 }
 
-void ShowPanel() {
+void SetMode(PanelMode mode) {
+    g_panelMode = mode;
+}
+
+PanelMode GetMode() {
+    return g_panelMode;
+}
+
+void ShowPanelAt(int x, int y) {
     if (g_isVisible) return;
 
-    // Reset state
-    g_searchQuery[0] = L'\0';
-    g_searchResults.clear();
+    // Reset state based on mode
     g_selectedIndex = 0;
     g_hoverIndex = -1;
     g_result = ControlResult();
 
-    // Initial search (show all)
-    PerformSearch(L"");
+    int itemCount = 0;
+    int headerHeight = 0;
 
-    // Get mouse position
-    POINT pt;
-    GetCursorPos(&pt);
+    if (g_panelMode == MODE_SEARCH) {
+        g_searchQuery[0] = L'\0';
+        g_searchResults.clear();
+        PerformSearch(L"");
+        itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
+        headerHeight = SEARCH_HEIGHT;
+    } else {
+        // Mode 2: Effects list
+        itemCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
+        headerHeight = HEADER_HEIGHT;
+        if (itemCount == 0) itemCount = 1; // Show "No effects" message
+    }
 
-    // Calculate window height based on results
-    int itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
-    int windowHeight = SEARCH_HEIGHT + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
+    int windowHeight = headerHeight + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
 
-    // Create window
+    // Create or reposition window
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
             WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
             CONTROL_CLASS_NAME,
-            L"Effect Search",
+            g_panelMode == MODE_SEARCH ? L"Effect Search" : L"Layer Effects",
             WS_POPUP,
-            pt.x - WINDOW_WIDTH / 2,
-            pt.y - SEARCH_HEIGHT / 2,
+            x - WINDOW_WIDTH / 2,
+            y - headerHeight / 2,
             WINDOW_WIDTH,
             windowHeight,
             NULL, NULL,
             GetModuleHandle(NULL),
             NULL
         );
-
-        // Set layered window for transparency
         SetLayeredWindowAttributes(g_hwnd, 0, 245, LWA_ALPHA);
     } else {
         SetWindowPos(g_hwnd, HWND_TOPMOST,
-                     pt.x - WINDOW_WIDTH / 2,
-                     pt.y - SEARCH_HEIGHT / 2,
+                     x - WINDOW_WIDTH / 2,
+                     y - headerHeight / 2,
                      WINDOW_WIDTH, windowHeight,
                      SWP_SHOWWINDOW);
     }
@@ -202,6 +224,13 @@ void ShowPanel() {
     g_isVisible = true;
 
     InvalidateRect(g_hwnd, NULL, TRUE);
+}
+
+void ShowPanel() {
+    // Get mouse position and delegate to ShowPanelAt
+    POINT pt;
+    GetCursorPos(&pt);
+    ShowPanelAt(pt.x, pt.y);
 }
 
 void HidePanel() {
@@ -241,6 +270,14 @@ void UpdateSearch(const wchar_t* query) {
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
+void SetLayerEffects(const wchar_t* effectList) {
+    ParseLayerEffects(effectList);
+}
+
+void ClearLayerEffects() {
+    g_layerEffects.clear();
+}
+
 } // namespace ControlUI
 
 // Search implementation
@@ -264,6 +301,7 @@ void PerformSearch(const wchar_t* query) {
             wcscpy_s(item.matchName, BUILTIN_EFFECTS[i][1]);
             wcscpy_s(item.category, BUILTIN_EFFECTS[i][2]);
             item.index = idx++;
+            item.isLayerEffect = false;
             g_searchResults.push_back(item);
 
             if (g_searchResults.size() >= 20) break; // Limit results
@@ -271,6 +309,53 @@ void PerformSearch(const wchar_t* query) {
     }
 
     g_selectedIndex = 0;
+}
+
+// Parse layer effects from string format: "name1|matchName1|index1;name2|matchName2|index2;..."
+void ParseLayerEffects(const wchar_t* effectList) {
+    g_layerEffects.clear();
+
+    if (!effectList || wcslen(effectList) == 0) return;
+
+    std::wstring list(effectList);
+    size_t pos = 0;
+    int idx = 0;
+
+    while (pos < list.length()) {
+        // Find next semicolon or end
+        size_t end = list.find(L';', pos);
+        if (end == std::wstring::npos) end = list.length();
+
+        std::wstring item = list.substr(pos, end - pos);
+        if (!item.empty()) {
+            // Parse "name|matchName|index"
+            size_t sep1 = item.find(L'|');
+            size_t sep2 = item.find(L'|', sep1 + 1);
+
+            if (sep1 != std::wstring::npos) {
+                ControlUI::EffectItem effect;
+                std::wstring name = item.substr(0, sep1);
+                wcscpy_s(effect.name, name.c_str());
+
+                if (sep2 != std::wstring::npos) {
+                    std::wstring matchName = item.substr(sep1 + 1, sep2 - sep1 - 1);
+                    std::wstring idxStr = item.substr(sep2 + 1);
+                    wcscpy_s(effect.matchName, matchName.c_str());
+                    effect.index = _wtoi(idxStr.c_str());
+                } else {
+                    std::wstring matchName = item.substr(sep1 + 1);
+                    wcscpy_s(effect.matchName, matchName.c_str());
+                    effect.index = idx;
+                }
+
+                effect.category[0] = L'\0';
+                effect.isLayerEffect = true;
+                g_layerEffects.push_back(effect);
+                idx++;
+            }
+        }
+        pos = end + 1;
+    }
 }
 
 // Draw the control panel
@@ -383,6 +468,113 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     }
 }
 
+// Draw the effects panel (Mode 2)
+void DrawEffectsPanel(HDC hdc, int width, int height) {
+    Graphics graphics(hdc);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+    graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+
+    // Background
+    SolidBrush bgBrush(COLOR_BG);
+    graphics.FillRectangle(&bgBrush, 0, 0, width, height);
+
+    // Border
+    Pen borderPen(COLOR_BORDER, 1);
+    graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
+
+    // Header
+    SolidBrush headerBgBrush(COLOR_SEARCH_BG);
+    RectF headerRect(PADDING, PADDING, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4, HEADER_HEIGHT);
+    graphics.FillRectangle(&headerBgBrush, headerRect);
+
+    // Close button [x]
+    int closeBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
+    int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+    RectF closeRect((REAL)closeBtnX, (REAL)closeBtnY, (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
+
+    if (g_closeButtonHover) {
+        SolidBrush closeBgBrush(COLOR_CLOSE_HOVER);
+        graphics.FillRectangle(&closeBgBrush, closeRect);
+    }
+
+    Pen xPen(COLOR_TEXT, 2);
+    float margin = 5.0f;
+    graphics.DrawLine(&xPen,
+        closeBtnX + margin, closeBtnY + margin,
+        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
+    graphics.DrawLine(&xPen,
+        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + margin,
+        closeBtnX + margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
+
+    // Header text
+    FontFamily fontFamily(L"Segoe UI");
+    Font headerFont(&fontFamily, 12, FontStyleBold, UnitPixel);
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush dimBrush(COLOR_TEXT_DIM);
+    SolidBrush accentBrush(COLOR_ACCENT);
+
+    RectF titleRect(PADDING + 8, PADDING, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 16, HEADER_HEIGHT);
+    StringFormat sf;
+    sf.SetAlignment(StringAlignmentNear);
+    sf.SetLineAlignment(StringAlignmentCenter);
+    graphics.DrawString(L"Layer Effects", -1, &headerFont, titleRect, &sf, &textBrush);
+
+    // Effects list
+    Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
+    Font indexFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+
+    int y = PADDING + HEADER_HEIGHT + PADDING;
+    int visibleCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
+
+    if (visibleCount == 0) {
+        // No effects message
+        RectF msgRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+        graphics.DrawString(L"No effects on layer", -1, &itemFont, msgRect, &sf, &dimBrush);
+        return;
+    }
+
+    for (int i = 0; i < visibleCount; i++) {
+        const auto& item = g_layerEffects[i];
+        RectF itemRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+
+        // Highlight selected/hover
+        if (i == g_selectedIndex) {
+            SolidBrush selectedBrush(COLOR_ITEM_SELECTED);
+            graphics.FillRectangle(&selectedBrush, itemRect);
+        } else if (i == g_hoverIndex) {
+            SolidBrush hoverBrush(COLOR_ITEM_HOVER);
+            graphics.FillRectangle(&hoverBrush, itemRect);
+        }
+
+        // Effect index number
+        wchar_t indexStr[8];
+        swprintf_s(indexStr, L"%d.", item.index + 1);
+        RectF indexRect(PADDING + 4, y, 24, ITEM_HEIGHT);
+        graphics.DrawString(indexStr, -1, &indexFont, indexRect, &sf, &dimBrush);
+
+        // Effect name
+        RectF nameRect(PADDING + 28, y, width - PADDING * 2 - 100, ITEM_HEIGHT);
+        sf.SetLineAlignment(StringAlignmentCenter);
+        graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
+
+        // Action buttons (right side): Delete [x]
+        int btnX = width - PADDING - ACTION_BUTTON_SIZE - 4;
+        int btnY = y + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
+
+        // Delete button
+        Pen deletePen(Color(255, 200, 80, 80), 1.5f);
+        float btnMargin = 5.0f;
+        graphics.DrawLine(&deletePen,
+            (REAL)(btnX + btnMargin), (REAL)(btnY + btnMargin),
+            (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
+        graphics.DrawLine(&deletePen,
+            (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + btnMargin),
+            (REAL)(btnX + btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
+
+        y += ITEM_HEIGHT;
+    }
+}
+
 // Window procedure
 LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
@@ -398,7 +590,12 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rc.right, rc.bottom);
             HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
 
-            DrawControlPanel(memDC, rc.right, rc.bottom);
+            // Draw based on mode
+            if (g_panelMode == ControlUI::MODE_SEARCH) {
+                DrawControlPanel(memDC, rc.right, rc.bottom);
+            } else {
+                DrawEffectsPanel(memDC, rc.right, rc.bottom);
+            }
 
             BitBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, SRCCOPY);
 
@@ -412,45 +609,65 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         case WM_CHAR: {
             wchar_t ch = (wchar_t)wParam;
-            size_t len = wcslen(g_searchQuery);
 
-            if (ch == VK_BACK) {
-                // Backspace
-                if (len > 0) {
-                    g_searchQuery[len - 1] = L'\0';
-                    ControlUI::UpdateSearch(g_searchQuery);
-                }
-            } else if (ch == VK_RETURN) {
-                // Enter - select current
-                if (!g_searchResults.empty() && g_selectedIndex < (int)g_searchResults.size()) {
-                    g_result.effectSelected = true;
-                    g_result.selectedEffect = g_searchResults[g_selectedIndex];
-                    wcscpy_s(g_result.searchQuery, g_searchQuery);
-                    ControlUI::HidePanel();
-                }
-            } else if (ch == VK_ESCAPE) {
-                // Escape - cancel
+            if (ch == VK_ESCAPE) {
+                // Escape - cancel (both modes)
                 g_result.cancelled = true;
                 ControlUI::HidePanel();
-            } else if (ch >= 32 && ch < 127) {
-                // Normal character
-                if (len < 254) {
-                    g_searchQuery[len] = ch;
-                    g_searchQuery[len + 1] = L'\0';
-                    ControlUI::UpdateSearch(g_searchQuery);
+                return 0;
+            }
+
+            if (g_panelMode == ControlUI::MODE_SEARCH) {
+                // Mode 1: Search mode - handle text input
+                size_t len = wcslen(g_searchQuery);
+
+                if (ch == VK_BACK) {
+                    if (len > 0) {
+                        g_searchQuery[len - 1] = L'\0';
+                        ControlUI::UpdateSearch(g_searchQuery);
+                    }
+                } else if (ch == VK_RETURN) {
+                    if (!g_searchResults.empty() && g_selectedIndex < (int)g_searchResults.size()) {
+                        g_result.effectSelected = true;
+                        g_result.selectedEffect = g_searchResults[g_selectedIndex];
+                        wcscpy_s(g_result.searchQuery, g_searchQuery);
+                        ControlUI::HidePanel();
+                    }
+                } else if (ch >= 32 && ch < 127) {
+                    if (len < 254) {
+                        g_searchQuery[len] = ch;
+                        g_searchQuery[len + 1] = L'\0';
+                        ControlUI::UpdateSearch(g_searchQuery);
+                    }
+                }
+            } else {
+                // Mode 2: Effects list - Enter to delete selected
+                if (ch == VK_RETURN || ch == VK_DELETE) {
+                    if (!g_layerEffects.empty() && g_selectedIndex < (int)g_layerEffects.size()) {
+                        g_result.effectSelected = true;
+                        g_result.selectedEffect = g_layerEffects[g_selectedIndex];
+                        g_result.action = ControlUI::ACTION_DELETE;
+                        g_result.effectIndex = g_layerEffects[g_selectedIndex].index;
+                        ControlUI::HidePanel();
+                    }
                 }
             }
             return 0;
         }
 
         case WM_KEYDOWN: {
+            // Get max index based on mode
+            int maxIndex = (g_panelMode == ControlUI::MODE_SEARCH)
+                ? (int)g_searchResults.size() - 1
+                : (int)g_layerEffects.size() - 1;
+
             if (wParam == VK_UP) {
                 if (g_selectedIndex > 0) {
                     g_selectedIndex--;
                     InvalidateRect(hwnd, NULL, TRUE);
                 }
             } else if (wParam == VK_DOWN) {
-                if (g_selectedIndex < (int)g_searchResults.size() - 1) {
+                if (g_selectedIndex < maxIndex) {
                     g_selectedIndex++;
                     InvalidateRect(hwnd, NULL, TRUE);
                 }
@@ -461,13 +678,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_MOUSEMOVE: {
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            int startY = PADDING + SEARCH_HEIGHT + PADDING;
+            int headerHeight = (g_panelMode == ControlUI::MODE_SEARCH) ? SEARCH_HEIGHT : HEADER_HEIGHT;
+            int startY = PADDING + headerHeight + PADDING;
 
             // Check close button hover
             RECT rc;
             GetClientRect(hwnd, &rc);
             int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-            int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+            int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
             bool wasCloseHover = g_closeButtonHover;
             g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
                                   y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
@@ -475,9 +693,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 InvalidateRect(hwnd, NULL, TRUE);
             }
 
+            // Get item count based on mode
+            int itemCount = (g_panelMode == ControlUI::MODE_SEARCH)
+                ? (int)g_searchResults.size()
+                : (int)g_layerEffects.size();
+
             if (y >= startY) {
                 int idx = (y - startY) / ITEM_HEIGHT;
-                if (idx >= 0 && idx < (int)g_searchResults.size()) {
+                if (idx >= 0 && idx < itemCount) {
                     if (g_hoverIndex != idx) {
                         g_hoverIndex = idx;
                         InvalidateRect(hwnd, NULL, TRUE);
@@ -495,13 +718,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_LBUTTONDOWN: {
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
-            int startY = PADDING + SEARCH_HEIGHT + PADDING;
+            int headerHeight = (g_panelMode == ControlUI::MODE_SEARCH) ? SEARCH_HEIGHT : HEADER_HEIGHT;
+            int startY = PADDING + headerHeight + PADDING;
 
             // Check close button click
             RECT rc;
             GetClientRect(hwnd, &rc);
             int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-            int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+            int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
             if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
                 y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
                 g_result.cancelled = true;
@@ -511,11 +735,33 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
             if (y >= startY) {
                 int idx = (y - startY) / ITEM_HEIGHT;
-                if (idx >= 0 && idx < (int)g_searchResults.size()) {
-                    g_result.effectSelected = true;
-                    g_result.selectedEffect = g_searchResults[idx];
-                    wcscpy_s(g_result.searchQuery, g_searchQuery);
-                    ControlUI::HidePanel();
+
+                if (g_panelMode == ControlUI::MODE_SEARCH) {
+                    // Mode 1: Select effect to add
+                    if (idx >= 0 && idx < (int)g_searchResults.size()) {
+                        g_result.effectSelected = true;
+                        g_result.selectedEffect = g_searchResults[idx];
+                        wcscpy_s(g_result.searchQuery, g_searchQuery);
+                        ControlUI::HidePanel();
+                    }
+                } else {
+                    // Mode 2: Check if clicked on delete button or effect name
+                    if (idx >= 0 && idx < (int)g_layerEffects.size()) {
+                        int itemY = startY + idx * ITEM_HEIGHT;
+                        int btnX = rc.right - PADDING - ACTION_BUTTON_SIZE - 4;
+                        int btnY = itemY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
+
+                        // Check if clicked on delete button
+                        if (x >= btnX && x < btnX + ACTION_BUTTON_SIZE &&
+                            y >= btnY && y < btnY + ACTION_BUTTON_SIZE) {
+                            g_result.effectSelected = true;
+                            g_result.selectedEffect = g_layerEffects[idx];
+                            g_result.action = ControlUI::ACTION_DELETE;
+                            g_result.effectIndex = g_layerEffects[idx].index;
+                            ControlUI::HidePanel();
+                        }
+                        // Otherwise just select the effect (could add more actions later)
+                    }
                 }
             }
             return 0;

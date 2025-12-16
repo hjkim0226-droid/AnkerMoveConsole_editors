@@ -4,13 +4,17 @@
 
 ### Added
 - Shift+E: Effect Search popup (Control module)
+  - Mode 1 (default): Search and add effects to layer
+  - Mode 2 (Effect Controls focused): View/delete layer effects
 - Close button [x] on Effect Search panel
 - ESC key closes Effect Search panel
+- Effect Controls panel focus detection
 - CLAUDE.md: Model usage guidelines
 
 ### Fixed
 - Install path: MediaCore folder (not After Effects folder)
 - CI: Force clean build with --clean-first
+- Paste anchor now properly saves to settings
 
 ---
 
