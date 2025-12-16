@@ -37,10 +37,6 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 // Control module state
 static bool g_controlVisible = false;
 static bool g_eKeyWasHeld = false;
-static bool g_eKeyWaitingForHold = false;
-static std::chrono::steady_clock::time_point g_eKeyPressTime;
-static bool g_waitingForEffectControls = false;  // Waiting to attach to Effect Controls
-static std::chrono::steady_clock::time_point g_effectControlsOpenTime;
 
 /*****************************************************************************
  * IsTextInputFocused
@@ -123,89 +119,10 @@ bool IsAfterEffectsForeground() {
 
   return false;
 }
-/*****************************************************************************
- * IsEffectControlsFocused
- * Check if an Effect Controls panel is currently focused
- *****************************************************************************/
-bool IsEffectControlsFocused() {
-  HWND fg = GetForegroundWindow();
-  if (!fg)
-    return false;
-
-  // Get the focused child window
-  DWORD threadId = GetWindowThreadProcessId(fg, NULL);
-  GUITHREADINFO gti = {0};
-  gti.cbSize = sizeof(GUITHREADINFO);
-  if (!GetGUIThreadInfo(threadId, &gti))
-    return false;
-
-  HWND focused = gti.hwndFocus ? gti.hwndFocus : fg;
-
-  // Walk up parent chain looking for Effect Controls
-  HWND check = focused;
-  char title[256];
-  while (check) {
-    GetWindowTextA(check, title, sizeof(title));
-    // Effect Controls panel title contains "Effect Controls"
-    if (strstr(title, "Effect Controls") != NULL) {
-      return true;
-    }
-    check = GetParent(check);
-  }
-
-  return false;
-}
-
-/*****************************************************************************
- * FindEffectControlsWindow
- * Find the Effect Controls panel window handle
- *****************************************************************************/
-HWND FindEffectControlsWindow() {
-  // Find AE main window first
-  HWND aeWnd = NULL;
-  HWND hwnd = GetForegroundWindow();
-
-  // Walk up to find main AE window
-  while (hwnd) {
-    char title[256];
-    GetWindowTextA(hwnd, title, sizeof(title));
-    if (strstr(title, "After Effects") != NULL) {
-      aeWnd = hwnd;
-      break;
-    }
-    hwnd = GetParent(hwnd);
-  }
-
-  if (!aeWnd)
-    return NULL;
-
-  // Enumerate child windows to find Effect Controls
-  struct FindData {
-    HWND result;
-  } data = {NULL};
-
-  EnumChildWindows(
-      aeWnd,
-      [](HWND hwnd, LPARAM lParam) -> BOOL {
-        char title[256];
-        GetWindowTextA(hwnd, title, sizeof(title));
-        if (strstr(title, "Effect Controls") != NULL) {
-          ((FindData *)lParam)->result = hwnd;
-          return FALSE; // Stop enumeration
-        }
-        return TRUE;
-      },
-      (LPARAM)&data);
-
-  return data.result;
-}
-
 #else
 // macOS stub - TODO: implement NSTextField focus check
 bool IsTextInputFocused() { return false; }
 bool IsAfterEffectsForeground() { return true; } // Always true for now on macOS
-bool IsEffectControlsFocused() { return false; }
-void* FindEffectControlsWindow() { return nullptr; }
 #endif
 
 // Settings loaded from CEP
@@ -1015,108 +932,47 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   g_globals.key_was_held = y_key_held;
 
   // =========================================================================
-  // CONTROL MODULE: E key (0.4s hold) for effect search/management
+  // CONTROL MODULE: E key for effect search
   // =========================================================================
   bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
 
-  // E key just pressed - start waiting for hold
+  // E key just pressed - show Control panel
   if (e_key_held && !g_eKeyWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
-    g_eKeyPressTime = now;
-    g_eKeyWaitingForHold = true;
+      IsAfterEffectsForeground() && !g_globals.menu_visible) {
+    ControlUI::ShowPanel();
+    g_controlVisible = true;
   }
 
-  // E key still held - check if hold duration reached
-  if (e_key_held && g_eKeyWaitingForHold && !g_controlVisible) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_eKeyPressTime)
-                       .count();
-    if (elapsed >= HOLD_DELAY_MS) {
-      g_eKeyWaitingForHold = false;
+  // Check if Control panel closed and effect was selected
+  if (g_controlVisible && !ControlUI::IsVisible()) {
+    g_controlVisible = false;
+    ControlUI::ControlResult result = ControlUI::GetResult();
 
-      // Determine mode based on focus location
-      bool inEffectControls = IsEffectControlsFocused();
+    if (result.effectSelected) {
+      // Apply selected effect to layer via ExtendScript
+      char matchNameA[256];
+      // Convert wide string to ANSI
+      WideCharToMultiByte(CP_ACP, 0, result.selectedEffect.matchName, -1,
+                          matchNameA, sizeof(matchNameA), NULL, NULL);
 
-      if (inEffectControls) {
-        // Mode 2: Effect Controls focused - show presets + effects list
-        ControlUI::ShowPanel(ControlUI::MODE_EFFECTS_LIST);
-        g_controlVisible = true;
-      } else {
-        // Mode 1: Viewer/Timeline - show search + open locked Effect Controls
-        ControlUI::ShowPanel(ControlUI::MODE_SEARCH);
-        g_controlVisible = true;
-
-        // Open Effect Controls panel with Lock
-        ExecuteScript("(function(){"
-                      "app.executeCommand(app.findMenuCommandId('Effect Controls'));"
-                      "})();");
-
-        // Start waiting to attach to Effect Controls window
-        g_waitingForEffectControls = true;
-        g_effectControlsOpenTime = now;
-      }
-    }
-  }
-
-  // E key released
-  if (!e_key_held && g_eKeyWasHeld) {
-    g_eKeyWaitingForHold = false;
-
-    // Hide panel on release (hold mode)
-    if (g_controlVisible && ControlUI::IsVisible()) {
-      ControlUI::ControlResult result = ControlUI::GetResult();
-      ControlUI::HidePanel();
-      g_controlVisible = false;
-
-      // If effect was selected, apply it
-      if (result.effectSelected) {
-#ifdef MSWindows
-        char matchNameA[256];
-        WideCharToMultiByte(CP_ACP, 0, result.selectedEffect.matchName, -1,
-                            matchNameA, sizeof(matchNameA), NULL, NULL);
-
-        char script[1024];
-        snprintf(script, sizeof(script),
-                 "(function(){"
-                 "var c=app.project.activeItem;"
-                 "if(!c||!(c instanceof CompItem))return;"
-                 "if(c.selectedLayers.length==0)return;"
-                 "app.beginUndoGroup('Add Effect');"
-                 "for(var i=0;i<c.selectedLayers.length;i++){"
-                 "try{c.selectedLayers[i].Effects.addProperty('%s');}catch(e){}"
-                 "}"
-                 "app.endUndoGroup();"
-                 "})();",
-                 matchNameA);
-        ExecuteScript(script);
-#endif
-      }
+      char script[1024];
+      snprintf(script, sizeof(script),
+               "(function(){"
+               "var c=app.project.activeItem;"
+               "if(!c||!(c instanceof CompItem))return;"
+               "if(c.selectedLayers.length==0)return;"
+               "app.beginUndoGroup('Add Effect');"
+               "for(var i=0;i<c.selectedLayers.length;i++){"
+               "try{c.selectedLayers[i].Effects.addProperty('%s');}catch(e){}"
+               "}"
+               "app.endUndoGroup();"
+               "})();",
+               matchNameA);
+      ExecuteScript(script);
     }
   }
 
   g_eKeyWasHeld = e_key_held;
-
-#ifdef MSWindows
-  // Check for Effect Controls window to attach to (after opening)
-  if (g_waitingForEffectControls && g_controlVisible) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_effectControlsOpenTime)
-                       .count();
-    // Wait a bit for the window to open, then try to find it
-    if (elapsed >= 100 && elapsed < 2000) {
-      HWND ecWnd = FindEffectControlsWindow();
-      if (ecWnd) {
-        ControlUI::AttachToEffectControls(ecWnd);
-        ControlUI::PositionAboveEffectControls();
-        g_waitingForEffectControls = false;
-      }
-    } else if (elapsed >= 2000) {
-      // Timeout - give up looking
-      g_waitingForEffectControls = false;
-    }
-  }
-#endif
-
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
