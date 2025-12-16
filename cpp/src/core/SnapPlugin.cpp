@@ -1016,9 +1016,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // =========================================================================
   // CONTROL MODULE: E key (0.4s hold) for effect search/management
-  // DISABLED FOR DEBUG
   // =========================================================================
-#if 0
   bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
 
   // E key just pressed - start waiting for hold
@@ -1118,7 +1116,6 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     }
   }
 #endif
-#endif // #if 0 - END OF DISABLED E KEY CODE
 
   *max_sleepPL = 33; // ~30fps for hover updates
 
@@ -1146,7 +1143,7 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
 
     // Initialize native UI modules
     NativeUI::Initialize();
-    // ControlUI::Initialize();  // DISABLED FOR DEBUG
+    ControlUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 
