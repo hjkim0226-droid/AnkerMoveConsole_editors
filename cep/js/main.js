@@ -178,3 +178,59 @@ function setCustomAnchor(ratioX, ratioY) {
 window.setLayerAnchor = setLayerAnchor;
 window.setCustomAnchor = setCustomAnchor;
 window.showError = showError;
+
+// =========================================================================
+// IPC Command Handler - Watch for commands from C++ plugin
+// =========================================================================
+let lastCommandTime = 0;
+
+function getIPCCommandPath() {
+    const os = require('os');
+    const path = require('path');
+
+    if (os.platform() === 'win32') {
+        return path.join(process.env.APPDATA, 'AnchorRadialMenu', 'command.txt');
+    } else {
+        return path.join(os.homedir(), 'Library', 'Application Support', 'AnchorRadialMenu', 'command.txt');
+    }
+}
+
+function checkIPCCommand() {
+    const fs = require('fs');
+    const commandPath = getIPCCommandPath();
+
+    try {
+        if (!fs.existsSync(commandPath)) return;
+
+        const stat = fs.statSync(commandPath);
+        const mtime = stat.mtimeMs;
+
+        // Only process if file was modified since last check
+        if (mtime <= lastCommandTime) return;
+        lastCommandTime = mtime;
+
+        const command = fs.readFileSync(commandPath, 'utf8').trim();
+        if (!command) return;
+
+        debugLog('IPC command received: ' + command);
+
+        // Handle commands
+        if (command === 'OPEN_EFFECT_CONTROLS') {
+            // Open Effect Controls panel using executeCommand
+            if (csInterface) {
+                csInterface.evalScript('app.executeCommand(2163)', (result) => {
+                    debugLog('Effect Controls opened: ' + result);
+                });
+            }
+        }
+
+        // Clear command file after processing
+        fs.writeFileSync(commandPath, '');
+
+    } catch (e) {
+        // Silently ignore errors (file may not exist yet)
+    }
+}
+
+// Start IPC command polling (every 100ms)
+setInterval(checkIPCCommand, 100);

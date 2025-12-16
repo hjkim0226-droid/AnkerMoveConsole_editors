@@ -9,6 +9,7 @@
 #include "KeyboardMonitor.h"
 #include "GridUI.h"
 #include "ControlUI.h"
+#include "CEPBridge.h"
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
@@ -1071,9 +1072,13 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       ControlUI::SetLayerEffects(effectsList);
       ControlUI::ShowPanel();
     } else {
-      // Mode 1: Show search panel at mouse position
-      // TODO: Effect Controls 열기는 일단 비활성화 (AE freeze 문제)
+      // Mode 1: Open Effect Controls via CEP, then show search panel
       ControlUI::SetMode(ControlUI::MODE_SEARCH);
+
+      // Send command to CEP panel to open Effect Controls
+      CEPBridge::SendCommand("OPEN_EFFECT_CONTROLS");
+
+      // Show search panel at mouse position
       ControlUI::ShowPanel();
     }
     g_controlVisible = true;
