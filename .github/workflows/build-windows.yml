@@ -56,17 +56,30 @@ jobs:
         }
       shell: pwsh
 
-    - name: Upload plugin artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: AnchorSnap-Windows
-        path: |
-          cpp/build/**/*.aex
-        if-no-files-found: error
+    - name: Create installer package
+      run: |
+        # Create package directory structure
+        mkdir AnchorSnap-Installer
+        mkdir AnchorSnap-Installer\plugin
+        mkdir AnchorSnap-Installer\cep
 
-    - name: Upload CEP panel
+        # Copy plugin
+        $plugin = Get-ChildItem -Path cpp/build -Recurse -Filter "*.aex" | Select-Object -First 1
+        Copy-Item $plugin.FullName -Destination AnchorSnap-Installer\plugin\AnchorSnap.aex
+
+        # Copy CEP panel
+        Copy-Item -Path cep\* -Destination AnchorSnap-Installer\cep -Recurse
+
+        # Copy install script
+        Copy-Item install_windows.bat -Destination AnchorSnap-Installer\
+
+        Write-Host "Package contents:"
+        Get-ChildItem -Path AnchorSnap-Installer -Recurse | ForEach-Object { Write-Host $_.FullName }
+      shell: pwsh
+
+    - name: Upload installer package
       uses: actions/upload-artifact@v4
       with:
-        name: AnchorSnap-CEP
-        path: cep/
-        if-no-files-found: warn
+        name: AnchorSnap-Installer-Windows
+        path: AnchorSnap-Installer/
+        if-no-files-found: error
