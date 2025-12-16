@@ -275,14 +275,20 @@ function getLayerAnchorRatio() {
     }
 }
 
+// Global cache for PlugPlugExternalObject
+var _plugPlugLib = null;
+
 /**
  * Dispatch CSXS Event to CEP panel
  * Called from C++ to notify CEP of mode toggle changes
  */
 function dispatchCEPEvent(eventType, eventData) {
     try {
-        var xLib = new ExternalObject("lib:PlugPlugExternalObject");
-        if (xLib) {
+        // Cache the ExternalObject to avoid repeated loading issues
+        if (!_plugPlugLib) {
+            _plugPlugLib = new ExternalObject("lib:PlugPlugExternalObject");
+        }
+        if (_plugPlugLib) {
             var event = new CSXSEvent();
             event.type = eventType;
             event.data = JSON.stringify(eventData);

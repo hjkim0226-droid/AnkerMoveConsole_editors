@@ -43,7 +43,7 @@ async function init() {
         debugLog('CSInterface created');
 
         // Load ExtendScript
-        const jsxPath = csInterface.getSystemPath(SystemPath.EXTENSION) + '/jsx/anchor.jsx';
+        const jsxPath = csInterface.getSystemPath(SystemPath.EXTENSION) + '/jsx/snap.jsx';
         csInterface.evalScript(`$.evalFile("${jsxPath}")`);
 
         // Initialize i18n

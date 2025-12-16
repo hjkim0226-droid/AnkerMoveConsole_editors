@@ -302,7 +302,7 @@ void LoadSettingsFromFile() {
     }
   }
 
-  // customAnchors array - parse [{x:50,y:50},{x:50,y:50},{x:50,y:50}]
+  // customAnchors array - parse [{"x":50,"y":50},{"x":50,"y":50},{"x":50,"y":50}]
   if ((p = strstr(buffer, "\"customAnchors\":")) != NULL) {
     // Find the array start
     p = strchr(p, '[');
@@ -315,6 +315,9 @@ void LoadSettingsFromFile() {
         if (!xp)
           break;
         xp += 4;
+        // Skip whitespace
+        while (*xp == ' ' || *xp == '\t')
+          xp++;
         int xVal = atoi(xp);
 
         // Find "y":
@@ -322,6 +325,9 @@ void LoadSettingsFromFile() {
         if (!yp)
           break;
         yp += 4;
+        // Skip whitespace
+        while (*yp == ' ' || *yp == '\t')
+          yp++;
         int yVal = atoi(yp);
 
         // Convert from 0-100 percent to 0.0-1.0 ratio
@@ -347,6 +353,33 @@ void LoadSettingsFromFile() {
         p = strchr(yp, '}');
         if (!p)
           break;
+      }
+    }
+  }
+
+  // clipboardAnchor - parse {"x":0.5,"y":0.5} (ratio 0-1)
+  if ((p = strstr(buffer, "\"clipboardAnchor\":")) != NULL) {
+    // Check if it's not null
+    const char *nullCheck = strstr(p, "null");
+    const char *objStart = strchr(p, '{');
+    if (objStart && (!nullCheck || objStart < nullCheck)) {
+      const char *xp = strstr(objStart, "\"x\":");
+      if (xp) {
+        xp += 4;
+        while (*xp == ' ' || *xp == '\t')
+          xp++;
+        float rx = (float)atof(xp);
+
+        const char *yp = strstr(xp, "\"y\":");
+        if (yp) {
+          yp += 4;
+          while (*yp == ' ' || *yp == '\t')
+            yp++;
+          float ry = (float)atof(yp);
+
+          // Store in NativeUI clipboard
+          NativeUI::SetClipboardAnchor(rx, ry);
+        }
       }
     }
   }
