@@ -8,6 +8,7 @@
 #include "SnapPlugin.h"
 #include "KeyboardMonitor.h"
 #include "GridUI.h"
+#include "ControlUI.h"
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
@@ -32,6 +33,10 @@ static const int HOLD_DELAY_MS = 400; // 0.4 seconds
 static const int DOUBLE_TAP_MS = 250; // Max time between double-tap
 static std::chrono::steady_clock::time_point g_lastYRelease;
 static bool g_toggleClickMode = false; // Toggle mode vs hold mode
+
+// Control module state
+static bool g_controlVisible = false;
+static bool g_semicolonWasHeld = false;
 
 /*****************************************************************************
  * IsTextInputFocused
@@ -892,6 +897,32 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   }
 
   g_globals.key_was_held = y_key_held;
+
+  // =========================================================================
+  // CONTROL MODULE: Semicolon key (;) for effect search
+  // =========================================================================
+  bool semicolon_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_SEMICOLON);
+
+  // Semicolon just pressed - show Control panel
+  if (semicolon_held && !g_semicolonWasHeld && !IsTextInputFocused() &&
+      IsAfterEffectsForeground() && !g_globals.menu_visible) {
+    ControlUI::ShowPanel();
+    g_controlVisible = true;
+  }
+
+  // Check if Control panel closed and effect was selected
+  if (g_controlVisible && !ControlUI::IsVisible()) {
+    g_controlVisible = false;
+    ControlUI::ControlResult result = ControlUI::GetResult();
+
+    if (result.effectSelected) {
+      // Apply selected effect to layer via ExtendScript
+      // TODO: Call ExtendScript to apply effect
+      // For now, just log the selection
+    }
+  }
+
+  g_semicolonWasHeld = semicolon_held;
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
@@ -916,8 +947,9 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     g_globals.menu_visible = false;
     g_globals.key_was_held = false;
 
-    // Initialize native UI
+    // Initialize native UI modules
     NativeUI::Initialize();
+    ControlUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 

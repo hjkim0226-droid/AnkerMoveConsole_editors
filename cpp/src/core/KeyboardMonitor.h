@@ -17,20 +17,22 @@ namespace KeyboardMonitor {
 #ifdef MAC_ENV
 // Key codes for macOS (from Events.h / Carbon)
 enum KeyCode {
-  KEY_Y = 0x10,     // Y key
-  KEY_SHIFT = 0x38, // Shift key
-  KEY_CTRL = 0x3B,  // Control key
-  KEY_ALT = 0x3A,   // Option/Alt key
-  KEY_CMD = 0x37,   // Command key
+  KEY_Y = 0x10,         // Y key
+  KEY_SEMICOLON = 0x29, // ; key
+  KEY_SHIFT = 0x38,     // Shift key
+  KEY_CTRL = 0x3B,      // Control key
+  KEY_ALT = 0x3A,       // Option/Alt key
+  KEY_CMD = 0x37,       // Command key
 };
 #else
 // Key codes for Windows (Virtual Key Codes)
 enum KeyCode {
-  KEY_Y = 0x59,     // 'Y' key (VK_Y is same as ASCII 'Y')
-  KEY_SHIFT = 0x10, // VK_SHIFT
-  KEY_CTRL = 0x11,  // VK_CONTROL
-  KEY_ALT = 0x12,   // VK_MENU (Alt)
-  KEY_CMD = 0x5B,   // VK_LWIN (Windows Key)
+  KEY_Y = 0x59,         // 'Y' key (VK_Y is same as ASCII 'Y')
+  KEY_SEMICOLON = 0xBA, // ';' key (VK_OEM_1)
+  KEY_SHIFT = 0x10,     // VK_SHIFT
+  KEY_CTRL = 0x11,      // VK_CONTROL
+  KEY_ALT = 0x12,       // VK_MENU (Alt)
+  KEY_CMD = 0x5B,       // VK_LWIN (Windows Key)
 };
 #endif
 

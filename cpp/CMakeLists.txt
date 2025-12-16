@@ -47,6 +47,8 @@ set(PLUGIN_SOURCES
     src/core/CEPBridge.cpp
     # Grid module
     src/modules/grid/GridUI.cpp
+    # Control module
+    src/modules/control/ControlUI.cpp
     # SDK
     ${AE_SDK_PATH}/Util/AEGP_SuiteHandler.cpp
 )
@@ -59,6 +61,8 @@ set(PLUGIN_HEADERS
     src/core/GdiPlusIncludes.h
     # Grid module
     src/modules/grid/GridUI.h
+    # Control module
+    src/modules/control/ControlUI.h
 )
 
 # ============================================================================
@@ -71,6 +75,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/modules/grid
+    ${CMAKE_SOURCE_DIR}/src/modules/control
     ${AE_SDK_PATH}
     ${AE_SDK_PATH}/SP
     ${AE_SDK_PATH}/Util
