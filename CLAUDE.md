@@ -113,8 +113,40 @@ cep/                    # CEP Panel (Settings UI)
 
 ---
 
-## Commit Convention
+## Git Workflow
 
+### 브랜치 전략
+```
+main        ← 안정된 릴리즈 버전만
+  │
+  └── dev   ← 개발 작업은 여기서
+```
+
+### 버전 태그
+```bash
+# 현재 태그 확인
+git tag -l
+
+# 태그 생성 (특정 커밋에)
+git tag -a v1.0.0 <commit-hash> -m "Release message"
+
+# 태그 푸시
+git push origin v1.0.0
+```
+
+### 버전 네이밍
+```
+v1.0.0-alpha.1  → 초기 개발
+v1.0.0-beta.1   → 베타 테스트
+v1.0.0-rc.1     → 릴리즈 후보 (Release Candidate)
+v1.0.0          → 정식 릴리즈
+```
+
+### 현재 버전
+- **v1.0.0** - Grid 모듈 완성 (커밋: 6dbc6fc)
+- **dev** - Control 모듈 개발 중
+
+### Commit Convention
 ```
 feat: 새로운 기능 추가
 fix: 버그 수정
@@ -123,14 +155,24 @@ refactor: 코드 리팩토링
 ci: CI/CD 설정 변경
 ```
 
-## Workflow
+### 개발 Workflow
 
-1. 코드 수정
+1. `dev` 브랜치에서 작업
 2. `git add . && git commit -m "..."` → 자동 빌드 트리거
 3. `gh run list --limit 1` → 빌드 상태 확인
 4. GitHub Actions에서 Artifact 다운로드
 5. `install_windows.bat` 실행 (관리자 권한)
 6. After Effects 재시작
+7. 테스트 완료 후 `main`에 병합 + 태그
+
+### main에 병합하기
+```bash
+git checkout main
+git merge dev
+git tag -a v1.1.0 -m "v1.1.0 - Control module"
+git push origin main --tags
+git checkout dev
+```
 
 ---
 

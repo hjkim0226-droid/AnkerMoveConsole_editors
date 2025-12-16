@@ -144,6 +144,67 @@ bool IsEffectControlsFocused() {
 }
 
 /*****************************************************************************
+ * OpenEffectControls
+ * Opens Effect Controls panel for selected layer (locked to that layer)
+ * Uses app.executeCommand(2163) or findMenuCommandId
+ *****************************************************************************/
+void OpenEffectControls() {
+  // Try to open Effect Controls using known command ID
+  // 2163 = Effect Controls (from aenhancers.com)
+  ExecuteScript(
+      "(function(){"
+      "try{"
+      "var c=app.project.activeItem;"
+      "if(!c||!(c instanceof CompItem))return;"
+      "if(c.selectedLayers.length==0)return;"
+      // Open Effect Controls panel
+      "app.executeCommand(2163);"
+      "}catch(e){}"
+      "})();",
+      NULL, 0);
+}
+
+/*****************************************************************************
+ * FindEffectControlsWindow
+ * Find Effect Controls window position using Win32 API
+ * Returns window rect or {0,0,0,0} if not found
+ *****************************************************************************/
+RECT FindEffectControlsWindow() {
+  RECT result = {0, 0, 0, 0};
+
+  // Find AE main window first
+  HWND aeWnd = NULL;
+
+  // Callback to find Effect Controls window
+  struct FindData {
+    HWND found;
+  } findData = {NULL};
+
+  // Look for windows with "Effect Controls" in title
+  EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+    auto* data = (FindData*)lParam;
+    wchar_t title[256];
+    GetWindowTextW(hwnd, title, sizeof(title)/sizeof(wchar_t));
+
+    // Check if this is an Effect Controls window
+    if (wcsstr(title, L"Effect Controls") != NULL) {
+      // Verify it's visible
+      if (IsWindowVisible(hwnd)) {
+        data->found = hwnd;
+        return FALSE; // Stop enumeration
+      }
+    }
+    return TRUE; // Continue
+  }, (LPARAM)&findData);
+
+  if (findData.found) {
+    GetWindowRect(findData.found, &result);
+  }
+
+  return result;
+}
+
+/*****************************************************************************
  * GetLayerEffectsList
  * Get list of effects on selected layer for Mode 2
  * Returns: "name1|matchName1|0;name2|matchName2|1;..."
@@ -1008,11 +1069,24 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       wchar_t effectsList[4096];
       GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
       ControlUI::SetLayerEffects(effectsList);
+      ControlUI::ShowPanel();
     } else {
+      // Mode 1: Open Effect Controls first, then show search panel
       ControlUI::SetMode(ControlUI::MODE_SEARCH);
-    }
+      OpenEffectControls();
 
-    ControlUI::ShowPanel();
+      // Find Effect Controls window position and show panel there
+      RECT ecRect = FindEffectControlsWindow();
+      if (ecRect.right > ecRect.left && ecRect.bottom > ecRect.top) {
+        // Position at top-center of Effect Controls
+        int x = (ecRect.left + ecRect.right) / 2;
+        int y = ecRect.top + 50; // Below title bar
+        ControlUI::ShowPanelAt(x, y);
+      } else {
+        // Fallback to mouse position
+        ControlUI::ShowPanel();
+      }
+    }
     g_controlVisible = true;
   }
 
