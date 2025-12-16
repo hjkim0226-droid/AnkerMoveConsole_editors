@@ -154,19 +154,22 @@ class CustomAnchor {
         const clipboard = this.settings.get('clipboardAnchor');
         console.log('Clipboard data:', clipboard);
 
-        // Validate clipboard has valid non-zero or intentional values
+        // Validate clipboard has valid values
         if (clipboard && typeof clipboard.x === 'number' && typeof clipboard.y === 'number') {
-            // Check if values are in valid range (0-1 ratio)
-            if (clipboard.x >= 0 && clipboard.x <= 1 && clipboard.y >= 0 && clipboard.y <= 1) {
-                this.currentX = Math.round(clipboard.x * 100);
-                this.currentY = Math.round(clipboard.y * 100);
-                this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
-                this.savePresets();
-                this.updateUI();
-                console.log('Pasted anchor:', this.currentX, this.currentY);
-            } else {
-                console.log('Invalid clipboard values (out of 0-1 range):', clipboard);
-            }
+            // Convert 0-1 ratio to 0-100 percent, allow -20 to 120 range (overflow)
+            let x = Math.round(clipboard.x * 100);
+            let y = Math.round(clipboard.y * 100);
+
+            // Clamp to allowed range (-20 to 120)
+            x = Math.max(-20, Math.min(120, x));
+            y = Math.max(-20, Math.min(120, y));
+
+            this.currentX = x;
+            this.currentY = y;
+            this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+            this.savePresets();
+            this.updateUI();
+            console.log('Pasted anchor:', this.currentX, this.currentY);
         } else {
             console.log('No clipboard anchor available');
         }
