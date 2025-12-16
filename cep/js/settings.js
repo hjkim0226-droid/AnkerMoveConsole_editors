@@ -9,7 +9,7 @@ class Settings {
         this.defaults = {
             gridWidth: 3,
             gridHeight: 3,
-            gridScale: 2, // 0-4 representing -40% to +40% (default: 0%)
+            gridScale: 2, // 0-9 representing -20% to +70% (default: 0%)
             useCompMode: false,
             useMaskRecognition: true,
             settingsPanelOpen: false, // Track if CEP panel is visible
@@ -22,7 +22,9 @@ class Settings {
                 { x: 50, y: 50 },
                 { x: 50, y: 50 }
             ],
-            selectedPreset: 0
+            selectedPreset: 0,
+            // Clipboard anchor for copy/paste (ratio 0-1)
+            clipboardAnchor: null
         };
 
         this.settings = { ...this.defaults };
@@ -139,7 +141,7 @@ class Settings {
         const scaleDisplay = document.getElementById('scale-display');
         if (gridScale) gridScale.value = this.settings.gridScale;
         if (scaleDisplay) {
-            const scaleValues = ['-40%', '-20%', '0%', '+20%', '+40%'];
+            const scaleValues = ['-20%', '-10%', '0%', '+10%', '+20%', '+30%', '+40%', '+50%', '+60%', '+70%'];
             scaleDisplay.textContent = scaleValues[this.settings.gridScale];
         }
 
@@ -235,7 +237,7 @@ class Settings {
             gridScale.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 this.set('gridScale', value);
-                const scaleValues = ['-40%', '-20%', '0%', '+20%', '+40%'];
+                const scaleValues = ['-20%', '-10%', '0%', '+10%', '+20%', '+30%', '+40%', '+50%', '+60%', '+70%'];
                 document.getElementById('scale-display').textContent = scaleValues[value];
             });
         }

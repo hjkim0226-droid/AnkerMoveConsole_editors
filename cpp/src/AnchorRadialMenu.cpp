@@ -123,7 +123,7 @@ bool IsAfterEffectsForeground() { return true; } // Always true for now on macOS
 // Settings loaded from CEP
 static int g_loadedGridWidth = 3;
 static int g_loadedGridHeight = 3;
-static int g_loadedGridScale = 2;    // 0-4, default 2 (0%)
+static int g_loadedGridScale = 2;    // 0-9, default 2 (0%)
 static int g_loadedGridOpacity = 75; // 0-100%
 static int g_loadedCellOpacity = 50; // 0-100%
 
@@ -272,11 +272,11 @@ void LoadSettingsFromFile() {
       g_loadedGridHeight = val;
     }
   }
-  // gridScale (0-4)
+  // gridScale (0-9)
   if ((p = strstr(buffer, "\"gridScale\":")) != NULL) {
     p += 12;
     int val = atoi(p);
-    if (val >= 0 && val <= 4) {
+    if (val >= 0 && val <= 9) {
       g_loadedGridScale = val;
     }
   }
@@ -512,9 +512,9 @@ void ShowAnchorGrid(int mouseX, int mouseY) {
   config.gridWidth = g_loadedGridWidth;
   config.gridHeight = g_loadedGridHeight;
 
-  // Scale: 0=-40%, 1=-20%, 2=0%, 3=+20%, 4=+40%
+  // Scale: 0=-20%, 1=-10%, 2=0%, 3=+10%, ... 9=+70%
   int baseSize = 40;
-  float scaleFactors[] = {0.6f, 0.8f, 1.0f, 1.2f, 1.4f};
+  float scaleFactors[] = {0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.6f, 1.7f};
   config.cellSize = (int)(baseSize * scaleFactors[g_loadedGridScale]);
 
   config.spacing = 1;

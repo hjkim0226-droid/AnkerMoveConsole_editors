@@ -154,20 +154,30 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_hoverExtOption = OPT_NONE;
 
   // FIXED grid area size with scale applied
-  // Base size 120px at scale 2 (0%), scales from 0.6x to 1.4x
-  float scaleFactors[] = {0.6f, 0.8f, 1.0f, 1.2f, 1.4f};
-  int scaleIndex = 2; // Default to middle (0%)
+  // 10 steps: -20% to +70% (scale factors 0.8 to 1.7)
+  float scaleFactors[] = {0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.6f, 1.7f};
+  int scaleIndex = 2; // Default to 0%
   // Use config.cellSize to infer scale (40 base * factor)
-  if (g_config.cellSize <= 24)
-    scaleIndex = 0; // 40 * 0.6 = 24
-  else if (g_config.cellSize <= 32)
-    scaleIndex = 1; // 40 * 0.8 = 32
+  if (g_config.cellSize <= 32)
+    scaleIndex = 0; // 40 * 0.8 = 32
+  else if (g_config.cellSize <= 36)
+    scaleIndex = 1; // 40 * 0.9 = 36
   else if (g_config.cellSize <= 40)
     scaleIndex = 2; // 40 * 1.0 = 40
+  else if (g_config.cellSize <= 44)
+    scaleIndex = 3; // 40 * 1.1 = 44
   else if (g_config.cellSize <= 48)
-    scaleIndex = 3; // 40 * 1.2 = 48
+    scaleIndex = 4; // 40 * 1.2 = 48
+  else if (g_config.cellSize <= 52)
+    scaleIndex = 5; // 40 * 1.3 = 52
+  else if (g_config.cellSize <= 56)
+    scaleIndex = 6; // 40 * 1.4 = 56
+  else if (g_config.cellSize <= 60)
+    scaleIndex = 7; // 40 * 1.5 = 60
+  else if (g_config.cellSize <= 64)
+    scaleIndex = 8; // 40 * 1.6 = 64
   else
-    scaleIndex = 4; // 40 * 1.4 = 56
+    scaleIndex = 9; // 40 * 1.7 = 68
 
   int baseGridSize = 120; // Fixed base size for grid area
   g_fixedGridPixels = (int)(baseGridSize * scaleFactors[scaleIndex]);
@@ -420,7 +430,7 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 static void DrawIconBackground(HDC hdc, int cx, int cy, bool hover) {
   if (hover) {
     int halfSize = g_iconSize / 2;
-    HBRUSH hoverBrush = CreateSolidBrush(RGB(50, 60, 70));
+    HBRUSH hoverBrush = CreateSolidBrush(RGB(55, 70, 85)); // Enhanced contrast
     RECT hoverRect = {cx - halfSize, cy - halfSize, cx + halfSize,
                       cy + halfSize};
     FillRect(hdc, &hoverRect, hoverBrush);
@@ -714,7 +724,7 @@ static void DrawGrid(HDC hdc) {
   int gridStartX = g_sidePanelWidth + g_scaledMargin + g_gridOffsetX;
   int gridStartY = g_gridVerticalPadding + g_scaledMargin + g_gridOffsetY;
   int radius = g_config.cellSize / 10;     // Slightly larger dots
-  int hoverRadius = g_config.cellSize / 8; // Larger hover glow
+  int hoverRadius = g_config.cellSize / 7; // Enhanced hover glow (was /8)
   int len = (int)(cellTotal * 0.3);        // Shorter marks (was 0.4)
 
   bool compMode = g_settings.useCompMode;
@@ -754,8 +764,8 @@ static void DrawGrid(HDC hdc) {
   graphics.FillRectangle(&cellBrush, gridStartX, gridStartY, gridWidth,
                          gridHeight);
 
-  // Draw gray grid lines (separators between cells)
-  Color gridLineColor(180, 80, 80, 80); // Semi-transparent gray
+  // Draw gray grid lines (separators between cells) - Enhanced visibility
+  Color gridLineColor(200, 100, 100, 100); // Brighter semi-transparent gray
   Pen gridPen(gridLineColor, 1.0f);
 
   // Vertical lines

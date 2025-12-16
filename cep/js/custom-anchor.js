@@ -148,7 +148,9 @@ class CustomAnchor {
     }
 
     pasteAnchor() {
-        // Get clipboard anchor from localStorage or settings
+        // Reload settings from file to get latest clipboard anchor from C++
+        this.loadClipboardFromFile();
+
         const clipboard = this.settings.get('clipboardAnchor');
         if (clipboard && typeof clipboard.x === 'number' && typeof clipboard.y === 'number') {
             this.currentX = Math.round(clipboard.x * 100);
@@ -156,6 +158,35 @@ class CustomAnchor {
             this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
             this.savePresets();
             this.updateUI();
+            console.log('Pasted anchor:', clipboard.x, clipboard.y);
+        } else {
+            console.log('No clipboard anchor available');
+        }
+    }
+
+    loadClipboardFromFile() {
+        // Read clipboard anchor directly from settings.json
+        try {
+            const os = require('os');
+            const path = require('path');
+            const fs = require('fs');
+            let settingsPath;
+
+            if (os.platform() === 'win32') {
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+            } else {
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+            }
+
+            if (fs.existsSync(settingsPath)) {
+                const json = fs.readFileSync(settingsPath, 'utf8');
+                const parsed = JSON.parse(json);
+                if (parsed.clipboardAnchor) {
+                    this.settings.settings.clipboardAnchor = parsed.clipboardAnchor;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load clipboard from file:', e);
         }
     }
 
