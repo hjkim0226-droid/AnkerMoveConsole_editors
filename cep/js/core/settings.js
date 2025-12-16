@@ -37,7 +37,7 @@ class Settings {
 
     load() {
         try {
-            const saved = localStorage.getItem('anchorGrid_settings');
+            const saved = localStorage.getItem('anchorSnap_settings');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this.settings = { ...this.defaults, ...parsed };
@@ -50,7 +50,7 @@ class Settings {
 
     save() {
         try {
-            localStorage.setItem('anchorGrid_settings', JSON.stringify(this.settings));
+            localStorage.setItem('anchorSnap_settings', JSON.stringify(this.settings));
             this.saveToFile(); // Also save for C++ plugin
         } catch (e) {
             console.error('Failed to save settings:', e);
@@ -69,9 +69,9 @@ class Settings {
             let settingsPath;
 
             if (os.platform() === 'win32') {
-                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             } else {
-                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             }
 
             // Ensure directory exists
@@ -95,9 +95,9 @@ class Settings {
             let settingsPath;
 
             if (os.platform() === 'win32') {
-                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             } else {
-                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             }
 
             if (fs.existsSync(settingsPath)) {

@@ -1,7 +1,7 @@
 /*****************************************************************************
- * AnchorRadialMenu.h
+ * SnapPlugin.h
  *
- * Main AEGP plugin header for Anchor Radial Menu
+ * Main AEGP plugin header for Anchor Snap
  * Handles plugin initialization and IdleHook registration
  *****************************************************************************/
 
@@ -11,8 +11,8 @@
 #include "AE_GeneralPlug.h"
 
 // Plugin identification
-#define PLUGIN_NAME "Anchor Radial Menu"
-#define PLUGIN_VERSION "0.0.1"
+#define PLUGIN_NAME "Anchor Snap"
+#define PLUGIN_VERSION "1.0.0"
 
 #ifdef MSWindows
 #define DllExport __declspec(dllexport)
@@ -21,7 +21,7 @@
 #endif
 
 // Global plugin state
-struct AnchorRadialMenuGlobals {
+struct SnapPluginGlobals {
   AEGP_PluginID plugin_id;
   SPBasicSuite *pica_basicP;
   bool menu_visible;

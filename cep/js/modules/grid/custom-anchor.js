@@ -173,9 +173,9 @@ class CustomAnchor {
             let settingsPath;
 
             if (os.platform() === 'win32') {
-                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             } else {
-                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.grid', 'settings.json');
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             }
 
             if (fs.existsSync(settingsPath)) {

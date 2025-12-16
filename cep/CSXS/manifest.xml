@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.anchor.grid" ExtensionBundleVersion="0.0.1"
-                   ExtensionBundleName="Anchor Grid" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.anchor.snap" ExtensionBundleVersion="1.0.0"
+                   ExtensionBundleName="Anchor Snap" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.anchor.grid.panel" Version="0.0.1"/>
+        <Extension Id="com.anchor.snap.panel" Version="1.0.0"/>
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
@@ -17,11 +17,11 @@
         </RequiredRuntimeList>
     </ExecutionEnvironment>
     <DispatchInfoList>
-        <Extension Id="com.anchor.grid.panel">
+        <Extension Id="com.anchor.snap.panel">
             <DispatchInfo>
                 <Resources>
                     <MainPath>./index.html</MainPath>
-                    <ScriptPath>./jsx/anchor.jsx</ScriptPath>
+                    <ScriptPath>./jsx/snap.jsx</ScriptPath>
                     <CEFCommandLine>
                         <Parameter>--enable-nodejs</Parameter>
                         <Parameter>--mixed-context</Parameter>
@@ -32,7 +32,7 @@
                 </Lifecycle>
                 <UI>
                     <Type>Panel</Type>
-                    <Menu>Anchor Grid</Menu>
+                    <Menu>Anchor Snap</Menu>
                     <Geometry>
                         <Size>
                             <Height>300</Height>

@@ -1,12 +1,12 @@
 /*****************************************************************************
- * NativeUI.h
+ * GridUI.h
  *
- * Native Windows UI for Anchor Grid
+ * Native Windows UI for Anchor Snap - Grid Module
  * Provides a custom-drawn popup window for the grid interface
  *****************************************************************************/
 
-#ifndef NATIVEUI_H
-#define NATIVEUI_H
+#ifndef GRIDUI_H
+#define GRIDUI_H
 
 namespace NativeUI {
 
@@ -94,4 +94,4 @@ ExtendedOption GetHoverExtOption();
 
 } // namespace NativeUI
 
-#endif // NATIVEUI_H
+#endif // GRIDUI_H

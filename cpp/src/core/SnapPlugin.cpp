@@ -1,13 +1,13 @@
 /*****************************************************************************
- * AnchorRadialMenu.cpp
+ * SnapPlugin.cpp
  *
- * Main AEGP plugin implementation for Anchor Grid
+ * Main AEGP plugin implementation for Anchor Snap
  * Uses Native Win32 UI for floating anchor grid (fast, custom styling)
  *****************************************************************************/
 
-#include "AnchorRadialMenu.h"
+#include "SnapPlugin.h"
 #include "KeyboardMonitor.h"
-#include "NativeUI.h"
+#include "GridUI.h"
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
@@ -23,7 +23,7 @@
 #include "AE_Macros.h"
 
 // Global state
-static AnchorRadialMenuGlobals g_globals = {0, NULL, false, false, false};
+static SnapPluginGlobals g_globals = {0, NULL, false, false, false};
 static int g_mouseStartX = 0;
 static int g_mouseStartY = 0;
 static std::chrono::steady_clock::time_point g_keyPressTime;
@@ -201,24 +201,24 @@ bool HasSelectedLayers() {
  *****************************************************************************/
 void LoadSettingsFromFile() {
 #ifdef MSWindows
-  // Windows: %APPDATA%\Adobe\CEP\extensions\com.anchor.grid\settings.json
+  // Windows: %APPDATA%\Adobe\CEP\extensions\com.anchor.snap\settings.json
   char path[512];
   const char *appdata = getenv("APPDATA");
   if (!appdata)
     return;
   snprintf(path, sizeof(path),
-           "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json",
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.snap\\settings.json",
            appdata);
 #else
   // macOS: ~/Library/Application
-  // Support/Adobe/CEP/extensions/com.anchor.grid/settings.json
+  // Support/Adobe/CEP/extensions/com.anchor.snap/settings.json
   char path[512];
   const char *home = getenv("HOME");
   if (!home)
     return;
   snprintf(path, sizeof(path),
            "%s/Library/Application "
-           "Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+           "Support/Adobe/CEP/extensions/com.anchor.snap/settings.json",
            home);
 #endif
 
@@ -358,7 +358,7 @@ void SaveClipboardAnchorToFile(float rx, float ry) {
   if (!appdata)
     return;
   snprintf(path, sizeof(path),
-           "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json",
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.snap\\settings.json",
            appdata);
 #else
   char path[512];
@@ -367,7 +367,7 @@ void SaveClipboardAnchorToFile(float rx, float ry) {
     return;
   snprintf(path, sizeof(path),
            "%s/Library/Application "
-           "Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+           "Support/Adobe/CEP/extensions/com.anchor.snap/settings.json",
            home);
 #endif
 
@@ -432,7 +432,7 @@ void SaveSettingsToFile() {
   if (!appdata)
     return;
   snprintf(path, sizeof(path),
-           "%s\\Adobe\\CEP\\extensions\\com.anchor.grid\\settings.json",
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.snap\\settings.json",
            appdata);
 #else
   char path[512];
@@ -441,7 +441,7 @@ void SaveSettingsToFile() {
     return;
   snprintf(path, sizeof(path),
            "%s/Library/Application "
-           "Support/Adobe/CEP/extensions/com.anchor.grid/settings.json",
+           "Support/Adobe/CEP/extensions/com.anchor.snap/settings.json",
            home);
 #endif
 

@@ -1,7 +1,7 @@
 /*****************************************************************************
- * NativeUI.cpp
+ * GridUI.cpp
  *
- * Native Windows UI for Anchor Grid
+ * Native Windows UI for Anchor Snap - Grid Module
  * Uses GDI+ for anti-aliasing, alpha blending, and smooth rendering
  *
  * Layout:
@@ -10,7 +10,7 @@
  *   - Right: Comp Mode, Mask Mode, Settings
  *****************************************************************************/
 
-#include "NativeUI.h"
+#include "GridUI.h"
 
 #ifdef MSWindows
 

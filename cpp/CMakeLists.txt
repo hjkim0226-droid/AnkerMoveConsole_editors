@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AnchorRadialMenu VERSION 0.0.1 LANGUAGES CXX)
+project(AnchorSnap VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,22 +38,27 @@ if(APPLE)
 endif()
 
 # ============================================================================
-# Source Files
-# ============================================================================
-# ============================================================================
-# Source Files
+# Source Files - Modular Structure
 # ============================================================================
 set(PLUGIN_SOURCES
-    src/AnchorRadialMenu.cpp
-    src/KeyboardMonitor.cpp
-    src/NativeUI.cpp
+    # Core modules
+    src/core/SnapPlugin.cpp
+    src/core/KeyboardMonitor.cpp
+    src/core/CEPBridge.cpp
+    # Grid module
+    src/modules/grid/GridUI.cpp
+    # SDK
     ${AE_SDK_PATH}/Util/AEGP_SuiteHandler.cpp
 )
 
 set(PLUGIN_HEADERS
-    src/AnchorRadialMenu.h
-    src/KeyboardMonitor.h
-    src/NativeUI.h
+    # Core modules
+    src/core/SnapPlugin.h
+    src/core/KeyboardMonitor.h
+    src/core/CEPBridge.h
+    src/core/GdiPlusIncludes.h
+    # Grid module
+    src/modules/grid/GridUI.h
 )
 
 # ============================================================================
@@ -64,6 +69,8 @@ add_library(${PROJECT_NAME} MODULE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/modules/grid
     ${AE_SDK_PATH}
     ${AE_SDK_PATH}/SP
     ${AE_SDK_PATH}/Util
@@ -103,9 +110,9 @@ if(WIN32)
     )
     
     # Add resource file (PiPL) and Module Definition file (.def)
-    target_sources(${PROJECT_NAME} PRIVATE 
-        resources/win/AnchorRadialMenu.rc
-        resources/win/AnchorRadialMenu.def
+    target_sources(${PROJECT_NAME} PRIVATE
+        resources/win/AnchorSnap.rc
+        resources/win/AnchorSnap.def
     )
     
     # AE Plugins need to be linked with specific flags on Windows
