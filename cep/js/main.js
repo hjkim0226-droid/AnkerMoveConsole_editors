@@ -94,6 +94,13 @@ async function init() {
             }
         });
 
+        // Mark settings panel as closed when panel is closing
+        window.addEventListener('beforeunload', () => {
+            if (settings) {
+                settings.set('settingsPanelOpen', false);
+            }
+        });
+
         console.log('Anchor Grid panel initialized');
 
     } catch (error) {

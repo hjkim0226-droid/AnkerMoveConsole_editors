@@ -47,10 +47,16 @@ static const wchar_t *GRID_CLASS_NAME = L"AnchorGridClass";
 #define COLOR_GLOW_MID_COMP RGB(154, 100, 42)
 #define COLOR_GLOW_OUTER_COMP RGB(110, 80, 42)
 
-// Side panel dimensions
-#define SIDE_PANEL_WIDTH 52
-#define ICON_SIZE 34
-#define ICON_SPACING 16
+// Side panel base dimensions (will be scaled)
+#define BASE_SIDE_PANEL_WIDTH 52
+#define BASE_ICON_SIZE 34
+#define BASE_ICON_SPACING 16
+
+// Scaled dimensions (set in ShowGrid based on scale factor)
+static int g_sidePanelWidth = 52;
+static int g_iconSize = 34;
+static int g_iconSpacing = 16;
+static float g_currentScale = 1.0f;
 
 // Global state
 static HWND g_gridWnd = NULL;
@@ -162,6 +168,12 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   int baseGridSize = 120; // Fixed base size for grid area
   g_fixedGridPixels = (int)(baseGridSize * scaleFactors[scaleIndex]);
 
+  // Update scaled icon dimensions based on scale factor
+  g_currentScale = scaleFactors[scaleIndex];
+  g_sidePanelWidth = (int)(BASE_SIDE_PANEL_WIDTH * g_currentScale);
+  g_iconSize = (int)(BASE_ICON_SIZE * g_currentScale);
+  g_iconSpacing = (int)(BASE_ICON_SPACING * g_currentScale);
+
   // Calculate cellSize based on max dimension (like FX Console null parents)
   int maxDim = (g_config.gridWidth > g_config.gridHeight) ? g_config.gridWidth
                                                           : g_config.gridHeight;
@@ -180,11 +192,12 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   int gridPixelsH = g_config.gridHeight * cellTotal;
 
   // Window: FIXED size
-  g_windowWidth = SIDE_PANEL_WIDTH + g_fixedGridPixels + g_config.margin * 2 +
-                  SIDE_PANEL_WIDTH;
+  g_windowWidth = g_sidePanelWidth + g_fixedGridPixels + g_config.margin * 2 +
+                  g_sidePanelWidth;
 
-  int minHeight = ICON_SIZE * 3 + ICON_SPACING * 2 + 20;
-  int bottomButtonsHeight = ICON_SIZE + 10;
+  int minHeight =
+      g_iconSize * 3 + g_iconSpacing * 2 + (int)(20 * g_currentScale);
+  int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
   int gridAreaHeight = g_fixedGridPixels + g_config.margin * 2;
   int baseHeight = (gridAreaHeight > minHeight) ? gridAreaHeight : minHeight;
   g_windowHeight = baseHeight + bottomButtonsHeight;
@@ -194,7 +207,7 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_gridOffsetY = (g_fixedGridPixels - gridPixelsH) / 2;
 
   // Mouse at WINDOW CENTER (grid area center)
-  int gridCenterX = SIDE_PANEL_WIDTH + g_config.margin + g_fixedGridPixels / 2;
+  int gridCenterX = g_sidePanelWidth + g_config.margin + g_fixedGridPixels / 2;
   int gridCenterY = g_config.margin + g_fixedGridPixels / 2;
   g_windowX = mouseX - gridCenterX;
   g_windowY = mouseY - gridCenterY;
@@ -298,7 +311,7 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   int gridPixelsW = g_config.gridWidth * cellTotal;
   int gridPixelsH = g_config.gridHeight * cellTotal;
   // Apply grid offset for centered rectangular grids
-  int gridStartX = SIDE_PANEL_WIDTH + g_config.margin + g_gridOffsetX;
+  int gridStartX = g_sidePanelWidth + g_config.margin + g_gridOffsetX;
   int gridStartY = g_config.margin + g_gridOffsetY;
 
   int relX = screenX - g_windowX;
@@ -309,15 +322,15 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   g_hoverExtOption = NativeUI::OPT_NONE;
 
   // Check left panel (Custom Anchors only)
-  if (relX < SIDE_PANEL_WIDTH && relX >= 0) {
-    int bottomButtonsHeight = ICON_SIZE + 10;
+  if (relX < g_sidePanelWidth && relX >= 0) {
+    int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
     int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
-    int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
+    int iconY = (gridAreaHeight - (g_iconSize * 3 + g_iconSpacing * 2)) / 2;
 
     // Check custom anchor icons
     for (int i = 0; i < 3; i++) {
-      int top = iconY + i * (ICON_SIZE + ICON_SPACING);
-      if (relY >= top && relY < top + ICON_SIZE) {
+      int top = iconY + i * (g_iconSize + g_iconSpacing);
+      if (relY >= top && relY < top + g_iconSize) {
         g_hoverExtOption =
             (NativeUI::ExtendedOption)(NativeUI::OPT_CUSTOM_1 + i);
         return;
@@ -327,13 +340,13 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   }
 
   // Check right panel (Mode controls) - limit to panel width only
-  if (relX >= g_windowWidth - SIDE_PANEL_WIDTH && relX < g_windowWidth) {
-    int bottomButtonsHeight = ICON_SIZE + 10;
+  if (relX >= g_windowWidth - g_sidePanelWidth && relX < g_windowWidth) {
+    int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
     int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
-    int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
+    int iconY = (gridAreaHeight - (g_iconSize * 3 + g_iconSpacing * 2)) / 2;
     for (int i = 0; i < 3; i++) {
-      int top = iconY + i * (ICON_SIZE + ICON_SPACING);
-      if (relY >= top && relY < top + ICON_SIZE) {
+      int top = iconY + i * (g_iconSize + g_iconSpacing);
+      if (relY >= top && relY < top + g_iconSize) {
         switch (i) {
         case 0:
           g_hoverExtOption = NativeUI::OPT_COMP_MODE;
@@ -352,25 +365,26 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
   }
 
   // Check Copy/Paste buttons (below grid area, centered in window)
-  int bottomButtonsHeight = ICON_SIZE + 10;
+  int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
   // Use global g_fixedGridPixels for button positioning
   // Center buttons in the window
   int windowCenterX =
-      SIDE_PANEL_WIDTH + g_config.margin + g_fixedGridPixels / 2;
-  int gridBottomY = g_config.margin + g_fixedGridPixels + ICON_SIZE / 2 + 5;
+      g_sidePanelWidth + g_config.margin + g_fixedGridPixels / 2;
+  int gridBottomY = g_config.margin + g_fixedGridPixels + g_iconSize / 2 +
+                    (int)(5 * g_currentScale);
 
-  if (relY >= gridBottomY - ICON_SIZE / 2 &&
-      relY < gridBottomY + ICON_SIZE / 2) {
-    int copyX = windowCenterX - ICON_SIZE / 2 - 5;
-    int pasteX = windowCenterX + ICON_SIZE / 2 + 5;
+  if (relY >= gridBottomY - g_iconSize / 2 &&
+      relY < gridBottomY + g_iconSize / 2) {
+    int copyX = windowCenterX - g_iconSize / 2 - (int)(5 * g_currentScale);
+    int pasteX = windowCenterX + g_iconSize / 2 + (int)(5 * g_currentScale);
 
     // Copy button
-    if (relX >= copyX - ICON_SIZE / 2 && relX < copyX + ICON_SIZE / 2) {
+    if (relX >= copyX - g_iconSize / 2 && relX < copyX + g_iconSize / 2) {
       g_hoverExtOption = NativeUI::OPT_COPY_ANCHOR;
       return;
     }
     // Paste button
-    if (relX >= pasteX - ICON_SIZE / 2 && relX < pasteX + ICON_SIZE / 2) {
+    if (relX >= pasteX - g_iconSize / 2 && relX < pasteX + g_iconSize / 2) {
       g_hoverExtOption = NativeUI::OPT_PASTE_ANCHOR;
       return;
     }
@@ -394,7 +408,7 @@ static void UpdateHoverFromMouse(int screenX, int screenY) {
 // Draw hover background (unified square area)
 static void DrawIconBackground(HDC hdc, int cx, int cy, bool hover) {
   if (hover) {
-    int halfSize = ICON_SIZE / 2;
+    int halfSize = g_iconSize / 2;
     HBRUSH hoverBrush = CreateSolidBrush(RGB(50, 60, 70));
     RECT hoverRect = {cx - halfSize, cy - halfSize, cx + halfSize,
                       cy + halfSize};
@@ -417,8 +431,8 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
   graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
-  int r = ICON_SIZE / 2 - 6;
-  int s = 3;
+  int r = g_iconSize / 2 - (int)(6 * g_currentScale);
+  int s = (int)(3 * g_currentScale);
 
   // Helper to convert COLORREF to GDI+ Color
   auto toColor = [](COLORREF c) {
@@ -443,22 +457,23 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
     int iconR = (int)(r * 1.1f); // 10% larger radius
 
     // Crosshair lines (with gap for center circle)
-    int gap = 9; // Slightly larger gap
+    int gap = (int)(9 * g_currentScale);
     graphics.DrawLine(&pen, cx - iconR, cy, cx - gap, cy);
     graphics.DrawLine(&pen, cx + gap, cy, cx + iconR, cy);
     graphics.DrawLine(&pen, cx, cy - iconR, cx, cy - gap);
     graphics.DrawLine(&pen, cx, cy + gap, cx, cy + iconR);
 
-    // Center circle with fill (AE anchor style) - 10% larger
-    int circleR = 9; // Increased from 8 to 9 (10% larger)
+    // Center circle with fill (AE anchor style)
+    int circleR = (int)(9 * g_currentScale);
     graphics.FillEllipse(&bgBrush, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
     graphics.DrawEllipse(&pen, cx - circleR, cy - circleR, circleR * 2,
                          circleR * 2);
 
-    // Draw preset number inside circle - 20% larger font
+    // Draw preset number inside circle - scaled font
     FontFamily fontFamily(L"Segoe UI");
-    Font font(&fontFamily, 12, FontStyleBold, UnitPixel);
+    Font font(&fontFamily, (int)(12 * g_currentScale), FontStyleBold,
+              UnitPixel);
     SolidBrush textBrush(color);
     StringFormat format;
     format.SetAlignment(StringAlignmentCenter);
@@ -529,8 +544,9 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
   }
 
   case NativeUI::OPT_SETTINGS: {
-    // Default: dark gray, hover: blue
-    COLORREF colorRef = hover ? COLOR_BLUE : COLOR_DARK_GRAY;
+    // Default: dark gray, hover: blue, active: blue
+    COLORREF colorRef =
+        hover ? COLOR_ICON_HOVER : (active ? COLOR_BLUE : COLOR_DARK_GRAY);
     Color color = toColor(colorRef);
     SolidBrush brush(color);
 
@@ -626,15 +642,15 @@ static void DrawIcon(HDC hdc, int cx, int cy, NativeUI::ExtendedOption type,
 // Draw side panels with icons
 static void DrawSidePanels(HDC hdc) {
   // Calculate icon Y based on grid area only (exclude bottom buttons)
-  int bottomButtonsHeight = ICON_SIZE + 10;
+  int bottomButtonsHeight = g_iconSize + (int)(10 * g_currentScale);
   int gridAreaHeight = g_windowHeight - bottomButtonsHeight;
-  int iconY = (gridAreaHeight - (ICON_SIZE * 3 + ICON_SPACING * 2)) / 2;
-  int leftCx = SIDE_PANEL_WIDTH / 2;
-  int rightCx = g_windowWidth - SIDE_PANEL_WIDTH / 2;
+  int iconY = (gridAreaHeight - (g_iconSize * 3 + g_iconSpacing * 2)) / 2;
+  int leftCx = g_sidePanelWidth / 2;
+  int rightCx = g_windowWidth - g_sidePanelWidth / 2;
 
   // Left panel: Custom anchors 1, 2, 3
   for (int i = 0; i < 3; i++) {
-    int cy = iconY + i * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2;
+    int cy = iconY + i * (g_iconSize + g_iconSpacing) + g_iconSize / 2;
     NativeUI::ExtendedOption opt =
         (NativeUI::ExtendedOption)(NativeUI::OPT_CUSTOM_1 + i);
     bool hover = (g_hoverExtOption == opt);
@@ -645,10 +661,10 @@ static void DrawSidePanels(HDC hdc) {
   NativeUI::ExtendedOption rightOpts[] = {
       NativeUI::OPT_COMP_MODE, NativeUI::OPT_MASK_MODE, NativeUI::OPT_SETTINGS};
   bool activeStates[] = {g_settings.useCompMode, g_settings.useMaskRecognition,
-                         false};
+                         g_settings.settingsPanelOpen};
 
   for (int i = 0; i < 3; i++) {
-    int cy = iconY + i * (ICON_SIZE + ICON_SPACING) + ICON_SIZE / 2;
+    int cy = iconY + i * (g_iconSize + g_iconSpacing) + g_iconSize / 2;
     bool hover = (g_hoverExtOption == rightOpts[i]);
     DrawIcon(hdc, rightCx, cy, rightOpts[i], hover, activeStates[i]);
   }
@@ -657,18 +673,20 @@ static void DrawSidePanels(HDC hdc) {
   int cellTotal = g_config.cellSize + g_config.spacing;
   // Use global g_fixedGridPixels for button positioning
   int windowCenterX =
-      SIDE_PANEL_WIDTH + g_config.margin + g_fixedGridPixels / 2;
-  int gridBottomY = g_config.margin + g_fixedGridPixels + ICON_SIZE / 2 + 5;
+      g_sidePanelWidth + g_config.margin + g_fixedGridPixels / 2;
+  int gridBottomY = g_config.margin + g_fixedGridPixels + g_iconSize / 2 +
+                    (int)(5 * g_currentScale);
 
   // Copy icon
   bool copyHover = (g_hoverExtOption == NativeUI::OPT_COPY_ANCHOR);
-  DrawIcon(hdc, windowCenterX - ICON_SIZE / 2 - 5, gridBottomY,
-           NativeUI::OPT_COPY_ANCHOR, copyHover, false);
+  DrawIcon(hdc, windowCenterX - g_iconSize / 2 - (int)(5 * g_currentScale),
+           gridBottomY, NativeUI::OPT_COPY_ANCHOR, copyHover, false);
 
   // Paste icon
   bool pasteHover = (g_hoverExtOption == NativeUI::OPT_PASTE_ANCHOR);
-  DrawIcon(hdc, windowCenterX + ICON_SIZE / 2 + 5, gridBottomY,
-           NativeUI::OPT_PASTE_ANCHOR, pasteHover, g_hasClipboardAnchor);
+  DrawIcon(hdc, windowCenterX + g_iconSize / 2 + (int)(5 * g_currentScale),
+           gridBottomY, NativeUI::OPT_PASTE_ANCHOR, pasteHover,
+           g_hasClipboardAnchor);
 }
 
 // Draw the grid with marks and glow using GDI+
@@ -682,7 +700,7 @@ static void DrawGrid(HDC hdc) {
   // Use cellSize directly (no spacing - grid lines will separate)
   int cellTotal = g_config.cellSize; // No spacing now
   // Apply grid offset for centered rectangular grids
-  int gridStartX = SIDE_PANEL_WIDTH + g_config.margin + g_gridOffsetX;
+  int gridStartX = g_sidePanelWidth + g_config.margin + g_gridOffsetX;
   int gridStartY = g_config.margin + g_gridOffsetY;
   int radius = g_config.cellSize / 10;     // Slightly larger dots
   int hoverRadius = g_config.cellSize / 8; // Larger hover glow

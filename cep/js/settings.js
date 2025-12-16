@@ -12,6 +12,7 @@ class Settings {
             gridScale: 2, // 0-4 representing -40% to +40% (default: 0%)
             useCompMode: false,
             useMaskRecognition: true,
+            settingsPanelOpen: false, // Track if CEP panel is visible
             gridOpacity: 75,
             cellOpacity: 50,
             language: 'en',
@@ -27,6 +28,9 @@ class Settings {
         this.settings = { ...this.defaults };
         this.load();
         this.bindEvents();
+
+        // Mark panel as open and save
+        this.set('settingsPanelOpen', true);
     }
 
     load() {

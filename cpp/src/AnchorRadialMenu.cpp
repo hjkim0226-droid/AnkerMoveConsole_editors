@@ -244,8 +244,15 @@ void LoadSettingsFromFile() {
   }
   // useMaskRecognition
   if ((p = strstr(buffer, "\"useMaskRecognition\":")) != NULL) {
-    p += 21;
+    p += 20; // "useMaskRecognition": = 20 chars
     settings.useMaskRecognition =
+        (strstr(p, "true") != NULL &&
+         (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
+  }
+  // settingsPanelOpen
+  if ((p = strstr(buffer, "\"settingsPanelOpen\":")) != NULL) {
+    p += 20; // "settingsPanelOpen": = 20 chars
+    settings.settingsPanelOpen =
         (strstr(p, "true") != NULL &&
          (strstr(p, "true") < strstr(p, ",") || strstr(p, ",") == NULL));
   }

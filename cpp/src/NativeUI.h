@@ -48,6 +48,7 @@ struct GridSettings {
   bool useCompMode = false;       // false = per-selection, true = whole comp
   bool useMaskRecognition = true; // true = use mask bounds
   bool transparentMode = false;   // transparent background
+  bool settingsPanelOpen = false; // true when CEP panel is visible
   float gridOpacity = 0.75f;      // Grid background opacity
   float cellOpacity = 0.50f;      // Cell background opacity
   // Custom anchor presets (x, y ratios 0-1)
