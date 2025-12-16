@@ -152,13 +152,21 @@ class CustomAnchor {
         this.loadClipboardFromFile();
 
         const clipboard = this.settings.get('clipboardAnchor');
+        console.log('Clipboard data:', clipboard);
+
+        // Validate clipboard has valid non-zero or intentional values
         if (clipboard && typeof clipboard.x === 'number' && typeof clipboard.y === 'number') {
-            this.currentX = Math.round(clipboard.x * 100);
-            this.currentY = Math.round(clipboard.y * 100);
-            this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
-            this.savePresets();
-            this.updateUI();
-            console.log('Pasted anchor:', clipboard.x, clipboard.y);
+            // Check if values are in valid range (0-1 ratio)
+            if (clipboard.x >= 0 && clipboard.x <= 1 && clipboard.y >= 0 && clipboard.y <= 1) {
+                this.currentX = Math.round(clipboard.x * 100);
+                this.currentY = Math.round(clipboard.y * 100);
+                this.presets[this.selectedPreset] = { x: this.currentX, y: this.currentY };
+                this.savePresets();
+                this.updateUI();
+                console.log('Pasted anchor:', this.currentX, this.currentY);
+            } else {
+                console.log('Invalid clipboard values (out of 0-1 range):', clipboard);
+            }
         } else {
             console.log('No clipboard anchor available');
         }
@@ -178,11 +186,15 @@ class CustomAnchor {
                 settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
             }
 
+            console.log('Loading clipboard from:', settingsPath);
+
             if (fs.existsSync(settingsPath)) {
                 const json = fs.readFileSync(settingsPath, 'utf8');
                 const parsed = JSON.parse(json);
-                if (parsed.clipboardAnchor) {
+                console.log('Parsed clipboardAnchor:', parsed.clipboardAnchor);
+                if (parsed.clipboardAnchor && parsed.clipboardAnchor.x !== undefined) {
                     this.settings.settings.clipboardAnchor = parsed.clipboardAnchor;
+                    console.log('Updated clipboard in settings');
                 }
             }
         } catch (e) {
