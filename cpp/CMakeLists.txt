@@ -113,13 +113,33 @@ if(WIN32)
         _WINDOWS
         WIN32
     )
-    
+
+    # ========================================================================
+    # PiPL Resource Generation
+    # ========================================================================
+    set(PIPL_R_FILE "${CMAKE_SOURCE_DIR}/resources/AnchorSnap_PiPL.r")
+    set(PIPL_TEMP_RC "${CMAKE_SOURCE_DIR}/resources/win/AnchorSnap_PiPL_temp.rc")
+    set(PIPL_TOOL "${CMAKE_SOURCE_DIR}/resources/PiPLtool.exe")
+
+    # Generate PiPL temp.rc from .r file using PiPLtool
+    add_custom_command(
+        OUTPUT "${PIPL_TEMP_RC}"
+        COMMAND "${PIPL_TOOL}" "${PIPL_R_FILE}" "${PIPL_TEMP_RC}"
+        DEPENDS "${PIPL_R_FILE}"
+        COMMENT "Generating PiPL resource from ${PIPL_R_FILE}"
+        VERBATIM
+    )
+
+    # Create a custom target for PiPL generation
+    add_custom_target(GeneratePiPL DEPENDS "${PIPL_TEMP_RC}")
+    add_dependencies(${PROJECT_NAME} GeneratePiPL)
+
     # Add resource file (PiPL) and Module Definition file (.def)
     target_sources(${PROJECT_NAME} PRIVATE
         resources/win/AnchorSnap.rc
         resources/win/AnchorSnap.def
     )
-    
+
     # AE Plugins need to be linked with specific flags on Windows
     # They are essentially DLLs renamed to .aex
     set_target_properties(${PROJECT_NAME} PROPERTIES

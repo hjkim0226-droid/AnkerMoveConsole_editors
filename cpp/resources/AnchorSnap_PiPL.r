@@ -4,7 +4,7 @@ resource 'PiPL' (16000) {
             AEGP
         },
         Name {
-            "AnchorGrid"
+            "AnchorSnap"
         },
         Category {
             "General Plugin"
