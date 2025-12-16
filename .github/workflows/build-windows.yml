@@ -1,0 +1,72 @@
+name: Build Windows Plugin
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Visual Studio
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Verify After Effects SDK
+      run: |
+        if (Test-Path "cpp/include/AE_SDK/AE_Effect.h") {
+          Write-Host "AE SDK found in repository"
+        } else {
+          Write-Host "ERROR: AE SDK not found"
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Configure CMake
+      run: |
+        cd cpp
+        mkdir build
+        cd build
+        cmake .. -G "Visual Studio 17 2022" -A x64
+      shell: cmd
+
+    - name: Build Release
+      run: |
+        cd cpp/build
+        cmake --build . --config Release
+      shell: cmd
+
+    - name: Find built plugin
+      id: find_plugin
+      run: |
+        $plugin = Get-ChildItem -Path cpp/build -Recurse -Filter "*.aex" | Select-Object -First 1
+        if ($plugin) {
+          Write-Host "Found plugin: $($plugin.FullName)"
+          echo "PLUGIN_PATH=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
+          echo "PLUGIN_NAME=$($plugin.Name)" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "No .aex file found"
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Upload plugin artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: AnchorSnap-Windows
+        path: |
+          cpp/build/**/*.aex
+        if-no-files-found: error
+
+    - name: Upload CEP panel
+      uses: actions/upload-artifact@v4
+      with:
+        name: AnchorSnap-CEP
+        path: cep/
+        if-no-files-found: warn
