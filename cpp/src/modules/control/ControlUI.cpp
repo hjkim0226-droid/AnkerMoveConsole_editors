@@ -311,8 +311,10 @@ void DrawControlPanel(HDC hdc, int width, int height) {
         graphics.MeasureString(g_searchQuery, -1, &searchFont, textRect, &sf, &bounds);
 
         Pen cursorPen(COLOR_ACCENT, 2);
-        float cursorX = PADDING + 8 + bounds.Width + 2;
-        graphics.DrawLine(&cursorPen, cursorX, PADDING + 10, cursorX, PADDING + SEARCH_HEIGHT - 10);
+        REAL cursorX = (REAL)(PADDING + 8) + bounds.Width + 2.0f;
+        REAL cursorY1 = (REAL)(PADDING + 10);
+        REAL cursorY2 = (REAL)(PADDING + SEARCH_HEIGHT - 10);
+        graphics.DrawLine(&cursorPen, cursorX, cursorY1, cursorX, cursorY2);
     }
 
     // Results
