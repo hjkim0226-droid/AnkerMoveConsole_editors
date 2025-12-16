@@ -753,16 +753,22 @@ static void DrawGrid(HDC hdc) {
                        GetBValue(glowOuterRef));
 
   // Draw cell backgrounds with opacity
-  BYTE cellAlpha = (BYTE)(g_settings.cellOpacity * 255 / 100);
-  Color cellBgWithAlpha(cellAlpha, GetRValue(COLOR_CELL_BG),
-                        GetGValue(COLOR_CELL_BG), GetBValue(COLOR_CELL_BG));
-  SolidBrush cellBrush(cellBgWithAlpha);
-
-  // Fill entire grid area first
+  // cellOpacity: 0 = fully transparent (skip drawing), 100 = fully opaque
   int gridWidth = g_config.gridWidth * cellTotal;
   int gridHeight = g_config.gridHeight * cellTotal;
-  graphics.FillRectangle(&cellBrush, gridStartX, gridStartY, gridWidth,
-                         gridHeight);
+
+  if (g_settings.cellOpacity > 0) {
+    // Linear alpha: 0->0, 100->255
+    BYTE cellAlpha = (BYTE)(g_settings.cellOpacity * 255 / 100);
+    Color cellBgWithAlpha(cellAlpha, GetRValue(COLOR_CELL_BG),
+                          GetGValue(COLOR_CELL_BG), GetBValue(COLOR_CELL_BG));
+    SolidBrush cellBrush(cellBgWithAlpha);
+
+    // Fill entire grid area
+    graphics.FillRectangle(&cellBrush, gridStartX, gridStartY, gridWidth,
+                           gridHeight);
+  }
+  // When cellOpacity is 0, skip drawing background entirely (transparent)
 
   // Draw gray grid lines (separators between cells) - Enhanced visibility
   Color gridLineColor(200, 100, 100, 100); // Brighter semi-transparent gray

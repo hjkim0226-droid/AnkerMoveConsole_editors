@@ -742,10 +742,10 @@ void HideAndApplyAnchor() {
       // Open CEP panel via Window menu
       ExecuteScript("(function(){"
                     "try{"
-                    "var menuId=app.findMenuCommandId('Anchor Grid');"
+                    "var menuId=app.findMenuCommandId('Anchor Snap');"
                     "if(menuId>0)app.executeCommand(menuId);"
                     "}catch(e){"
-                    "alert('Please open Window > Extensions > Anchor Grid');"
+                    "alert('Please open Window > Extensions > Anchor Snap');"
                     "}"
                     "})();");
       break;
