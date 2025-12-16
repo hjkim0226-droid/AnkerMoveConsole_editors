@@ -57,8 +57,8 @@ if not exist "plugin\AnchorSnap.aex" (
     exit /b
 )
 
-mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects" 2>nul
-copy /Y plugin\AnchorSnap.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\"
+mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2>nul
+copy /Y plugin\AnchorSnap.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
 
 echo 3. Installing CEP Panel...
 if not exist "cep" (
