@@ -1073,6 +1073,13 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       ControlUI::ShowPanel();
     } else {
       // Mode 1: Open new locked Effect Controls viewer
+      // Only if a layer is selected
+      if (!HasSelectedLayers()) {
+        // No layer selected - do nothing
+        g_eKeyWasHeld = shift_e_pressed;
+        return err;
+      }
+
       ControlUI::SetMode(ControlUI::MODE_SEARCH);
 
       // First open EC panel, then split with new locked viewer
