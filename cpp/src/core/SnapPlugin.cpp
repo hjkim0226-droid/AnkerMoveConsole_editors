@@ -38,6 +38,9 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 static bool g_controlVisible = false;
 static bool g_eKeyWasHeld = false;
 
+// Forward declaration for ExecuteScript (defined later)
+A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
+
 /*****************************************************************************
  * IsTextInputFocused
  * Check if focus is on a text input field (Edit, RichEdit, etc.)
