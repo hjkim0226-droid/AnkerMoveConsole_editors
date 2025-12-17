@@ -1051,9 +1051,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   g_globals.key_was_held = y_key_held;
 
   // =========================================================================
-  // CONTROL MODULE: Shift+E for effect search / layer effects
-  // Mode 1: Search effects (default)
-  // Mode 2: Layer effects list (when Effect Controls focused)
+  // CONTROL MODULE: Shift+E for layer effects panel
+  // Shows layer effects list when a layer is selected
   // =========================================================================
   bool shift_held = KeyboardMonitor::IsShiftHeld();
   bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
@@ -1063,34 +1062,34 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
       IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
 
-    // Check if Effect Controls is focused -> Mode 2
-    if (IsEffectControlsFocused()) {
-      ControlUI::SetMode(ControlUI::MODE_EFFECTS);
-      // Get layer effects list
-      wchar_t effectsList[4096];
-      GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
-      ControlUI::SetLayerEffects(effectsList);
-      ControlUI::ShowPanel();
-    } else {
-      // Mode 1: Open new locked Effect Controls viewer
-      // Only if a layer is selected
-      if (!HasSelectedLayers()) {
-        // No layer selected - do nothing
-        g_eKeyWasHeld = shift_e_pressed;
-        return err;
-      }
-
-      ControlUI::SetMode(ControlUI::MODE_SEARCH);
-
-      // First open EC panel, then split with new locked viewer
-      // Command 2163 = Effect Controls, Command 3700 = Split with New Locked Viewer
-      ExecuteScript("app.executeCommand(2163); app.executeCommand(3700);");
-
-      // Show search panel at mouse position
-      ControlUI::ShowPanel();
+    // Only show if a layer is selected
+    if (!HasSelectedLayers()) {
+      g_eKeyWasHeld = shift_e_pressed;
+      return err;
     }
+
+    // Show layer effects panel (Mode 2)
+    ControlUI::SetMode(ControlUI::MODE_EFFECTS);
+    wchar_t effectsList[4096];
+    GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
+    ControlUI::SetLayerEffects(effectsList);
+    ControlUI::ShowPanel();
+
     g_controlVisible = true;
   }
+
+  // =========================================================================
+  // BACKUP: Mode 1 (Search & add effects) - 나중에 퀵모드로 이동 예정
+  // =========================================================================
+  // if (IsEffectControlsFocused()) {
+  //   // ... Mode 2 code
+  // } else {
+  //   // Mode 1: Open new locked Effect Controls viewer
+  //   ControlUI::SetMode(ControlUI::MODE_SEARCH);
+  //   ExecuteScript("app.executeCommand(2163); app.executeCommand(3700);");
+  //   ControlUI::ShowPanel();
+  // }
+  // =========================================================================
 
   // Check if Control panel closed and process result
   if (g_controlVisible && !ControlUI::IsVisible()) {
