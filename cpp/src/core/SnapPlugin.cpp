@@ -1058,24 +1058,31 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool e_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_E);
   bool shift_e_pressed = shift_held && e_key_held;
 
-  // Shift+E just pressed - show panel immediately
+  // Shift+E just pressed - toggle panel
   if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
+      IsAfterEffectsForeground() && !g_globals.menu_visible) {
 
-    // Only show if a layer is selected
-    if (!HasSelectedLayers()) {
-      g_eKeyWasHeld = shift_e_pressed;
-      return err;
+    if (g_controlVisible) {
+      // Already open - close it (toggle off)
+      ControlUI::HidePanel();
+      g_controlVisible = false;
+    } else {
+      // Not open - show panel
+      // Only show if a layer is selected
+      if (!HasSelectedLayers()) {
+        g_eKeyWasHeld = shift_e_pressed;
+        return err;
+      }
+
+      // Show layer effects panel (Mode 2)
+      ControlUI::SetMode(ControlUI::MODE_EFFECTS);
+      wchar_t effectsList[4096];
+      GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
+      ControlUI::SetLayerEffects(effectsList);
+      ControlUI::ShowPanel();
+
+      g_controlVisible = true;
     }
-
-    // Show layer effects panel (Mode 2)
-    ControlUI::SetMode(ControlUI::MODE_EFFECTS);
-    wchar_t effectsList[4096];
-    GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
-    ControlUI::SetLayerEffects(effectsList);
-    ControlUI::ShowPanel();
-
-    g_controlVisible = true;
   }
 
   // =========================================================================
