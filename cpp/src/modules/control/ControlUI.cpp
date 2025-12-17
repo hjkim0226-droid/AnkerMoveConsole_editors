@@ -275,13 +275,28 @@ void UpdateSearch(const wchar_t* query) {
     wcscpy_s(g_searchQuery, query);
     PerformSearch(query);
 
-    // Resize window
+    // Resize window based on mode
     if (g_hwnd) {
-        int itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
-        int windowHeight = SEARCH_HEIGHT + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
+        int itemCount;
+        int windowHeight;
 
-        RECT rc;
-        GetWindowRect(g_hwnd, &rc);
+        if (g_panelMode == MODE_EFFECTS) {
+            // Mode 2: Header + Preset bar + Search + Items
+            if (wcslen(g_searchQuery) > 0) {
+                itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
+                if (itemCount == 0) itemCount = 1;  // "No matching effects" message
+            } else {
+                itemCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
+                if (itemCount == 0) itemCount = 1;  // "No effects on layer" message
+            }
+            windowHeight = HEADER_HEIGHT + PRESET_BAR_HEIGHT + SEARCH_HEIGHT +
+                           PADDING * 4 + itemCount * ITEM_HEIGHT;
+        } else {
+            // Mode 1: Search + Items
+            itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
+            windowHeight = SEARCH_HEIGHT + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
+        }
+
         SetWindowPos(g_hwnd, NULL, 0, 0, WINDOW_WIDTH, windowHeight,
                      SWP_NOMOVE | SWP_NOZORDER);
     }
