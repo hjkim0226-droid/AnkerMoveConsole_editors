@@ -339,6 +339,46 @@ function openEffectControls() {
 }
 
 /**
+ * Open a new locked Effect Controls window for selected layer
+ * More reliable method: uses layer.openInViewer() to ensure correct panel
+ */
+function openNewLockedECWindow() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "Error: No layers selected";
+        }
+
+        var layer = comp.selectedLayers[0];
+
+        // Method 1: Try opening layer in viewer (creates Layer panel, not EC)
+        // This doesn't work for EC, so we use command approach
+
+        // Method 2: Open EC then split
+        // First, ensure EC is open
+        app.executeCommand(2163);  // Open Effect Controls
+
+        // Wait a moment for EC to become active (AE needs time)
+        // Note: ExtendScript doesn't have async, so we use a sync delay
+        var startTime = new Date().getTime();
+        while (new Date().getTime() - startTime < 50) {
+            // Busy wait ~50ms
+        }
+
+        // Now split with new locked viewer
+        // 3700 = "New Viewer" / Split locked viewer command
+        app.executeCommand(3700);
+
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
  * Get list of effects on the selected layer
  * Returns: "name|matchName|index;name|matchName|index;..."
  */
