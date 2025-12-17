@@ -608,63 +608,107 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     RectF searchRect(PADDING, currentY, width - PADDING * 2, SEARCH_HEIGHT);
     graphics.FillRectangle(&searchBgBrush, searchRect);
 
-    // Search placeholder text
+    // Search text or placeholder
     RectF searchTextRect(PADDING + 8, currentY, width - PADDING * 2 - 16, SEARCH_HEIGHT);
-    graphics.DrawString(L"Search effects...", -1, &itemFont, searchTextRect, &sf, &dimBrush);
+    if (wcslen(g_searchQuery) > 0) {
+        graphics.DrawString(g_searchQuery, -1, &itemFont, searchTextRect, &sf, &textBrush);
+    } else {
+        graphics.DrawString(L"Search effects...", -1, &itemFont, searchTextRect, &sf, &dimBrush);
+    }
 
     currentY += SEARCH_HEIGHT + PADDING;
 
-    // ===== Effects list =====
-    int visibleCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
+    // ===== Show search results or layer effects =====
+    bool isSearching = wcslen(g_searchQuery) > 0;
 
-    if (visibleCount == 0) {
-        // No effects message
-        RectF msgRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
-        graphics.DrawString(L"No effects on layer", -1, &itemFont, msgRect, &sf, &dimBrush);
-        return;
-    }
+    if (isSearching) {
+        // Show search results
+        int visibleCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
 
-    for (int i = 0; i < visibleCount; i++) {
-        const auto& item = g_layerEffects[i];
-        RectF itemRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
-
-        // Highlight selected/hover
-        if (i == g_selectedIndex) {
-            SolidBrush selectedBrush(COLOR_ITEM_SELECTED);
-            graphics.FillRectangle(&selectedBrush, itemRect);
-        } else if (i == g_hoverIndex) {
-            SolidBrush hoverBrush(COLOR_ITEM_HOVER);
-            graphics.FillRectangle(&hoverBrush, itemRect);
+        if (visibleCount == 0) {
+            RectF msgRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+            graphics.DrawString(L"No matching effects", -1, &itemFont, msgRect, &sf, &dimBrush);
+            return;
         }
 
-        // Expand icon (▶)
-        RectF expandRect(PADDING + 4, currentY, 16, ITEM_HEIGHT);
-        graphics.DrawString(L"\u25B6", -1, &indexFont, expandRect, &sf, &dimBrush);
+        for (int i = 0; i < visibleCount; i++) {
+            const auto& item = g_searchResults[i];
+            RectF itemRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
 
-        // Effect index number
-        wchar_t indexStr[8];
-        swprintf_s(indexStr, L"%d.", item.index + 1);
-        RectF indexRect(PADDING + 20, currentY, 24, ITEM_HEIGHT);
-        graphics.DrawString(indexStr, -1, &indexFont, indexRect, &sf, &dimBrush);
+            // Highlight selected/hover
+            if (i == g_selectedIndex) {
+                SolidBrush selectedBrush(COLOR_ITEM_SELECTED);
+                graphics.FillRectangle(&selectedBrush, itemRect);
+            } else if (i == g_hoverIndex) {
+                SolidBrush hoverBrush(COLOR_ITEM_HOVER);
+                graphics.FillRectangle(&hoverBrush, itemRect);
+            }
 
-        // Effect name
-        RectF nameRect(PADDING + 44, currentY, width - PADDING * 2 - 80, ITEM_HEIGHT);
-        graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
+            // Effect name
+            RectF nameRect(PADDING + 8, currentY, width - PADDING * 2 - 100, ITEM_HEIGHT);
+            graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
 
-        // Delete button [x]
-        int btnX = width - PADDING - ACTION_BUTTON_SIZE - 4;
-        int btnY = currentY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
+            // Category
+            RectF catRect(width - PADDING - 90, currentY, 80, ITEM_HEIGHT);
+            StringFormat sfRight;
+            sfRight.SetAlignment(StringAlignmentFar);
+            sfRight.SetLineAlignment(StringAlignmentCenter);
+            graphics.DrawString(item.category, -1, &indexFont, catRect, &sfRight, &dimBrush);
 
-        Pen deletePen(Color(255, 200, 80, 80), 1.5f);
-        float btnMargin = 5.0f;
-        graphics.DrawLine(&deletePen,
-            (REAL)(btnX + btnMargin), (REAL)(btnY + btnMargin),
-            (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
-        graphics.DrawLine(&deletePen,
-            (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + btnMargin),
-            (REAL)(btnX + btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
+            currentY += ITEM_HEIGHT;
+        }
+    } else {
+        // Show layer effects list
+        int visibleCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
 
-        currentY += ITEM_HEIGHT;
+        if (visibleCount == 0) {
+            RectF msgRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+            graphics.DrawString(L"No effects on layer", -1, &itemFont, msgRect, &sf, &dimBrush);
+            return;
+        }
+
+        for (int i = 0; i < visibleCount; i++) {
+            const auto& item = g_layerEffects[i];
+            RectF itemRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+
+            // Highlight selected/hover
+            if (i == g_selectedIndex) {
+                SolidBrush selectedBrush(COLOR_ITEM_SELECTED);
+                graphics.FillRectangle(&selectedBrush, itemRect);
+            } else if (i == g_hoverIndex) {
+                SolidBrush hoverBrush(COLOR_ITEM_HOVER);
+                graphics.FillRectangle(&hoverBrush, itemRect);
+            }
+
+            // Expand icon (▶)
+            RectF expandRect(PADDING + 4, currentY, 16, ITEM_HEIGHT);
+            graphics.DrawString(L"\u25B6", -1, &indexFont, expandRect, &sf, &dimBrush);
+
+            // Effect index number
+            wchar_t indexStr[8];
+            swprintf_s(indexStr, L"%d.", item.index + 1);
+            RectF indexRect(PADDING + 20, currentY, 24, ITEM_HEIGHT);
+            graphics.DrawString(indexStr, -1, &indexFont, indexRect, &sf, &dimBrush);
+
+            // Effect name
+            RectF nameRect(PADDING + 44, currentY, width - PADDING * 2 - 80, ITEM_HEIGHT);
+            graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
+
+            // Delete button [x]
+            int btnX = width - PADDING - ACTION_BUTTON_SIZE - 4;
+            int btnY = currentY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
+
+            Pen deletePen(Color(255, 200, 80, 80), 1.5f);
+            float btnMargin = 5.0f;
+            graphics.DrawLine(&deletePen,
+                (REAL)(btnX + btnMargin), (REAL)(btnY + btnMargin),
+                (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
+            graphics.DrawLine(&deletePen,
+                (REAL)(btnX + ACTION_BUTTON_SIZE - btnMargin), (REAL)(btnY + btnMargin),
+                (REAL)(btnX + btnMargin), (REAL)(btnY + ACTION_BUTTON_SIZE - btnMargin));
+
+            currentY += ITEM_HEIGHT;
+        }
     }
 }
 
@@ -704,53 +748,53 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             wchar_t ch = (wchar_t)wParam;
 
             if (ch == VK_ESCAPE) {
-                // Escape - cancel (both modes)
+                // Escape - cancel
                 g_result.cancelled = true;
                 ControlUI::HidePanel();
                 return 0;
             }
 
-            if (g_panelMode == ControlUI::MODE_SEARCH) {
-                // Mode 1: Search mode - handle text input
-                size_t len = wcslen(g_searchQuery);
+            // Handle text input for search (both modes)
+            size_t len = wcslen(g_searchQuery);
 
-                if (ch == VK_BACK) {
-                    if (len > 0) {
-                        g_searchQuery[len - 1] = L'\0';
-                        ControlUI::UpdateSearch(g_searchQuery);
-                    }
-                } else if (ch == VK_RETURN) {
-                    if (!g_searchResults.empty() && g_selectedIndex < (int)g_searchResults.size()) {
-                        g_result.effectSelected = true;
-                        g_result.selectedEffect = g_searchResults[g_selectedIndex];
-                        wcscpy_s(g_result.searchQuery, g_searchQuery);
-                        ControlUI::HidePanel();
-                    }
-                } else if (ch >= 32 && ch < 127) {
-                    if (len < 254) {
-                        g_searchQuery[len] = ch;
-                        g_searchQuery[len + 1] = L'\0';
-                        ControlUI::UpdateSearch(g_searchQuery);
-                    }
+            if (ch == VK_BACK) {
+                if (len > 0) {
+                    g_searchQuery[len - 1] = L'\0';
+                    ControlUI::UpdateSearch(g_searchQuery);
+                    InvalidateRect(hwnd, NULL, TRUE);
                 }
-            } else {
-                // Mode 2: Effects list - Enter to delete selected
-                if (ch == VK_RETURN || ch == VK_DELETE) {
-                    if (!g_layerEffects.empty() && g_selectedIndex < (int)g_layerEffects.size()) {
-                        g_result.effectSelected = true;
-                        g_result.selectedEffect = g_layerEffects[g_selectedIndex];
-                        g_result.action = ControlUI::ACTION_DELETE;
-                        g_result.effectIndex = g_layerEffects[g_selectedIndex].index;
-                        ControlUI::HidePanel();
-                    }
+            } else if (ch == VK_RETURN) {
+                // Enter - apply selected effect or action
+                if (wcslen(g_searchQuery) > 0 && !g_searchResults.empty() && g_selectedIndex < (int)g_searchResults.size()) {
+                    // Search result selected - add effect to layer
+                    g_result.effectSelected = true;
+                    g_result.selectedEffect = g_searchResults[g_selectedIndex];
+                    wcscpy_s(g_result.searchQuery, g_searchQuery);
+                    ControlUI::HidePanel();
+                } else if (wcslen(g_searchQuery) == 0 && !g_layerEffects.empty() && g_selectedIndex < (int)g_layerEffects.size()) {
+                    // No search query - expand selected layer effect
+                    g_result.effectSelected = true;
+                    g_result.selectedEffect = g_layerEffects[g_selectedIndex];
+                    g_result.action = ControlUI::ACTION_EXPAND;
+                    g_result.effectIndex = g_layerEffects[g_selectedIndex].index;
+                    ControlUI::HidePanel();
+                }
+            } else if (ch >= 32 && ch < 127) {
+                // Regular character input
+                if (len < 254) {
+                    g_searchQuery[len] = ch;
+                    g_searchQuery[len + 1] = L'\0';
+                    ControlUI::UpdateSearch(g_searchQuery);
+                    g_selectedIndex = 0;  // Reset selection on new search
+                    InvalidateRect(hwnd, NULL, TRUE);
                 }
             }
             return 0;
         }
 
         case WM_KEYDOWN: {
-            // Get max index based on mode
-            int maxIndex = (g_panelMode == ControlUI::MODE_SEARCH)
+            // Get max index based on whether we're searching or showing layer effects
+            int maxIndex = (wcslen(g_searchQuery) > 0)
                 ? (int)g_searchResults.size() - 1
                 : (int)g_layerEffects.size() - 1;
 
