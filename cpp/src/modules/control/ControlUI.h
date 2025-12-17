@@ -91,6 +91,10 @@ ControlSettings& GetSettings();
 // Update search results (Mode 1)
 void UpdateSearch(const wchar_t* query);
 
+// Set available effects list (from AE - localized names)
+// effectList format: "displayName|matchName|category;displayName|matchName|category;..."
+void SetAvailableEffects(const wchar_t* effectList);
+
 // Set layer effects list (Mode 2)
 // effectList format: "name1|matchName1;name2|matchName2;..."
 void SetLayerEffects(const wchar_t* effectList);

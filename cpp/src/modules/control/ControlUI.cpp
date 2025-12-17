@@ -88,7 +88,10 @@ static int g_presetSlots[3] = {-1, -1, -1};  // Assigned preset indices
 static UINT_PTR g_closeTimerId = 0;
 static const UINT CLOSE_DELAY_MS = 100;
 
-// Built-in effects list (common effects for search)
+// Dynamic effects list (loaded from AE - localized names)
+static std::vector<ControlUI::EffectItem> g_availableEffects;
+
+// Built-in effects list (fallback if dynamic list not loaded)
 static const wchar_t* BUILTIN_EFFECTS[][3] = {
     // Name, MatchName, Category
     {L"Gaussian Blur", L"ADBE Gaussian Blur 2", L"Blur & Sharpen"},
@@ -304,6 +307,10 @@ void UpdateSearch(const wchar_t* query) {
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
+void SetAvailableEffects(const wchar_t* effectList) {
+    ParseAvailableEffects(effectList);
+}
+
 void SetLayerEffects(const wchar_t* effectList) {
     ParseLayerEffects(effectList);
 }
@@ -323,26 +330,88 @@ void PerformSearch(const wchar_t* query) {
     std::transform(q.begin(), q.end(), q.begin(), ::towlower);
 
     int idx = 0;
-    for (int i = 0; BUILTIN_EFFECTS[i][0] != NULL; i++) {
-        std::wstring name(BUILTIN_EFFECTS[i][0]);
-        std::wstring nameLower = name;
-        std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::towlower);
 
-        // Match if query is empty or found in name
-        if (q.empty() || nameLower.find(q) != std::wstring::npos) {
-            ControlUI::EffectItem item;
-            wcscpy_s(item.name, BUILTIN_EFFECTS[i][0]);
-            wcscpy_s(item.matchName, BUILTIN_EFFECTS[i][1]);
-            wcscpy_s(item.category, BUILTIN_EFFECTS[i][2]);
-            item.index = idx++;
-            item.isLayerEffect = false;
-            g_searchResults.push_back(item);
+    // Use dynamic effects list if available, otherwise fallback to built-in
+    if (!g_availableEffects.empty()) {
+        // Search in dynamic list (localized names from AE)
+        for (const auto& effect : g_availableEffects) {
+            std::wstring name(effect.name);
+            std::wstring nameLower = name;
+            std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::towlower);
 
-            if (g_searchResults.size() >= 20) break; // Limit results
+            if (q.empty() || nameLower.find(q) != std::wstring::npos) {
+                ControlUI::EffectItem item;
+                wcscpy_s(item.name, effect.name);
+                wcscpy_s(item.matchName, effect.matchName);
+                wcscpy_s(item.category, effect.category);
+                item.index = idx++;
+                item.isLayerEffect = false;
+                g_searchResults.push_back(item);
+
+                if (g_searchResults.size() >= 20) break;
+            }
+        }
+    } else {
+        // Fallback to built-in effects list
+        for (int i = 0; BUILTIN_EFFECTS[i][0] != NULL; i++) {
+            std::wstring name(BUILTIN_EFFECTS[i][0]);
+            std::wstring nameLower = name;
+            std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::towlower);
+
+            if (q.empty() || nameLower.find(q) != std::wstring::npos) {
+                ControlUI::EffectItem item;
+                wcscpy_s(item.name, BUILTIN_EFFECTS[i][0]);
+                wcscpy_s(item.matchName, BUILTIN_EFFECTS[i][1]);
+                wcscpy_s(item.category, BUILTIN_EFFECTS[i][2]);
+                item.index = idx++;
+                item.isLayerEffect = false;
+                g_searchResults.push_back(item);
+
+                if (g_searchResults.size() >= 20) break;
+            }
         }
     }
 
     g_selectedIndex = 0;
+}
+
+// Parse available effects from string format: "displayName|matchName|category;..."
+void ParseAvailableEffects(const wchar_t* effectList) {
+    g_availableEffects.clear();
+
+    if (!effectList || wcslen(effectList) == 0) return;
+
+    std::wstring list(effectList);
+    size_t pos = 0;
+    int idx = 0;
+
+    while (pos < list.length()) {
+        size_t end = list.find(L';', pos);
+        if (end == std::wstring::npos) end = list.length();
+
+        std::wstring item = list.substr(pos, end - pos);
+        if (!item.empty()) {
+            size_t sep1 = item.find(L'|');
+            size_t sep2 = item.find(L'|', sep1 + 1);
+
+            if (sep1 != std::wstring::npos && sep2 != std::wstring::npos) {
+                ControlUI::EffectItem effect;
+                std::wstring displayName = item.substr(0, sep1);
+                std::wstring matchName = item.substr(sep1 + 1, sep2 - sep1 - 1);
+                std::wstring category = item.substr(sep2 + 1);
+
+                wcscpy_s(effect.name, displayName.c_str());
+                wcscpy_s(effect.matchName, matchName.c_str());
+                wcscpy_s(effect.category, category.c_str());
+                effect.index = idx;
+                effect.isLayerEffect = false;
+
+                g_availableEffects.push_back(effect);
+                idx++;
+            }
+        }
+        pos = end + 1;
+    }
 }
 
 // Parse layer effects from string format: "name1|matchName1|index1;name2|matchName2|index2;..."

@@ -206,6 +206,23 @@ RECT FindEffectControlsWindow() {
 }
 
 /*****************************************************************************
+ * GetAllEffectsList
+ * Get all available effects from AE (localized names)
+ * Returns: "displayName|matchName|category;..."
+ *****************************************************************************/
+static bool g_effectsLoaded = false;
+void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) {
+  outBuffer[0] = L'\0';
+
+  char resultBuf[65536] = {0};  // Large buffer for all effects
+  ExecuteScript("getAllEffects();", resultBuf, sizeof(resultBuf));
+
+  if (resultBuf[0] != '\0' && strncmp(resultBuf, "Error", 5) != 0) {
+    MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, outBuffer, (int)bufSize);
+  }
+}
+
+/*****************************************************************************
  * GetLayerEffectsList
  * Get list of effects on selected layer for Mode 2
  * Returns: "name1|matchName1|0;name2|matchName2|1;..."
@@ -241,6 +258,8 @@ void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) {
 bool IsTextInputFocused() { return false; }
 bool IsAfterEffectsForeground() { return true; }
 bool IsEffectControlsFocused() { return false; }
+static bool g_effectsLoaded = false;
+void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
 void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
 #endif
 
@@ -1072,6 +1091,16 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       if (!HasSelectedLayers()) {
         g_eKeyWasHeld = shift_e_pressed;
         return err;
+      }
+
+      // Load available effects list once (for Korean/localized search)
+      if (!g_effectsLoaded) {
+        wchar_t allEffects[65536];
+        GetAllEffectsList(allEffects, sizeof(allEffects) / sizeof(wchar_t));
+        if (allEffects[0] != L'\0') {
+          ControlUI::SetAvailableEffects(allEffects);
+          g_effectsLoaded = true;
+        }
       }
 
       // Show layer effects panel (Mode 2)

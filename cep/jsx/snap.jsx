@@ -362,6 +362,26 @@ function openEffectControlsForLayer() {
 }
 
 /**
+ * Get all available effects from After Effects
+ * Returns localized names (Korean in Korean AE, English in English AE)
+ * Format: "displayName|matchName|category;displayName|matchName|category;..."
+ */
+function getAllEffects() {
+    try {
+        var result = [];
+        for (var i = 0; i < app.effects.length; i++) {
+            var eff = app.effects[i];
+            // Skip synthetic/internal effects with empty category
+            if (eff.category === "") continue;
+            result.push(eff.displayName + "|" + eff.matchName + "|" + eff.category);
+        }
+        return result.join(";");
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
  * Get list of effects on the selected layer
  * Returns: "name|matchName|index;name|matchName|index;..."
  */
