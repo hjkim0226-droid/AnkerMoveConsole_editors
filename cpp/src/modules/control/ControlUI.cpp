@@ -155,6 +155,7 @@ void DrawControlPanel(HDC hdc, int width, int height);
 void DrawEffectsPanel(HDC hdc, int width, int height);
 void PerformSearch(const wchar_t* query);
 void ParseLayerEffects(const wchar_t* effectList);
+void ParseAvailableEffects(const wchar_t* effectList);
 
 namespace ControlUI {
 
