@@ -1320,8 +1320,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                    result.effectIndex, result.effectIndex + 1);
           ExecuteScript(script);
         } else if (result.action == ControlUI::ACTION_EXPAND) {
-          // Expand this effect (collapse others) - inline script
-          char script[1024];
+          // Expand this effect in timeline (collapse others) - inline script
+          // Note: ExtendScript can't directly control Effect Controls twirl state
+          // But we can show/hide properties in timeline which helps visibility
+          char script[2048];
           snprintf(script, sizeof(script),
                    "(function(){"
                    "try{"
@@ -1333,10 +1335,22 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                    "if(!fx||fx.numProperties===0)return;"
                    "var idx=%d+1;"  // Convert 0-based to 1-based
                    "if(idx<1||idx>fx.numProperties)return;"
+                   // Deselect all effects and their properties
                    "for(var i=1;i<=fx.numProperties;i++){"
-                   "fx.property(i).selected=false;"
+                   "var e=fx.property(i);"
+                   "e.selected=false;"
+                   // Collapse: set all properties to not selected
+                   "for(var j=1;j<=e.numProperties;j++){"
+                   "try{e.property(j).selected=false;}catch(ex){}"
                    "}"
-                   "fx.property(idx).selected=true;"
+                   "}"
+                   // Select target effect and its properties (expands in timeline)
+                   "var target=fx.property(idx);"
+                   "target.selected=true;"
+                   // Select first few properties to show them expanded
+                   "for(var k=1;k<=Math.min(target.numProperties,5);k++){"
+                   "try{target.property(k).selected=true;}catch(ex){}"
+                   "}"
                    "}catch(e){}"
                    "})();",
                    result.effectIndex);
