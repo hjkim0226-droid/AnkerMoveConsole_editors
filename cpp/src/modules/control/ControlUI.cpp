@@ -102,6 +102,9 @@ static bool g_cursorVisible = true;     // Cursor blink state
 static UINT_PTR g_cursorTimerId = 0;    // Timer for cursor blinking
 static const UINT CURSOR_BLINK_MS = 530; // Cursor blink interval
 
+// Window drag state
+static bool g_isDragging = false;       // True while window is being dragged
+
 // Dynamic effects list (loaded from AE - localized names)
 static std::vector<ControlUI::EffectItem> g_availableEffects;
 
@@ -218,13 +221,16 @@ void ShowPanelAt(int x, int y) {
     g_selectionStart = -1;
     g_selectionEnd = -1;
     g_cursorVisible = true;
+    g_isDragging = false;
 
     int itemCount = 0;
     int headerHeight = 0;
 
+    // Always clear search query when opening panel
+    g_searchQuery[0] = L'\0';
+    g_searchResults.clear();
+
     if (g_panelMode == MODE_SEARCH) {
-        g_searchQuery[0] = L'\0';
-        g_searchResults.clear();
         PerformSearch(L"");
         itemCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
         headerHeight = SEARCH_HEIGHT;
@@ -1312,6 +1318,10 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_KILLFOCUS: {
+            // Don't close if we're being dragged
+            if (g_isDragging) {
+                return 0;
+            }
             // Check where focus went - if it's an AE window, don't close
             HWND newFocus = (HWND)wParam;
             if (newFocus) {
@@ -1329,9 +1339,23 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
 
+        case WM_NCLBUTTONDOWN: {
+            // Starting a drag operation
+            g_isDragging = true;
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+        }
+
+        case WM_EXITSIZEMOVE:
+        case WM_CAPTURECHANGED: {
+            // Drag operation ended
+            g_isDragging = false;
+            return 0;
+        }
+
         case WM_NCHITTEST: {
             // Allow dragging from non-interactive areas
-            POINT pt = { LOWORD(lParam), HIWORD(lParam) };
+            // Use (short) cast to handle negative screen coordinates properly
+            POINT pt = { (int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam) };
             ScreenToClient(hwnd, &pt);
             RECT rc;
             GetClientRect(hwnd, &rc);
