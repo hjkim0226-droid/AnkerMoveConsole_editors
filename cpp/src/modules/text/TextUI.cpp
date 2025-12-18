@@ -9,6 +9,7 @@
 #include "GdiPlusIncludes.h"
 
 #ifdef MSWindows
+#include <windowsx.h>  // GET_X_LPARAM, GET_Y_LPARAM
 #include <string>
 #include <cmath>
 
@@ -144,7 +145,11 @@ void Initialize() {
 
     // Initialize GDI+
     GdiplusStartupInput gdiplusStartupInput;
-    GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+    Status gdipStatus = GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+    if (gdipStatus != Ok) {
+        // GDI+ initialization failed - cannot proceed
+        return;
+    }
 
     // Register main window class
     WNDCLASSEX wc = {0};
@@ -155,7 +160,13 @@ void Initialize() {
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
     wc.lpszClassName = L"TextUIWindow";
-    RegisterClassEx(&wc);
+    ATOM classAtom = RegisterClassEx(&wc);
+    if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        // Registration failed and class doesn't exist
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+        return;
+    }
 
     // Create main window (initially hidden)
     g_hwnd = CreateWindowEx(
@@ -167,9 +178,16 @@ void Initialize() {
         NULL, NULL, GetModuleHandle(NULL), NULL
     );
 
+    if (!g_hwnd) {
+        // Window creation failed
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+        return;
+    }
+
     SetLayeredWindowAttributes(g_hwnd, 0, 255, LWA_ALPHA);
 
-    // Register color picker window class
+    // Register color picker window class (non-critical, ignore failure)
     WNDCLASSEX wcPicker = {0};
     wcPicker.cbSize = sizeof(WNDCLASSEX);
     wcPicker.style = CS_HREDRAW | CS_VREDRAW;
@@ -382,19 +400,19 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return MA_ACTIVATE;
 
     case WM_LBUTTONDOWN:
-        HandleMouseDown(LOWORD(lParam), HIWORD(lParam));
+        HandleMouseDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
 
     case WM_LBUTTONUP:
-        HandleMouseUp(LOWORD(lParam), HIWORD(lParam));
+        HandleMouseUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
 
     case WM_MOUSEMOVE:
-        HandleMouseMove(LOWORD(lParam), HIWORD(lParam));
+        HandleMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
 
     case WM_LBUTTONDBLCLK:
-        HandleDoubleClick(LOWORD(lParam), HIWORD(lParam));
+        HandleDoubleClick(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
 
     case WM_KEYDOWN:

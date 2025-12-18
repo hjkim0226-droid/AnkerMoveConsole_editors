@@ -9,6 +9,7 @@
 
 #ifdef MSWindows
 #include <windows.h>
+#include <windowsx.h>  // GET_X_LPARAM, GET_Y_LPARAM
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
 
@@ -87,7 +88,11 @@ void Initialize() {
 
     // Initialize GDI+
     GdiplusStartupInput gdiplusStartupInput;
-    GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+    Status gdipStatus = GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+    if (gdipStatus != Ok) {
+        // GDI+ initialization failed - cannot proceed
+        return;
+    }
 
     // Register window class
     WNDCLASSEX wc = {0};
@@ -98,7 +103,13 @@ void Initialize() {
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
     wc.lpszClassName = L"AlignUIWindow";
-    RegisterClassEx(&wc);
+    ATOM classAtom = RegisterClassEx(&wc);
+    if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        // Registration failed and class doesn't exist
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+        return;
+    }
 
     // Create window (initially hidden)
     g_hwnd = CreateWindowEx(
@@ -109,6 +120,13 @@ void Initialize() {
         0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
         NULL, NULL, GetModuleHandle(NULL), NULL
     );
+
+    if (!g_hwnd) {
+        // Window creation failed
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+        return;
+    }
 
     // Set layered window for transparency
     SetLayeredWindowAttributes(g_hwnd, 0, 255, LWA_ALPHA);
@@ -254,8 +272,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     case WM_LBUTTONDOWN: {
-        int x = LOWORD(lParam);
-        int y = HIWORD(lParam);
+        int x = GET_X_LPARAM(lParam);
+        int y = GET_Y_LPARAM(lParam);
         HandleClick(x, y);
         return 0;
     }
