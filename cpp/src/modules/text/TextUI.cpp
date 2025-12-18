@@ -151,16 +151,16 @@ void Initialize() {
         return;
     }
 
-    // Register main window class
-    WNDCLASSEX wc = {0};
-    wc.cbSize = sizeof(WNDCLASSEX);
+    // Register main window class (explicitly use Wide version for Unicode strings)
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXW);
     wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
     wc.lpszClassName = L"TextUIWindow";
-    ATOM classAtom = RegisterClassEx(&wc);
+    ATOM classAtom = RegisterClassExW(&wc);
     if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
         // Registration failed and class doesn't exist
         GdiplusShutdown(g_gdiplusToken);
@@ -169,7 +169,7 @@ void Initialize() {
     }
 
     // Create main window (initially hidden)
-    g_hwnd = CreateWindowEx(
+    g_hwnd = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         L"TextUIWindow",
         L"Text Options",
@@ -188,15 +188,15 @@ void Initialize() {
     SetLayeredWindowAttributes(g_hwnd, 0, 255, LWA_ALPHA);
 
     // Register color picker window class (non-critical, ignore failure)
-    WNDCLASSEX wcPicker = {0};
-    wcPicker.cbSize = sizeof(WNDCLASSEX);
+    WNDCLASSEXW wcPicker = {0};
+    wcPicker.cbSize = sizeof(WNDCLASSEXW);
     wcPicker.style = CS_HREDRAW | CS_VREDRAW;
     wcPicker.lpfnWndProc = ColorPickerWndProc;
     wcPicker.hInstance = GetModuleHandle(NULL);
     wcPicker.hCursor = LoadCursor(NULL, IDC_ARROW);
     wcPicker.hbrBackground = NULL;
     wcPicker.lpszClassName = L"TextUIColorPicker";
-    RegisterClassEx(&wcPicker);
+    RegisterClassExW(&wcPicker);
 }
 
 /*****************************************************************************

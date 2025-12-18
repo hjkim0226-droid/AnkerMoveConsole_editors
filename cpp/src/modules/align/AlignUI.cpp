@@ -94,16 +94,16 @@ void Initialize() {
         return;
     }
 
-    // Register window class
-    WNDCLASSEX wc = {0};
-    wc.cbSize = sizeof(WNDCLASSEX);
+    // Register window class (explicitly use Wide version for Unicode strings)
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXW);
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
     wc.lpszClassName = L"AlignUIWindow";
-    ATOM classAtom = RegisterClassEx(&wc);
+    ATOM classAtom = RegisterClassExW(&wc);
     if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
         // Registration failed and class doesn't exist
         GdiplusShutdown(g_gdiplusToken);
@@ -112,7 +112,7 @@ void Initialize() {
     }
 
     // Create window (initially hidden)
-    g_hwnd = CreateWindowEx(
+    g_hwnd = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
         L"AlignUIWindow",
         L"Align",
