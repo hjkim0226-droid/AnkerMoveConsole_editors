@@ -94,6 +94,14 @@ static const int SAVE_BUTTON_HEIGHT = 20;
 static UINT_PTR g_closeTimerId = 0;
 static const UINT CLOSE_DELAY_MS = 100;
 
+// Text cursor (caret) state
+static int g_cursorPosition = 0;        // Cursor position in search query
+static int g_selectionStart = -1;       // Selection start (-1 = no selection)
+static int g_selectionEnd = -1;         // Selection end
+static bool g_cursorVisible = true;     // Cursor blink state
+static UINT_PTR g_cursorTimerId = 0;    // Timer for cursor blinking
+static const UINT CURSOR_BLINK_MS = 530; // Cursor blink interval
+
 // Dynamic effects list (loaded from AE - localized names)
 static std::vector<ControlUI::EffectItem> g_availableEffects;
 
@@ -1128,8 +1136,9 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             g_result.effectSelected = true;  // Signal that action is valid
                             g_saveMode = false;  // Exit save mode
                             ControlUI::HidePanel();
-                        } else if (g_presetSlots[i] >= 0) {
-                            // Normal mode: apply preset if slot is filled
+                        } else {
+                            // Normal mode: always try to apply preset
+                            // (SnapPlugin will check if file exists and show "slot empty" if not)
                             g_result.action = ControlUI::ACTION_APPLY_PRESET;
                             g_result.presetSlotIndex = i;
                             g_result.effectSelected = true;  // Signal that action is valid
@@ -1195,6 +1204,19 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+void SetPresetSlotFilled(int slotIndex, bool filled) {
+    if (slotIndex >= 0 && slotIndex < 3) {
+        g_presetSlots[slotIndex] = filled ? slotIndex : -1;
+    }
+}
+
+bool IsPresetSlotFilled(int slotIndex) {
+    if (slotIndex >= 0 && slotIndex < 3) {
+        return g_presetSlots[slotIndex] >= 0;
+    }
+    return false;
+}
+
 #else // macOS stub
 
 namespace ControlUI {
@@ -1207,6 +1229,8 @@ bool IsVisible() { return false; }
 ControlResult GetResult() { return ControlResult(); }
 ControlSettings& GetSettings() { static ControlSettings s; return s; }
 void UpdateSearch(const wchar_t*) {}
+void SetPresetSlotFilled(int, bool) {}
+bool IsPresetSlotFilled(int) { return false; }
 
 } // namespace ControlUI
 

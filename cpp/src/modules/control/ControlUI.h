@@ -104,6 +104,12 @@ void SetLayerEffects(const wchar_t* effectList);
 // Clear layer effects
 void ClearLayerEffects();
 
+// Mark a preset slot as filled (call after saving preset)
+void SetPresetSlotFilled(int slotIndex, bool filled);
+
+// Check if a preset slot is filled
+bool IsPresetSlotFilled(int slotIndex);
+
 } // namespace ControlUI
 
 #endif // CONTROLUI_H

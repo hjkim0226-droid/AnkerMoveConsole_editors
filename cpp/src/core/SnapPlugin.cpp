@@ -1135,6 +1135,16 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                A_long *max_sleepPL) {
   A_Err err = A_Err_NONE;
 
+  // Preload effects list on first idle (so Shift+E is fast)
+  if (!g_effectsLoaded) {
+    wchar_t allEffects[65536];
+    GetAllEffectsList(allEffects, sizeof(allEffects) / sizeof(wchar_t));
+    if (allEffects[0] != L'\0') {
+      ControlUI::SetAvailableEffects(allEffects);
+      g_effectsLoaded = true;
+    }
+  }
+
   bool y_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_Y);
   bool alt_held = KeyboardMonitor::IsAltHeld();
   auto now = std::chrono::steady_clock::now();
@@ -1249,17 +1259,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         return err;
       }
 
-      // Load available effects list once (for Korean/localized search)
-      if (!g_effectsLoaded) {
-        wchar_t allEffects[65536];
-        GetAllEffectsList(allEffects, sizeof(allEffects) / sizeof(wchar_t));
-        if (allEffects[0] != L'\0') {
-          ControlUI::SetAvailableEffects(allEffects);
-          g_effectsLoaded = true;
-        }
-      }
-
       // Show layer effects panel (Mode 2)
+      // (effects list is preloaded in IdleHook)
       ControlUI::SetMode(ControlUI::MODE_EFFECTS);
       wchar_t effectsList[4096];
       GetLayerEffectsList(effectsList, sizeof(effectsList) / sizeof(wchar_t));
@@ -1382,6 +1383,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         if (presetData[0] != '\0' && strncmp(presetData, "null", 4) != 0 &&
             strncmp(presetData, "Error", 5) != 0) {
           SavePresetToSlot(result.presetSlotIndex, presetData);
+          // Mark slot as filled for UI
+          ControlUI::SetPresetSlotFilled(result.presetSlotIndex, true);
           // Show confirmation
           char confirmScript[256];
           snprintf(confirmScript, sizeof(confirmScript),
