@@ -222,7 +222,20 @@ void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) {
   outBuffer[0] = L'\0';
 
   char resultBuf[65536] = {0};  // Large buffer for all effects
-  ExecuteScript("getAllEffects();", resultBuf, sizeof(resultBuf));
+  // Inline script to get all effects (doesn't depend on CEP panel)
+  ExecuteScript(
+      "(function(){"
+      "try{"
+      "var r=[];"
+      "for(var i=0;i<app.effects.length;i++){"
+      "var e=app.effects[i];"
+      "if(e.category==='')continue;"
+      "r.push(e.displayName+'|'+e.matchName+'|'+e.category);"
+      "}"
+      "return r.join(';');"
+      "}catch(ex){return '';}"
+      "})();",
+      resultBuf, sizeof(resultBuf));
 
   if (resultBuf[0] != '\0' && strncmp(resultBuf, "Error", 5) != 0) {
     MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, outBuffer, (int)bufSize);
