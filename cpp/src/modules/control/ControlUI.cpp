@@ -213,6 +213,12 @@ void ShowPanelAt(int x, int y) {
     g_hoverIndex = -1;
     g_result = ControlResult();
 
+    // Reset cursor state
+    g_cursorPosition = 0;
+    g_selectionStart = -1;
+    g_selectionEnd = -1;
+    g_cursorVisible = true;
+
     int itemCount = 0;
     int headerHeight = 0;
 
@@ -232,6 +238,16 @@ void ShowPanelAt(int x, int y) {
 
     int windowHeight = headerHeight + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
 
+    // Calculate Y offset to center the search bar at mouse position
+    int searchBarCenterY;
+    if (g_panelMode == MODE_SEARCH) {
+        // Mode 1: Search bar at top
+        searchBarCenterY = PADDING + SEARCH_HEIGHT / 2;
+    } else {
+        // Mode 2: Search bar below header and preset bar
+        searchBarCenterY = PADDING + HEADER_HEIGHT + 4 + PRESET_BAR_HEIGHT + SEARCH_HEIGHT / 2;
+    }
+
     // Create or reposition window
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
@@ -240,7 +256,7 @@ void ShowPanelAt(int x, int y) {
             g_panelMode == MODE_SEARCH ? L"Effect Search" : L"Layer Effects",
             WS_POPUP,
             x - WINDOW_WIDTH / 2,
-            y - headerHeight / 2,
+            y - searchBarCenterY,
             WINDOW_WIDTH,
             windowHeight,
             NULL, NULL,
@@ -251,7 +267,7 @@ void ShowPanelAt(int x, int y) {
     } else {
         SetWindowPos(g_hwnd, HWND_TOPMOST,
                      x - WINDOW_WIDTH / 2,
-                     y - headerHeight / 2,
+                     y - searchBarCenterY,
                      WINDOW_WIDTH, windowHeight,
                      SWP_SHOWWINDOW);
     }
@@ -259,6 +275,9 @@ void ShowPanelAt(int x, int y) {
     ShowWindow(g_hwnd, SW_SHOW);
     SetFocus(g_hwnd);
     g_isVisible = true;
+
+    // Start cursor blink timer
+    g_cursorTimerId = SetTimer(g_hwnd, 2, CURSOR_BLINK_MS, NULL);
 
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
@@ -272,6 +291,12 @@ void ShowPanel() {
 
 void HidePanel() {
     if (!g_isVisible) return;
+
+    // Stop cursor blink timer
+    if (g_cursorTimerId) {
+        KillTimer(g_hwnd, g_cursorTimerId);
+        g_cursorTimerId = 0;
+    }
 
     ShowWindow(g_hwnd, SW_HIDE);
     g_isVisible = false;
@@ -527,20 +552,53 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     sf.SetAlignment(StringAlignmentNear);
     sf.SetLineAlignment(StringAlignmentCenter);
 
+    // Draw selection highlight if any
+    bool hasSelection = (g_selectionStart >= 0 && g_selectionEnd >= 0 && g_selectionStart != g_selectionEnd);
+    if (hasSelection && wcslen(g_searchQuery) > 0) {
+        int selStart = min(g_selectionStart, g_selectionEnd);
+        int selEnd = max(g_selectionStart, g_selectionEnd);
+
+        // Measure text up to selection start and end
+        RectF startBounds, endBounds;
+        if (selStart > 0) {
+            wchar_t textBefore[256] = {0};
+            wcsncpy(textBefore, g_searchQuery, selStart);
+            graphics.MeasureString(textBefore, -1, &searchFont, textRect, &sf, &startBounds);
+        } else {
+            startBounds.Width = 0;
+        }
+        wchar_t textToEnd[256] = {0};
+        wcsncpy(textToEnd, g_searchQuery, selEnd);
+        graphics.MeasureString(textToEnd, -1, &searchFont, textRect, &sf, &endBounds);
+
+        // Draw selection rectangle
+        SolidBrush selBrush(Color(128, 74, 158, 255));  // Semi-transparent accent
+        RectF selRect(PADDING + 8 + startBounds.Width, PADDING + 8,
+                      endBounds.Width - startBounds.Width, SEARCH_HEIGHT - 16);
+        graphics.FillRectangle(&selBrush, selRect);
+    }
+
     if (wcslen(g_searchQuery) > 0) {
         graphics.DrawString(g_searchQuery, -1, &searchFont, textRect, &sf, &textBrush);
     } else {
         graphics.DrawString(L"Search effects...", -1, &searchFont, textRect, &sf, &dimBrush);
     }
 
-    // Cursor blink (simple)
-    if (wcslen(g_searchQuery) > 0 || true) {
-        // Measure text width
+    // Cursor blink
+    if (g_cursorVisible) {
+        // Measure text width up to cursor position
         RectF bounds;
-        graphics.MeasureString(g_searchQuery, -1, &searchFont, textRect, &sf, &bounds);
+        int cursorPos = min(g_cursorPosition, (int)wcslen(g_searchQuery));
+        if (cursorPos > 0) {
+            wchar_t textBeforeCursor[256] = {0};
+            wcsncpy(textBeforeCursor, g_searchQuery, cursorPos);
+            graphics.MeasureString(textBeforeCursor, -1, &searchFont, textRect, &sf, &bounds);
+        } else {
+            bounds.Width = 0;
+        }
 
         Pen cursorPen(COLOR_ACCENT, 2);
-        REAL cursorX = (REAL)(PADDING + 8) + bounds.Width + 2.0f;
+        REAL cursorX = (REAL)(PADDING + 8) + bounds.Width + 1.0f;
         REAL cursorY1 = (REAL)(PADDING + 10);
         REAL cursorY2 = (REAL)(PADDING + SEARCH_HEIGHT - 10);
         graphics.DrawLine(&cursorPen, cursorX, cursorY1, cursorX, cursorY2);
@@ -879,6 +937,9 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_CHAR: {
             wchar_t ch = (wchar_t)wParam;
 
+            // Reset cursor blink on any input
+            g_cursorVisible = true;
+
             if (ch == VK_ESCAPE) {
                 // Escape - cancel
                 g_result.cancelled = true;
@@ -889,9 +950,31 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // Handle text input for search (both modes)
             size_t len = wcslen(g_searchQuery);
 
+            // Handle selection delete first
+            bool hasSelection = (g_selectionStart >= 0 && g_selectionEnd >= 0 && g_selectionStart != g_selectionEnd);
+            if (hasSelection && (ch == VK_BACK || (ch >= 32))) {
+                // Delete selection
+                int selStart = min(g_selectionStart, g_selectionEnd);
+                int selEnd = max(g_selectionStart, g_selectionEnd);
+                memmove(&g_searchQuery[selStart], &g_searchQuery[selEnd],
+                        (len - selEnd + 1) * sizeof(wchar_t));
+                g_cursorPosition = selStart;
+                g_selectionStart = g_selectionEnd = -1;
+                len = wcslen(g_searchQuery);
+                if (ch == VK_BACK) {
+                    ControlUI::UpdateSearch(g_searchQuery);
+                    InvalidateRect(hwnd, NULL, TRUE);
+                    return 0;
+                }
+            }
+
             if (ch == VK_BACK) {
-                if (len > 0) {
-                    g_searchQuery[len - 1] = L'\0';
+                // Backspace - delete char before cursor
+                if (g_cursorPosition > 0 && len > 0) {
+                    memmove(&g_searchQuery[g_cursorPosition - 1],
+                            &g_searchQuery[g_cursorPosition],
+                            (len - g_cursorPosition + 1) * sizeof(wchar_t));
+                    g_cursorPosition--;
                     ControlUI::UpdateSearch(g_searchQuery);
                     InvalidateRect(hwnd, NULL, TRUE);
                 }
@@ -911,11 +994,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     g_result.effectIndex = g_layerEffects[g_selectedIndex].index;
                     ControlUI::HidePanel();
                 }
-            } else if (ch >= 32 && ch < 127) {
-                // Regular character input
+            } else if (ch >= 32) {
+                // Regular character input - insert at cursor position
                 if (len < 254) {
-                    g_searchQuery[len] = ch;
-                    g_searchQuery[len + 1] = L'\0';
+                    memmove(&g_searchQuery[g_cursorPosition + 1],
+                            &g_searchQuery[g_cursorPosition],
+                            (len - g_cursorPosition + 1) * sizeof(wchar_t));
+                    g_searchQuery[g_cursorPosition] = ch;
+                    g_cursorPosition++;
                     ControlUI::UpdateSearch(g_searchQuery);
                     g_selectedIndex = 0;  // Reset selection on new search
                     InvalidateRect(hwnd, NULL, TRUE);
@@ -925,10 +1011,16 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_KEYDOWN: {
+            // Reset cursor blink on any key
+            g_cursorVisible = true;
+
             // Get max index based on whether we're searching or showing layer effects
             int maxIndex = (wcslen(g_searchQuery) > 0)
                 ? (int)g_searchResults.size() - 1
                 : (int)g_layerEffects.size() - 1;
+
+            bool ctrlHeld = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+            size_t len = wcslen(g_searchQuery);
 
             if (wParam == VK_UP) {
                 if (g_selectedIndex > 0) {
@@ -938,6 +1030,47 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             } else if (wParam == VK_DOWN) {
                 if (g_selectedIndex < maxIndex) {
                     g_selectedIndex++;
+                    InvalidateRect(hwnd, NULL, TRUE);
+                }
+            } else if (wParam == VK_LEFT) {
+                // Move cursor left
+                if (g_cursorPosition > 0) {
+                    g_cursorPosition--;
+                    g_selectionStart = g_selectionEnd = -1;  // Clear selection
+                    InvalidateRect(hwnd, NULL, TRUE);
+                }
+            } else if (wParam == VK_RIGHT) {
+                // Move cursor right
+                if (g_cursorPosition < (int)len) {
+                    g_cursorPosition++;
+                    g_selectionStart = g_selectionEnd = -1;  // Clear selection
+                    InvalidateRect(hwnd, NULL, TRUE);
+                }
+            } else if (wParam == VK_HOME) {
+                // Move cursor to start
+                g_cursorPosition = 0;
+                g_selectionStart = g_selectionEnd = -1;
+                InvalidateRect(hwnd, NULL, TRUE);
+            } else if (wParam == VK_END) {
+                // Move cursor to end
+                g_cursorPosition = (int)len;
+                g_selectionStart = g_selectionEnd = -1;
+                InvalidateRect(hwnd, NULL, TRUE);
+            } else if (wParam == VK_DELETE) {
+                // Delete char after cursor
+                if (g_cursorPosition < (int)len) {
+                    memmove(&g_searchQuery[g_cursorPosition],
+                            &g_searchQuery[g_cursorPosition + 1],
+                            (len - g_cursorPosition) * sizeof(wchar_t));
+                    ControlUI::UpdateSearch(g_searchQuery);
+                    InvalidateRect(hwnd, NULL, TRUE);
+                }
+            } else if (ctrlHeld && wParam == 'A') {
+                // Ctrl+A - Select all
+                if (len > 0) {
+                    g_selectionStart = 0;
+                    g_selectionEnd = (int)len;
+                    g_cursorPosition = (int)len;
                     InvalidateRect(hwnd, NULL, TRUE);
                 }
             }
@@ -1193,6 +1326,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // Focus went elsewhere, close panel
             g_result.cancelled = true;
             ControlUI::HidePanel();
+            return 0;
+        }
+
+        case WM_TIMER: {
+            if (wParam == 2) {  // Cursor blink timer
+                g_cursorVisible = !g_cursorVisible;
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
             return 0;
         }
 
