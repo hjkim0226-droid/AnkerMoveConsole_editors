@@ -1008,9 +1008,20 @@ void HideAndApplyAnchor() {
   if (hoverOpt == NativeUI::OPT_COMP_MODE) {
     settings.useCompMode = !settings.useCompMode;
     SaveSettingsToFile(); // Persist to file
-    // Notify CEP of change via ExtendScript
-    char script[128];
-    snprintf(script, sizeof(script), "notifyModeChange(%s, %s)",
+    // Notify CEP of change via inline ExtendScript (fails gracefully if CEP not open)
+    char script[512];
+    snprintf(script, sizeof(script),
+             "(function(){"
+             "try{"
+             "var lib=new ExternalObject('lib:PlugPlugExternalObject');"
+             "if(lib){"
+             "var e=new CSXSEvent();"
+             "e.type='anchorGridModeChanged';"
+             "e.data=JSON.stringify({useCompMode:%s,useMaskRecognition:%s});"
+             "e.dispatch();"
+             "}"
+             "}catch(ex){}"
+             "})();",
              settings.useCompMode ? "true" : "false",
              settings.useMaskRecognition ? "true" : "false");
     ExecuteScript(script);
@@ -1018,9 +1029,20 @@ void HideAndApplyAnchor() {
   } else if (hoverOpt == NativeUI::OPT_MASK_MODE) {
     settings.useMaskRecognition = !settings.useMaskRecognition;
     SaveSettingsToFile(); // Persist to file
-    // Notify CEP of change via ExtendScript
-    char script[128];
-    snprintf(script, sizeof(script), "notifyModeChange(%s, %s)",
+    // Notify CEP of change via inline ExtendScript (fails gracefully if CEP not open)
+    char script[512];
+    snprintf(script, sizeof(script),
+             "(function(){"
+             "try{"
+             "var lib=new ExternalObject('lib:PlugPlugExternalObject');"
+             "if(lib){"
+             "var e=new CSXSEvent();"
+             "e.type='anchorGridModeChanged';"
+             "e.data=JSON.stringify({useCompMode:%s,useMaskRecognition:%s});"
+             "e.dispatch();"
+             "}"
+             "}catch(ex){}"
+             "})();",
              settings.useCompMode ? "true" : "false",
              settings.useMaskRecognition ? "true" : "false");
     ExecuteScript(script);
@@ -1288,21 +1310,77 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                    result.effectIndex, result.effectIndex + 1);
           ExecuteScript(script);
         } else if (result.action == ControlUI::ACTION_EXPAND) {
-          // Expand this effect (collapse others)
-          char script[256];
-          snprintf(script, sizeof(script), "expandEffect(%d)", result.effectIndex);
+          // Expand this effect (collapse others) - inline script
+          char script[1024];
+          snprintf(script, sizeof(script),
+                   "(function(){"
+                   "try{"
+                   "var c=app.project.activeItem;"
+                   "if(!c||!(c instanceof CompItem))return;"
+                   "if(c.selectedLayers.length===0)return;"
+                   "var layer=c.selectedLayers[0];"
+                   "var fx=layer.property('ADBE Effect Parade');"
+                   "if(!fx||fx.numProperties===0)return;"
+                   "var idx=%d+1;"  // Convert 0-based to 1-based
+                   "if(idx<1||idx>fx.numProperties)return;"
+                   "for(var i=1;i<=fx.numProperties;i++){"
+                   "fx.property(i).selected=false;"
+                   "}"
+                   "fx.property(idx).selected=true;"
+                   "}catch(e){}"
+                   "})();",
+                   result.effectIndex);
           ExecuteScript(script);
         }
       } else if (result.action == ControlUI::ACTION_NEW_EC_WINDOW) {
-        // Open new locked Effect Controls window
-        ExecuteScript("openEffectControlsForLayer();");
+        // Open new locked Effect Controls window - inline script
+        // Command 3734 opens Effect Controls without toggle behavior
+        ExecuteScript(
+            "(function(){"
+            "try{"
+            "var c=app.project.activeItem;"
+            "if(!c||!(c instanceof CompItem))return;"
+            "if(c.selectedLayers.length===0)return;"
+            "app.executeCommand(3734);"
+            "}catch(e){}"
+            "})();");
       } else if (result.action == ControlUI::ACTION_SAVE_PRESET) {
-        // Save current effects to preset slot
+        // Save current effects to preset slot - inline script
         char presetData[65536] = {0};
-        ExecuteScript("getAllEffectsPresetData()", presetData, sizeof(presetData));
+        ExecuteScript(
+            "(function(){"
+            "try{"
+            "var c=app.project.activeItem;"
+            "if(!c||!(c instanceof CompItem))return 'Error';"
+            "if(c.selectedLayers.length===0)return 'Error';"
+            "var layer=c.selectedLayers[0];"
+            "var fx=layer.property('ADBE Effect Parade');"
+            "if(!fx||fx.numProperties===0)return 'Error';"
+            "var allPresets={effects:[]};"
+            "for(var ei=0;ei<fx.numProperties;ei++){"
+            "var effect=fx.property(ei+1);"
+            "var preset={matchName:effect.matchName,name:effect.name,properties:[],expressions:[]};"
+            "for(var pi=1;pi<=effect.numProperties;pi++){"
+            "try{"
+            "var prop=effect.property(pi);"
+            "if(prop.propertyValueType===PropertyValueType.NO_VALUE)continue;"
+            "var pd={index:pi,name:prop.name,matchName:prop.matchName};"
+            "if(prop.numKeys===0){pd.value=prop.value;}else{pd.value=prop.valueAtTime(c.time,false);pd.hasKeyframes=true;}"
+            "if(prop.expression&&prop.expression.length>0){"
+            "preset.expressions.push({index:pi,expression:prop.expression,enabled:prop.expressionEnabled});"
+            "}"
+            "preset.properties.push(pd);"
+            "}catch(pe){}"
+            "}"
+            "allPresets.effects.push(preset);"
+            "}"
+            "return JSON.stringify(allPresets);"
+            "}catch(e){return 'Error';}"
+            "})();",
+            presetData, sizeof(presetData));
 
         if (presetData[0] != '\0' && strncmp(presetData, "null", 4) != 0 &&
-            strncmp(presetData, "error", 5) != 0) {
+            strncmp(presetData, "Error", 5) != 0) {
           SavePresetToSlot(result.presetSlotIndex, presetData);
           // Show confirmation
           char confirmScript[256];
@@ -1312,17 +1390,52 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
           ExecuteScript(confirmScript);
         }
       } else if (result.action == ControlUI::ACTION_APPLY_PRESET) {
-        // Apply preset from quick slot
+        // Apply preset from quick slot - inline script
         char presetJson[65536] = {0};
         if (LoadPresetFromSlot(result.presetSlotIndex, presetJson, sizeof(presetJson))) {
           // Escape the JSON for use in script
           char escapedJson[131072] = {0};
           EscapeJsonForScript(presetJson, escapedJson, sizeof(escapedJson));
 
-          // Apply the preset
-          char script[140000];
+          // Apply the preset with inline script
+          char script[150000];
           snprintf(script, sizeof(script),
-                   "applyMultiEffectPreset('%s')",
+                   "(function(){"
+                   "try{"
+                   "var allPresets=JSON.parse('%s');"
+                   "if(!allPresets||!allPresets.effects||allPresets.effects.length===0)return;"
+                   "var c=app.project.activeItem;"
+                   "if(!c||!(c instanceof CompItem))return;"
+                   "if(c.selectedLayers.length===0)return;"
+                   "app.beginUndoGroup('Apply Multi-Effect Preset');"
+                   "for(var li=0;li<c.selectedLayers.length;li++){"
+                   "var layer=c.selectedLayers[li];"
+                   "var fx=layer.property('ADBE Effect Parade');"
+                   "for(var ei=0;ei<allPresets.effects.length;ei++){"
+                   "var preset=allPresets.effects[ei];"
+                   "if(!fx.canAddProperty(preset.matchName))continue;"
+                   "var newFx=fx.addProperty(preset.matchName);"
+                   "for(var pi=0;pi<preset.properties.length;pi++){"
+                   "try{"
+                   "var pd=preset.properties[pi];"
+                   "var prop=newFx.property(pd.index);"
+                   "if(prop&&prop.propertyValueType!==PropertyValueType.NO_VALUE&&!pd.hasKeyframes){"
+                   "prop.setValue(pd.value);"
+                   "}"
+                   "}catch(pe){}"
+                   "}"
+                   "for(var xi=0;xi<preset.expressions.length;xi++){"
+                   "try{"
+                   "var xd=preset.expressions[xi];"
+                   "var xp=newFx.property(xd.index);"
+                   "if(xp){xp.expression=xd.expression;xp.expressionEnabled=xd.enabled;}"
+                   "}catch(xe){}"
+                   "}"
+                   "}"
+                   "}"
+                   "app.endUndoGroup();"
+                   "}catch(e){}"
+                   "})();",
                    escapedJson);
           ExecuteScript(script);
         } else {
@@ -1399,11 +1512,45 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       g_keyframeVisible = false;
 
       if (result.applied) {
-        // Apply keyframe easing using ExtendScript
-        char script[1024];
+        // Apply keyframe easing using inline ExtendScript
+        char script[4096];
         snprintf(script, sizeof(script),
-                 "applyKeyframeEasing({outSpeed:%.2f,outInfluence:%.2f,"
-                 "inSpeed:%.2f,inInfluence:%.2f})",
+                 "(function(){"
+                 "try{"
+                 "var c=app.project.activeItem;"
+                 "if(!c||!(c instanceof CompItem))return;"
+                 "var props=c.selectedProperties;"
+                 "if(!props||props.length===0)return;"
+                 "var outSpd=%.2f,outInf=%.2f,inSpd=%.2f,inInf=%.2f;"
+                 "app.beginUndoGroup('Apply Keyframe Easing');"
+                 "for(var i=0;i<props.length;i++){"
+                 "var prop=props[i];"
+                 "if(!prop.selectedKeys||prop.selectedKeys.length<2)continue;"
+                 "var keys=prop.selectedKeys;"
+                 "var numDims=1;"
+                 "if(prop.propertyValueType===PropertyValueType.TwoD||"
+                 "prop.propertyValueType===PropertyValueType.TwoD_SPATIAL)numDims=2;"
+                 "else if(prop.propertyValueType===PropertyValueType.ThreeD||"
+                 "prop.propertyValueType===PropertyValueType.ThreeD_SPATIAL)numDims=3;"
+                 "else if(prop.propertyValueType===PropertyValueType.COLOR)numDims=4;"
+                 "var outArr=[],inArr=[];"
+                 "for(var d=0;d<numDims;d++){"
+                 "outArr.push(new KeyframeEase(outSpd,outInf));"
+                 "inArr.push(new KeyframeEase(inSpd,inInf));"
+                 "}"
+                 "for(var j=0;j<keys.length;j++){"
+                 "var k=keys[j];"
+                 "if(j<keys.length-1){"
+                 "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e1){}"
+                 "}"
+                 "if(j>0){"
+                 "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e2){}"
+                 "}"
+                 "}"
+                 "}"
+                 "app.endUndoGroup();"
+                 "}catch(e){}"
+                 "})();",
                  result.outSpeed, result.outInfluence,
                  result.inSpeed, result.inInfluence);
         ExecuteScript(script);
