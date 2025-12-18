@@ -15,8 +15,145 @@
 #include <vector>
 #include <algorithm>
 #include <cstdio>
+#include <cwchar>
 
 using namespace Gdiplus;
+
+// =========================================================
+// JSON Helper Functions (Simple Manual Parser)
+// =========================================================
+
+// Extract a float value from JSON string like "key": 123.45
+static float JsonGetFloat(const wchar_t* json, const wchar_t* key, float defaultVal = 0.0f) {
+    wchar_t searchKey[64];
+    swprintf_s(searchKey, L"\"%s\"", key);
+
+    const wchar_t* pos = wcsstr(json, searchKey);
+    if (!pos) return defaultVal;
+
+    // Find the colon after the key
+    pos = wcschr(pos, L':');
+    if (!pos) return defaultVal;
+    pos++;
+
+    // Skip whitespace
+    while (*pos == L' ' || *pos == L'\t' || *pos == L'\n' || *pos == L'\r') pos++;
+
+    // Parse the number
+    return (float)_wtof(pos);
+}
+
+// Extract a string value from JSON like "key": "value"
+static void JsonGetString(const wchar_t* json, const wchar_t* key, wchar_t* out, size_t outSize) {
+    out[0] = L'\0';
+    wchar_t searchKey[64];
+    swprintf_s(searchKey, L"\"%s\"", key);
+
+    const wchar_t* pos = wcsstr(json, searchKey);
+    if (!pos) return;
+
+    // Find the colon
+    pos = wcschr(pos, L':');
+    if (!pos) return;
+    pos++;
+
+    // Skip whitespace
+    while (*pos == L' ' || *pos == L'\t' || *pos == L'\n' || *pos == L'\r') pos++;
+
+    // Expect opening quote
+    if (*pos != L'"') return;
+    pos++;
+
+    // Copy until closing quote
+    size_t i = 0;
+    while (*pos && *pos != L'"' && i < outSize - 1) {
+        out[i++] = *pos++;
+    }
+    out[i] = L'\0';
+}
+
+// =========================================================
+// AE <-> Bezier Conversion Functions
+// =========================================================
+
+// Convert After Effects speed/influence to bezier control points
+// Formula based on AE's KeyframeEase system:
+//   avgSpeed = valueChange / duration
+//   normalizedSpeed = speed / avgSpeed
+//   P1.x = outInfluence / 100
+//   P1.y = P1.x * normalizedOutSpeed
+//   P2.x = 1 - (inInfluence / 100)
+//   P2.y = 1 - (1 - P2.x) * normalizedInSpeed
+static void ConvertAEToBezier(
+    float outSpeed, float outInfluence,
+    float inSpeed, float inInfluence,
+    float avgSpeed,
+    KeyframeUI::VelocityCurve& curve)
+{
+    // Handle edge case: no value change (avgSpeed = 0)
+    // In this case, show a flat line (linear)
+    if (fabs(avgSpeed) < 0.0001f) {
+        curve.p0_x = 0.25f;
+        curve.p0_y = 0.25f;
+        curve.p1_x = 0.75f;
+        curve.p1_y = 0.75f;
+        return;
+    }
+
+    // Clamp influence to valid range
+    outInfluence = max(0.1f, min(100.0f, outInfluence));
+    inInfluence = max(0.1f, min(100.0f, inInfluence));
+
+    // Normalized speeds (relative to average)
+    float normalizedOutSpeed = outSpeed / avgSpeed;
+    float normalizedInSpeed = inSpeed / avgSpeed;
+
+    // First control point (affects "out" from first keyframe)
+    curve.p0_x = outInfluence / 100.0f;
+    curve.p0_y = curve.p0_x * normalizedOutSpeed;
+
+    // Second control point (affects "in" to second keyframe)
+    curve.p1_x = 1.0f - (inInfluence / 100.0f);
+    curve.p1_y = 1.0f - ((1.0f - curve.p1_x) * normalizedInSpeed);
+
+    // Clamp Y values to reasonable range (-0.5 to 1.5 for overshoot effects)
+    curve.p0_y = max(-0.5f, min(1.5f, curve.p0_y));
+    curve.p1_y = max(-0.5f, min(1.5f, curve.p1_y));
+}
+
+// Convert bezier control points back to AE speed/influence
+// Reverse of ConvertAEToBezier
+static void ConvertBezierToAE(
+    const KeyframeUI::VelocityCurve& curve,
+    float avgSpeed,
+    float& outSpeed, float& outInfluence,
+    float& inSpeed, float& inInfluence)
+{
+    // Influence from X coordinates
+    outInfluence = curve.p0_x * 100.0f;
+    inInfluence = (1.0f - curve.p1_x) * 100.0f;
+
+    // Clamp influence to valid range
+    outInfluence = max(0.1f, min(100.0f, outInfluence));
+    inInfluence = max(0.1f, min(100.0f, inInfluence));
+
+    // Calculate normalized speeds from control points
+    // normalizedOutSpeed = P1.y / P1.x (when P1.x != 0)
+    float normalizedOutSpeed = 1.0f;  // Default: linear
+    if (fabs(curve.p0_x) > 0.001f) {
+        normalizedOutSpeed = curve.p0_y / curve.p0_x;
+    }
+
+    // normalizedInSpeed = (1 - P2.y) / (1 - P2.x) (when P2.x != 1)
+    float normalizedInSpeed = 1.0f;  // Default: linear
+    if (fabs(1.0f - curve.p1_x) > 0.001f) {
+        normalizedInSpeed = (1.0f - curve.p1_y) / (1.0f - curve.p1_x);
+    }
+
+    // Convert back to actual speeds
+    outSpeed = normalizedOutSpeed * avgSpeed;
+    inSpeed = normalizedInSpeed * avgSpeed;
+}
 
 // GDI+ token
 static ULONG_PTR g_gdiplusToken = 0;
@@ -68,6 +205,11 @@ static KeyframeUI::VelocityCurve g_currentCurve = {0.25f, 0.25f, 0.75f, 0.75f};
 static KeyframeUI::KeyframeResult g_result;
 static KeyframeUI::KeyframeSettings g_settings;
 
+// Keyframe info from AE
+static KeyframeUI::KeyframeInfo g_keyframeInfo = {};
+static bool g_hasKeyframeInfo = false;
+static float g_avgSpeed = 0.0f;  // Cached average speed for conversions
+
 // Preset curves (control points for cubic bezier)
 static KeyframeUI::VelocityCurve g_presetCurves[] = {
     {0.25f, 0.25f, 0.75f, 0.75f},   // LINEAR: constant velocity
@@ -77,20 +219,26 @@ static KeyframeUI::VelocityCurve g_presetCurves[] = {
     {0.0f, 1.0f, 1.0f, 0.0f},       // EASE_OUT_IN: fast-slow-fast
 };
 
-// Custom curve slots
-static KeyframeUI::VelocityCurve g_customSlots[3] = {
+// Custom curve slots (4 slots)
+static const int NUM_CUSTOM_SLOTS = 4;
+static KeyframeUI::VelocityCurve g_customSlots[NUM_CUSTOM_SLOTS] = {
+    {0.25f, 0.25f, 0.75f, 0.75f},
     {0.25f, 0.25f, 0.75f, 0.75f},
     {0.25f, 0.25f, 0.75f, 0.75f},
     {0.25f, 0.25f, 0.75f, 0.75f}
 };
-static bool g_slotFilled[3] = {false, false, false};
+static bool g_slotFilled[NUM_CUSTOM_SLOTS] = {false, false, false, false};
+// Slot icons: 0=Empty, 1=Star, 2=Circle, 3=Wave, 4=Diamond
+static int g_slotIcons[NUM_CUSTOM_SLOTS] = {0, 0, 0, 0};
 
 // UI interaction state
 static bool g_closeButtonHover = false;
 static int g_hoveredPresetButton = -1;  // 0-4 for presets, -1 for none
-static int g_hoveredSlotButton = -1;    // 0-2 for slots, -1 for none
+static int g_hoveredSlotButton = -1;    // 0-3 for slots, -1 for none
 static bool g_saveButtonHover = false;
 static bool g_saveMode = false;
+static bool g_pinButtonHover = false;
+static bool g_keepPanelOpen = false;  // Pin mode
 
 // Handle dragging
 static int g_draggingHandle = -1;  // -1=none, 0=first handle (p0), 1=second handle (p1)
@@ -106,6 +254,64 @@ void DrawVelocityGraph(Graphics& graphics, int x, int y, int width, int height);
 void DrawBezierCurve(Graphics& graphics, const KeyframeUI::VelocityCurve& curve, int x, int y, int w, int h);
 PointF EvalCubicBezier(float t, float p0, float p1, float p2, float p3);
 float IntegrateVelocityCurve(const KeyframeUI::VelocityCurve& curve, float t);
+
+// Draw slot icon
+// iconType: 0=Empty/Number, 1=Star, 2=Circle, 3=Wave, 4=Diamond
+void DrawSlotIcon(Graphics& graphics, int iconType, float cx, float cy, float size, const Color& color) {
+    SolidBrush brush(color);
+    Pen pen(color, 1.5f);
+    float r = size / 2.0f;
+
+    switch (iconType) {
+        case 1: {  // Star (5-pointed)
+            PointF starPoints[10];
+            for (int i = 0; i < 10; i++) {
+                float angle = -90.0f + i * 36.0f;
+                float rad = angle * 3.14159f / 180.0f;
+                float dist = (i % 2 == 0) ? r : r * 0.4f;
+                starPoints[i].X = cx + cosf(rad) * dist;
+                starPoints[i].Y = cy + sinf(rad) * dist;
+            }
+            graphics.FillPolygon(&brush, starPoints, 10);
+            break;
+        }
+        case 2: {  // Circle
+            graphics.FillEllipse(&brush, cx - r * 0.7f, cy - r * 0.7f, r * 1.4f, r * 1.4f);
+            break;
+        }
+        case 3: {  // Wave (sine wave symbol)
+            GraphicsPath path;
+            float waveR = r * 0.8f;
+            for (int i = 0; i <= 20; i++) {
+                float t = (float)i / 20.0f;
+                float x = cx - waveR + t * waveR * 2.0f;
+                float y = cy + sinf(t * 3.14159f * 2.0f) * (r * 0.5f);
+                if (i == 0) path.StartFigure();
+                else {
+                    float prevT = (float)(i - 1) / 20.0f;
+                    float prevX = cx - waveR + prevT * waveR * 2.0f;
+                    float prevY = cy + sinf(prevT * 3.14159f * 2.0f) * (r * 0.5f);
+                    path.AddLine(prevX, prevY, x, y);
+                }
+            }
+            Pen wavePen(color, 2.0f);
+            graphics.DrawPath(&wavePen, &path);
+            break;
+        }
+        case 4: {  // Diamond
+            PointF diamondPoints[4] = {
+                PointF(cx, cy - r),
+                PointF(cx + r * 0.7f, cy),
+                PointF(cx, cy + r),
+                PointF(cx - r * 0.7f, cy)
+            };
+            graphics.FillPolygon(&brush, diamondPoints, 4);
+            break;
+        }
+        default:
+            break;  // No icon for 0
+    }
+}
 
 namespace KeyframeUI {
 
@@ -144,12 +350,17 @@ void ShowPanel(int screenX, int screenY) {
 
     // Reset state
     g_result = KeyframeResult();
-    g_currentPreset = PRESET_LINEAR;
-    g_currentCurve = g_presetCurves[PRESET_LINEAR];
+    // Only reset to linear preset if no keyframe info was provided
+    if (!g_hasKeyframeInfo) {
+        g_currentPreset = PRESET_LINEAR;
+        g_currentCurve = g_presetCurves[PRESET_LINEAR];
+    }
     g_hoveredPresetButton = -1;
     g_hoveredSlotButton = -1;
     g_saveMode = false;
     g_draggingHandle = -1;
+    g_pinButtonHover = false;
+    // Don't reset g_keepPanelOpen - preserve pin state across sessions
 
     // Create or reposition window
     if (!g_hwnd) {
@@ -200,6 +411,8 @@ KeyframeResult HidePanel() {
     g_isVisible = false;
     g_saveMode = false;
     g_draggingHandle = -1;
+    g_hasKeyframeInfo = false;  // Reset for next open
+    g_pinButtonHover = false;
 
     return g_result;
 }
@@ -209,9 +422,75 @@ bool IsVisible() {
 }
 
 void SetKeyframeInfo(const wchar_t* infoJson) {
-    // Parse JSON and update display
-    // For now, just store it for reference
-    // The actual parsing would extract property names, times, values, etc.
+    if (!infoJson || wcslen(infoJson) == 0) {
+        g_hasKeyframeInfo = false;
+        return;
+    }
+
+    // Parse JSON from ExtendScript
+    // Expected format:
+    // {
+    //   "propName": "Position",
+    //   "propMatchName": "ADBE Position",
+    //   "keyIndex1": 1, "keyIndex2": 2,
+    //   "time1": 0.0, "time2": 1.0,
+    //   "value1": 0, "value2": 100,
+    //   "outSpeed": 0, "outInfluence": 33.33,
+    //   "inSpeed": 0, "inInfluence": 33.33,
+    //   "avgSpeed": 100
+    // }
+
+    // Extract property name
+    JsonGetString(infoJson, L"propName", g_keyframeInfo.propName, 128);
+    JsonGetString(infoJson, L"propMatchName", g_keyframeInfo.propMatchName, 128);
+
+    // Extract keyframe indices
+    g_keyframeInfo.keyIndex1 = (int)JsonGetFloat(infoJson, L"keyIndex1", 1);
+    g_keyframeInfo.keyIndex2 = (int)JsonGetFloat(infoJson, L"keyIndex2", 2);
+
+    // Extract times and values
+    g_keyframeInfo.time1 = JsonGetFloat(infoJson, L"time1", 0.0f);
+    g_keyframeInfo.time2 = JsonGetFloat(infoJson, L"time2", 1.0f);
+    g_keyframeInfo.value1 = JsonGetFloat(infoJson, L"value1", 0.0f);
+    g_keyframeInfo.value2 = JsonGetFloat(infoJson, L"value2", 0.0f);
+
+    // Extract easing values
+    g_keyframeInfo.outSpeed = JsonGetFloat(infoJson, L"outSpeed", 0.0f);
+    g_keyframeInfo.outInfluence = JsonGetFloat(infoJson, L"outInfluence", 33.33f);
+    g_keyframeInfo.inSpeed = JsonGetFloat(infoJson, L"inSpeed", 0.0f);
+    g_keyframeInfo.inInfluence = JsonGetFloat(infoJson, L"inInfluence", 33.33f);
+
+    // Get average speed (may be calculated in ExtendScript or here)
+    g_avgSpeed = JsonGetFloat(infoJson, L"avgSpeed", 0.0f);
+
+    // If avgSpeed not provided, calculate it
+    if (g_avgSpeed == 0.0f) {
+        float duration = g_keyframeInfo.time2 - g_keyframeInfo.time1;
+        float valueChange = g_keyframeInfo.value2 - g_keyframeInfo.value1;
+        if (fabs(duration) > 0.0001f) {
+            g_avgSpeed = fabs(valueChange / duration);
+        }
+    }
+
+    g_hasKeyframeInfo = true;
+
+    // Convert AE easing to bezier control points
+    ConvertAEToBezier(
+        g_keyframeInfo.outSpeed,
+        g_keyframeInfo.outInfluence,
+        g_keyframeInfo.inSpeed,
+        g_keyframeInfo.inInfluence,
+        g_avgSpeed,
+        g_currentCurve
+    );
+
+    // Set preset to custom since we're using real keyframe data
+    g_currentPreset = PRESET_CUSTOM;
+
+    // Redraw if visible
+    if (g_hwnd && g_isVisible) {
+        InvalidateRect(g_hwnd, NULL, TRUE);
+    }
 }
 
 VelocityCurve GetCurrentCurve() {
@@ -221,54 +500,41 @@ VelocityCurve GetCurrentCurve() {
 void CalculateAEEase(const VelocityCurve& curve,
                      float& outSpeed, float& outInfluence,
                      float& inSpeed, float& inInfluence) {
-    // Calculate velocities at start and end using derivative of bezier
-    // v(t) = bezier curve value at t
-
-    // For a cubic bezier P(t) = (1-t)^3 * P0 + 3(1-t)^2*t * P1 + 3(1-t)*t^2 * P2 + t^3 * P3
-    // The derivative P'(t) gives velocity
-
-    // Velocity at t=0 (start)
-    float v0_y = curve.p0_y;  // Initial velocity proportional to first control point height
-
-    // Velocity at t=1 (end)
-    float v1_y = curve.p1_y;  // Final velocity proportional to last control point height
-
-    // Convert to AE ease parameters
-    // AE KeyframeEase: speed is in units/second, influence is 0-100%
-
-    // For now, use simplified mapping:
-    // - outInfluence = p0_x * 100 (how far the control point extends)
-    // - outSpeed = proportional to p0_y (velocity)
-    // - inInfluence = (1 - p1_x) * 100
-    // - inSpeed = proportional to p1_y
-
-    outInfluence = curve.p0_x * 100.0f;
-    outSpeed = v0_y * 100.0f;  // Scale factor for visualization
-
-    inInfluence = (1.0f - curve.p1_x) * 100.0f;
-    inSpeed = v1_y * 100.0f;
-
-    // Clamp influence to valid range
-    outInfluence = max(0.1f, min(100.0f, outInfluence));
-    inInfluence = max(0.1f, min(100.0f, inInfluence));
+    // Use the proper reverse conversion function
+    // This converts bezier control points back to AE speed/influence values
+    ConvertBezierToAE(curve, g_avgSpeed, outSpeed, outInfluence, inSpeed, inInfluence);
 }
 
 void SavePresetToSlot(int slot, const VelocityCurve& curve) {
-    if (slot < 0 || slot >= 3) return;
+    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return;
     g_customSlots[slot] = curve;
     g_slotFilled[slot] = true;
+    // Auto-assign icon based on slot index + 1 (1=Star, 2=Circle, etc.)
+    if (g_slotIcons[slot] == 0) {
+        g_slotIcons[slot] = slot + 1;
+    }
 }
 
 bool LoadPresetFromSlot(int slot, VelocityCurve& curve) {
-    if (slot < 0 || slot >= 3) return false;
+    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return false;
     if (!g_slotFilled[slot]) return false;
     curve = g_customSlots[slot];
     return true;
 }
 
 bool PresetSlotExists(int slot) {
-    if (slot < 0 || slot >= 3) return false;
+    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return false;
     return g_slotFilled[slot];
+}
+
+void SetSlotIcon(int slot, int iconType) {
+    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return;
+    g_slotIcons[slot] = iconType;
+}
+
+int GetSlotIcon(int slot) {
+    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return 0;
+    return g_slotIcons[slot];
 }
 
 KeyframeSettings& GetSettings() {
@@ -465,9 +731,43 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
                      (REAL)(width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4), (REAL)HEADER_HEIGHT);
     graphics.FillRectangle(&headerBgBrush, headerRect);
 
-    // Title
-    RectF titleRect((REAL)(PADDING + 8), (REAL)currentY, 150, (REAL)HEADER_HEIGHT);
-    graphics.DrawString(L"Keyframe Easing", -1, &headerFont, titleRect, &sf, &textBrush);
+    // Title - show property name if available
+    RectF titleRect((REAL)(PADDING + 8), (REAL)currentY, (REAL)(width - PADDING * 2 - CLOSE_BUTTON_SIZE - 20), (REAL)HEADER_HEIGHT);
+    if (g_hasKeyframeInfo && wcslen(g_keyframeInfo.propName) > 0) {
+        // Show property name with accent color
+        graphics.DrawString(g_keyframeInfo.propName, -1, &headerFont, titleRect, &sf, &accentBrush);
+    } else {
+        graphics.DrawString(L"Keyframe Easing", -1, &headerFont, titleRect, &sf, &textBrush);
+    }
+
+    // Pin button 📌 (before close button)
+    int pinBtnX = width - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
+    int pinBtnY = currentY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+    RectF pinRect((REAL)pinBtnX, (REAL)pinBtnY,
+                  (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
+
+    Color pinColor = g_keepPanelOpen ? COLOR_ACCENT : (g_pinButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG);
+    SolidBrush pinBgBrush(pinColor);
+    graphics.FillRectangle(&pinBgBrush, pinRect);
+
+    // Draw pin icon (pushpin shape)
+    float pinCx = (float)pinBtnX + CLOSE_BUTTON_SIZE / 2.0f;
+    float pinCy = (float)pinBtnY + CLOSE_BUTTON_SIZE / 2.0f;
+    Color pinIconColor = g_keepPanelOpen ? Color(255, 255, 255, 255) : COLOR_TEXT;
+    Pen pinPen(pinIconColor, 1.5f);
+    SolidBrush pinBrush(pinIconColor);
+
+    // Pin head (circle)
+    graphics.FillEllipse(&pinBrush, pinCx - 3.0f, pinCy - 5.0f, 6.0f, 6.0f);
+    // Pin needle (line down)
+    graphics.DrawLine(&pinPen, pinCx, pinCy + 1.0f, pinCx, pinCy + 6.0f);
+    // Pin base (small triangle)
+    PointF pinBase[3] = {
+        PointF(pinCx - 2.0f, pinCy + 1.0f),
+        PointF(pinCx + 2.0f, pinCy + 1.0f),
+        PointF(pinCx, pinCy + 4.0f)
+    };
+    graphics.FillPolygon(&pinBrush, pinBase, 3);
 
     // Close button [x]
     int closeBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
@@ -570,17 +870,17 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
 
     currentY += 30;
 
-    // ===== Custom preset slots =====
-    int slotBtnSpacing = 8;
-    int saveBtnWidth = 50;
-    int totalSlotWidth = 3 * SLOT_BUTTON_WIDTH + 2 * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
+    // ===== Custom preset slots (4 slots with icons) =====
+    int slotBtnSpacing = 6;
+    int saveBtnWidth = 44;
+    int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
     int slotStartX = (width - totalSlotWidth) / 2;
 
-    // "Presets:" label
-    RectF presetsLabelRect((REAL)(slotStartX - 60), (REAL)currentY, 55, (REAL)SLOT_BUTTON_HEIGHT);
+    // "Slots:" label
+    RectF presetsLabelRect((REAL)(slotStartX - 50), (REAL)currentY, 45, (REAL)SLOT_BUTTON_HEIGHT);
     graphics.DrawString(L"Slots:", -1, &labelFont, presetsLabelRect, &sf, &dimBrush);
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
         int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
         int btnY = currentY;
 
@@ -610,14 +910,24 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
             graphics.DrawRectangle(&btnBorder, btnRect);
         }
 
-        // Slot number
-        wchar_t slotText[4];
-        swprintf_s(slotText, L"%d", i + 1);
-        graphics.DrawString(slotText, -1, &presetFont, btnRect, &sfCenter, &textBrush);
+        // Draw icon or number
+        float iconCx = (float)btnX + SLOT_BUTTON_WIDTH / 2.0f;
+        float iconCy = (float)btnY + SLOT_BUTTON_HEIGHT / 2.0f;
+
+        if (g_slotFilled[i] && g_slotIcons[i] > 0) {
+            // Draw icon
+            DrawSlotIcon(graphics, g_slotIcons[i], iconCx, iconCy, 16.0f, COLOR_TEXT);
+        } else {
+            // Draw slot number
+            wchar_t slotText[4];
+            swprintf_s(slotText, L"%d", i + 1);
+            graphics.DrawString(slotText, -1, &presetFont, btnRect, &sfCenter,
+                               g_slotFilled[i] ? &textBrush : &dimBrush);
+        }
     }
 
-    // Save button
-    int saveBtnX = slotStartX + 3 * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
+    // Save button (floppy disk icon area)
+    int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
     RectF saveBtnRect((REAL)saveBtnX, (REAL)currentY,
                       (REAL)saveBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
 
@@ -629,7 +939,20 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     Pen saveBorder(COLOR_BORDER, 1);
     graphics.DrawRectangle(&saveBorder, saveBtnRect);
 
-    graphics.DrawString(L"Save", -1, &presetFont, saveBtnRect, &sfCenter, &textBrush);
+    // Draw floppy disk icon
+    float diskCx = (float)saveBtnX + saveBtnWidth / 2.0f;
+    float diskCy = (float)currentY + SLOT_BUTTON_HEIGHT / 2.0f;
+    float diskSize = 14.0f;
+    Color diskColor = g_saveMode ? Color(255, 255, 255, 255) : COLOR_TEXT;
+
+    // Floppy disk outline
+    Pen diskPen(diskColor, 1.5f);
+    graphics.DrawRectangle(&diskPen, diskCx - diskSize/2, diskCy - diskSize/2, diskSize, diskSize);
+    // Label area (top)
+    graphics.DrawRectangle(&diskPen, diskCx - diskSize/3, diskCy - diskSize/2, diskSize*2/3, diskSize/3);
+    // Metal slide (bottom-right)
+    SolidBrush diskBrush(diskColor);
+    graphics.FillRectangle(&diskBrush, diskCx - diskSize/6, diskCy + diskSize/6, diskSize/3, diskSize/3);
 }
 
 // Window procedure
@@ -705,6 +1028,14 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 needRedraw = true;
             }
 
+            // Check pin button hover
+            int pinBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
+            int pinBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+            bool wasPinHover = g_pinButtonHover;
+            g_pinButtonHover = (x >= pinBtnX && x < pinBtnX + CLOSE_BUTTON_SIZE &&
+                                y >= pinBtnY && y < pinBtnY + CLOSE_BUTTON_SIZE);
+            if (wasPinHover != g_pinButtonHover) needRedraw = true;
+
             // Check close button hover
             int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
             int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
@@ -735,15 +1066,15 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
             // Check slot button hover
             int slotY = currentY + PRESET_BUTTON_HEIGHT + PADDING + 24 + 30;
-            int slotBtnSpacing = 8;
-            int saveBtnWidth = 50;
-            int totalSlotWidth = 3 * SLOT_BUTTON_WIDTH + 2 * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
+            int slotBtnSpacing = 6;
+            int saveBtnWidth = 44;
+            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
             int slotStartX = (rc.right - totalSlotWidth) / 2;
 
             int oldHoveredSlot = g_hoveredSlotButton;
             g_hoveredSlotButton = -1;
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
                 int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
                 if (x >= btnX && x < btnX + SLOT_BUTTON_WIDTH &&
                     y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
@@ -754,7 +1085,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (oldHoveredSlot != g_hoveredSlotButton) needRedraw = true;
 
             // Check save button hover
-            int saveBtnX = slotStartX + 3 * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
+            int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
             bool wasSaveHover = g_saveButtonHover;
             g_saveButtonHover = (x >= saveBtnX && x < saveBtnX + saveBtnWidth &&
                                  y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
@@ -792,6 +1123,16 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             RECT rc;
             GetClientRect(hwnd, &rc);
 
+            // Check pin button click
+            int pinBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
+            int pinBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+            if (x >= pinBtnX && x < pinBtnX + CLOSE_BUTTON_SIZE &&
+                y >= pinBtnY && y < pinBtnY + CLOSE_BUTTON_SIZE) {
+                g_keepPanelOpen = !g_keepPanelOpen;
+                InvalidateRect(hwnd, NULL, TRUE);
+                return 0;
+            }
+
             // Check close button click
             int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
             int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
@@ -822,12 +1163,12 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
             // Check slot button click
             int slotY = currentY + PRESET_BUTTON_HEIGHT + PADDING + 24 + 30;
-            int slotBtnSpacing = 8;
-            int saveBtnWidth = 50;
-            int totalSlotWidth = 3 * SLOT_BUTTON_WIDTH + 2 * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
+            int slotBtnSpacing = 6;
+            int saveBtnWidth = 44;
+            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
             int slotStartX = (rc.right - totalSlotWidth) / 2;
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
                 int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
                 if (x >= btnX && x < btnX + SLOT_BUTTON_WIDTH &&
                     y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
@@ -846,7 +1187,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             }
 
             // Check save button click
-            int saveBtnX = slotStartX + 3 * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
+            int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
             if (x >= saveBtnX && x < saveBtnX + saveBtnWidth &&
                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
                 g_saveMode = !g_saveMode;
@@ -885,6 +1226,11 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         }
 
         case WM_KILLFOCUS: {
+            // If pin mode is active, don't close on focus loss
+            if (g_keepPanelOpen) {
+                return 0;
+            }
+
             // Check where focus went
             HWND newFocus = (HWND)wParam;
             if (newFocus) {

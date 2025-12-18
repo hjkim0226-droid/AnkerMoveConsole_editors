@@ -10,6 +10,8 @@
 #include "GridUI.h"
 #include "ControlUI.h"
 #include "KeyframeUI.h"
+#include "AlignUI.h"
+#include "TextUI.h"
 #include "CEPBridge.h"
 #include <chrono>
 #include <cstdarg>
@@ -45,6 +47,18 @@ static bool g_keyframeVisible = false;
 static bool g_kKeyWasHeld = false;
 static std::chrono::steady_clock::time_point g_kKeyPressTime;
 static bool g_kWaitingForHold = false;
+
+// Align module state (D→A sequence)
+static bool g_alignVisible = false;
+static bool g_dKeyWasHeld = false;
+static bool g_aKeyWasHeld = false;
+static bool g_dKeyPressed = false; // D key in sequence mode
+static std::chrono::steady_clock::time_point g_dKeyPressTime;
+static const int SEQUENCE_TIMEOUT_MS = 500; // 500ms window for D→A/D→T
+
+// Text module state (D→T sequence)
+static bool g_textVisible = false;
+static bool g_tKeyWasHeld = false;
 
 // Forward declaration for ExecuteScript (defined later)
 A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
@@ -358,6 +372,26 @@ bool HasSelectedLayers() {
                 "if(t!=ViewerType.VIEWER_COMPOSITION&&t!=ViewerType.VIEWER_"
                 "LAYER)return 0;"
                 "return 1;"
+                "})();",
+                result, sizeof(result));
+  return atoi(result) > 0;
+}
+
+/*****************************************************************************
+ * HasSelectedTextLayer
+ * Check if any selected layer is a text layer
+ *****************************************************************************/
+bool HasSelectedTextLayer() {
+  char result[64] = {0};
+  ExecuteScript("(function(){"
+                "var c=app.project.activeItem;"
+                "if(!c||!(c instanceof CompItem))return 0;"
+                "var sel=c.selectedLayers;"
+                "if(sel.length==0)return 0;"
+                "for(var i=0;i<sel.length;i++){"
+                "if(sel[i] instanceof TextLayer)return 1;"
+                "}"
+                "return 0;"
                 "})();",
                 result, sizeof(result));
   return atoi(result) > 0;
@@ -1532,9 +1566,62 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                        now - g_kKeyPressTime).count();
     if (elapsed >= HOLD_DELAY_MS) {
+      // Get keyframe info before showing panel
+      const char* getInfoScript =
+        "(function(){"
+        "try{"
+        "var c=app.project.activeItem;"
+        "if(!c||!(c instanceof CompItem))return '';"
+        "var props=c.selectedProperties;"
+        "if(!props||props.length===0)return '';"
+        "var prop=props[0];"  // Use first selected property
+        "if(!prop.selectedKeys||prop.selectedKeys.length<2)return '';"
+        "var keys=prop.selectedKeys;"
+        "var k1=keys[0],k2=keys[1];"  // Use first two selected keyframes
+        "var t1=prop.keyTime(k1),t2=prop.keyTime(k2);"
+        "var v1=prop.keyValue(k1),v2=prop.keyValue(k2);"
+        // Handle multi-dimensional values (use magnitude for spatial)
+        "var val1=v1,val2=v2;"
+        "if(v1 instanceof Array){"
+        "var sum1=0,sum2=0;"
+        "for(var i=0;i<v1.length;i++){sum1+=v1[i]*v1[i];sum2+=v2[i]*v2[i];}"
+        "val1=Math.sqrt(sum1);val2=Math.sqrt(sum2);"
+        "}"
+        // Get easing info
+        "var outEase=prop.keyOutTemporalEase(k1);"
+        "var inEase=prop.keyInTemporalEase(k2);"
+        "var outSpd=outEase[0].speed,outInf=outEase[0].influence;"
+        "var inSpd=inEase[0].speed,inInf=inEase[0].influence;"
+        // Calculate average speed
+        "var dur=t2-t1;"
+        "var valChange=val2-val1;"
+        "var avgSpd=Math.abs(dur)>0.0001?Math.abs(valChange/dur):0;"
+        // Return JSON
+        "return '{\"propName\":\"'+prop.name.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"propMatchName\":\"'+prop.matchName.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"keyIndex1\":'+k1+',\"keyIndex2\":'+k2+','+"
+        "'\"time1\":'+t1+',\"time2\":'+t2+','+"
+        "'\"value1\":'+val1+',\"value2\":'+val2+','+"
+        "'\"outSpeed\":'+outSpd+',\"outInfluence\":'+outInf+','+"
+        "'\"inSpeed\":'+inSpd+',\"inInfluence\":'+inInf+','+"
+        "'\"avgSpeed\":'+avgSpd+'}';"
+        "}catch(e){return '';}"
+        "})();";
+
+      char resultBuf[2048] = {0};
+      ExecuteScript(getInfoScript, resultBuf, sizeof(resultBuf));
+
       // Show keyframe panel
       int mouseX = 0, mouseY = 0;
       KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+
+      // Set keyframe info if we got valid data
+      if (resultBuf[0] == '{') {
+        wchar_t wResult[2048];
+        MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
+        KeyframeUI::SetKeyframeInfo(wResult);
+      }
+
       KeyframeUI::ShowPanel(mouseX, mouseY);
       g_keyframeVisible = true;
       g_kWaitingForHold = false;
@@ -1609,6 +1696,297 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   g_kKeyWasHeld = k_key_held;
 
+  // =========================================================================
+  // ALIGN MODULE: D→A sequence for quick align/distribute panel
+  // D key starts sequence, A key within 500ms triggers panel
+  // =========================================================================
+  bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
+  bool a_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_A);
+
+  // D key just pressed - start sequence timer
+  if (d_key_held && !g_dKeyWasHeld && !IsTextInputFocused() &&
+      IsAfterEffectsForeground() && !g_globals.menu_visible &&
+      !g_controlVisible && !g_keyframeVisible && !g_alignVisible && !g_textVisible) {
+    g_dKeyPressed = true;
+    g_dKeyPressTime = now;
+  }
+
+  // A key just pressed while D sequence active
+  if (a_key_held && !g_aKeyWasHeld && g_dKeyPressed && !IsTextInputFocused() &&
+      IsAfterEffectsForeground()) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - g_dKeyPressTime).count();
+    if (elapsed <= SEQUENCE_TIMEOUT_MS) {
+      // D→A sequence detected! Show align panel
+      int mouseX = 0, mouseY = 0;
+      KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+      AlignUI::ShowPanel(mouseX, mouseY);
+      g_alignVisible = true;
+      g_dKeyPressed = false; // Reset sequence
+    }
+  }
+
+  // D sequence timeout
+  if (g_dKeyPressed) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - g_dKeyPressTime).count();
+    if (elapsed > SEQUENCE_TIMEOUT_MS) {
+      g_dKeyPressed = false; // Timeout - reset sequence
+    }
+  }
+
+  // D key released - reset sequence (unless panel is showing)
+  if (!d_key_held && g_dKeyWasHeld && !g_alignVisible) {
+    g_dKeyPressed = false;
+  }
+
+  // Check if Align panel closed and process result
+  if (g_alignVisible && !AlignUI::IsVisible()) {
+    g_alignVisible = false;
+    AlignUI::AlignResult result = AlignUI::GetResult();
+
+    if (result.applied) {
+      // Execute alignment/distribution via ExtendScript
+      // The actual script will be built based on the result
+      if (result.funcMode == AlignUI::FUNC_ALIGN) {
+        // Build align script based on direction and reference mode
+        char script[4096];
+        const char* refMode = (result.refMode == AlignUI::REF_COMPOSITION) ? "true" : "false";
+        int dir = static_cast<int>(result.alignDir);
+
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "try{"
+          "var useComp=%s;"
+          "var dir=%d;" // 0=left,1=centerH,2=right,3=top,4=middleV,5=bottom
+          "var c=app.project.activeItem;"
+          "if(!c||!(c instanceof CompItem))return;"
+          "var layers=c.selectedLayers;"
+          "if(layers.length===0)return;"
+          "app.beginUndoGroup('Align Layers');"
+
+          // Get bounds for all layers
+          "function getBounds(L){"
+          "var r=L.sourceRectAtTime(c.time,false);"
+          "var pos=L.position.value,anc=L.anchorPoint.value,sc=L.scale.value;"
+          "var w=r.width*sc[0]/100,h=r.height*sc[1]/100;"
+          "var left=pos[0]-(anc[0]-r.left)*sc[0]/100;"
+          "var top=pos[1]-(anc[1]-r.top)*sc[1]/100;"
+          "return{left:left,top:top,right:left+w,bottom:top+h,cx:left+w/2,cy:top+h/2,w:w,h:h};"
+          "}"
+
+          "var allBounds=[];"
+          "for(var i=0;i<layers.length;i++)allBounds.push(getBounds(layers[i]));"
+
+          // Calculate target position based on mode
+          "var target;"
+          "if(useComp){"
+          "target={left:0,top:0,right:c.width,bottom:c.height,cx:c.width/2,cy:c.height/2};"
+          "}else{"
+          "var minL=Infinity,minT=Infinity,maxR=-Infinity,maxB=-Infinity;"
+          "for(var i=0;i<allBounds.length;i++){"
+          "var b=allBounds[i];"
+          "if(b.left<minL)minL=b.left;if(b.top<minT)minT=b.top;"
+          "if(b.right>maxR)maxR=b.right;if(b.bottom>maxB)maxB=b.bottom;"
+          "}"
+          "target={left:minL,top:minT,right:maxR,bottom:maxB,cx:(minL+maxR)/2,cy:(minT+maxB)/2};"
+          "}"
+
+          // Apply alignment
+          "for(var i=0;i<layers.length;i++){"
+          "var L=layers[i],b=allBounds[i];"
+          "var pos=L.position.value;"
+          "var dx=0,dy=0;"
+          "if(dir===0)dx=target.left-b.left;"       // Left
+          "else if(dir===1)dx=target.cx-b.cx;"      // Center H
+          "else if(dir===2)dx=target.right-b.right;" // Right
+          "else if(dir===3)dy=target.top-b.top;"    // Top
+          "else if(dir===4)dy=target.cy-b.cy;"      // Middle V
+          "else if(dir===5)dy=target.bottom-b.bottom;" // Bottom
+          "L.position.setValue([pos[0]+dx,pos[1]+dy]);"
+          "}"
+          "app.endUndoGroup();"
+          "}catch(e){alert('Align error: '+e.toString());}"
+          "})();",
+          refMode, dir);
+        ExecuteScript(script);
+      } else {
+        // Distribute
+        char script[4096];
+        const char* refMode = (result.refMode == AlignUI::REF_COMPOSITION) ? "true" : "false";
+        bool isHorizontal = (result.distDir == AlignUI::DIST_HORIZONTAL);
+
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "try{"
+          "var useComp=%s;"
+          "var isH=%s;"
+          "var c=app.project.activeItem;"
+          "if(!c||!(c instanceof CompItem))return;"
+          "var layers=c.selectedLayers;"
+          "if(layers.length<3)return;" // Need at least 3 layers
+          "app.beginUndoGroup('Distribute Layers');"
+
+          "function getBounds(L){"
+          "var r=L.sourceRectAtTime(c.time,false);"
+          "var pos=L.position.value,anc=L.anchorPoint.value,sc=L.scale.value;"
+          "var w=r.width*sc[0]/100,h=r.height*sc[1]/100;"
+          "var left=pos[0]-(anc[0]-r.left)*sc[0]/100;"
+          "var top=pos[1]-(anc[1]-r.top)*sc[1]/100;"
+          "return{left:left,top:top,right:left+w,bottom:top+h,cx:left+w/2,cy:top+h/2,w:w,h:h,layer:L};"
+          "}"
+
+          // Collect and sort layers by position
+          "var data=[];"
+          "for(var i=0;i<layers.length;i++){"
+          "var b=getBounds(layers[i]);b.layer=layers[i];data.push(b);"
+          "}"
+          "data.sort(function(a,b){return isH?(a.cx-b.cx):(a.cy-b.cy);});"
+
+          // Calculate spacing
+          "var first,last,total;"
+          "if(useComp){"
+          "first=isH?0:0;last=isH?c.width:c.height;"
+          "}else{"
+          "first=isH?data[0].cx:data[0].cy;"
+          "last=isH?data[data.length-1].cx:data[data.length-1].cy;"
+          "}"
+          "var spacing=(last-first)/(data.length-1);"
+
+          // Apply distribution (skip first and last)
+          "for(var i=1;i<data.length-1;i++){"
+          "var targetPos=first+spacing*i;"
+          "var delta=isH?(targetPos-data[i].cx):(targetPos-data[i].cy);"
+          "var pos=data[i].layer.position.value;"
+          "if(isH)data[i].layer.position.setValue([pos[0]+delta,pos[1]]);"
+          "else data[i].layer.position.setValue([pos[0],pos[1]+delta]);"
+          "}"
+          "app.endUndoGroup();"
+          "}catch(e){alert('Distribute error: '+e.toString());}"
+          "})();",
+          refMode, isHorizontal ? "true" : "false");
+        ExecuteScript(script);
+      }
+    }
+  }
+
+  // Update hover while align panel is visible
+  if (g_alignVisible && AlignUI::IsVisible()) {
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+    AlignUI::UpdateHover(mouseX, mouseY);
+  }
+
+  g_dKeyWasHeld = d_key_held;
+  g_aKeyWasHeld = a_key_held;
+
+  // =========================================================================
+  // TEXT MODULE: D→T sequence for quick text options panel
+  // D key starts sequence, T key within 500ms triggers panel
+  // Only shows when a text layer is selected
+  // =========================================================================
+  bool t_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_T);
+
+  // T key just pressed while D sequence active
+  if (t_key_held && !g_tKeyWasHeld && g_dKeyPressed && !IsTextInputFocused() &&
+      IsAfterEffectsForeground() && !g_textVisible) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - g_dKeyPressTime).count();
+    if (elapsed <= SEQUENCE_TIMEOUT_MS) {
+      // Check if a text layer is selected
+      if (HasSelectedTextLayer()) {
+        // Get text layer info before showing panel
+        const char* getTextInfoScript =
+          "(function(){"
+          "try{"
+          "var c=app.project.activeItem;"
+          "if(!c||!(c instanceof CompItem))return '';"
+          "var sel=c.selectedLayers;"
+          "var textLayer=null;"
+          "for(var i=0;i<sel.length;i++){"
+          "if(sel[i] instanceof TextLayer){textLayer=sel[i];break;}"
+          "}"
+          "if(!textLayer)return '';"
+          "var txt=textLayer.text.sourceText.value;"
+          // txt is a TextDocument object
+          "var font=txt.font||'Arial';"
+          "var fontStyle=txt.fontStyle||'Regular';"
+          "var fontSize=txt.fontSize||72;"
+          "var tracking=txt.tracking||0;"
+          "var leading=txt.leading||0;" // 0 = Auto
+          "var strokeWidth=txt.strokeWidth||0;"
+          "var fill=txt.fillColor||[1,1,1];"
+          "var stroke=txt.strokeColor||[0,0,0];"
+          "var applyFill=txt.applyFill!==false;"
+          "var applyStroke=txt.applyStroke||false;"
+          "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
+          // Convert justification to number
+          "var justNum=0;"
+          "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
+          "else if(just==ParagraphJustification.CENTER_JUSTIFY)justNum=1;"
+          "else if(just==ParagraphJustification.RIGHT_JUSTIFY)justNum=2;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT)justNum=3;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER)justNum=4;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
+          "return '{'+"
+          "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
+          "'\"fontStyle\":\"'+fontStyle.replace(/\"/g,'\\\\\"')+'\",'+"
+          "'\"fontSize\":'+fontSize+','+"
+          "'\"tracking\":'+tracking+','+"
+          "'\"leading\":'+leading+','+"
+          "'\"strokeWidth\":'+strokeWidth+','+"
+          "'\"fillColor\":['+fill[0]+','+fill[1]+','+fill[2]+'],'+"
+          "'\"strokeColor\":['+stroke[0]+','+stroke[1]+','+stroke[2]+'],'+"
+          "'\"applyFill\":'+applyFill+','+"
+          "'\"applyStroke\":'+applyStroke+','+"
+          "'\"justify\":'+justNum+','+"
+          "'\"layerName\":\"'+textLayer.name.replace(/\"/g,'\\\\\"')+'\"'+"
+          "'}';"
+          "}catch(e){return '';}"
+          "})();";
+
+        char resultBuf[2048] = {0};
+        ExecuteScript(getTextInfoScript, resultBuf, sizeof(resultBuf));
+
+        // Show text panel
+        int mouseX = 0, mouseY = 0;
+        KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+
+        // Set text info if we got valid data
+        if (resultBuf[0] == '{') {
+          wchar_t wResult[2048];
+          MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
+          TextUI::SetTextInfo(wResult);
+        }
+
+        TextUI::ShowPanel(mouseX, mouseY);
+        g_textVisible = true;
+        g_dKeyPressed = false; // Reset sequence
+      }
+    }
+  }
+
+  // Check if Text panel closed and process result
+  if (g_textVisible && !TextUI::IsVisible()) {
+    g_textVisible = false;
+    TextUI::TextResult result = TextUI::GetResult();
+
+    if (result.applied) {
+      // Text changes are applied in real-time via TextUI callbacks
+      // No additional processing needed here
+    }
+  }
+
+  // Update hover while text panel is visible
+  if (g_textVisible && TextUI::IsVisible()) {
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+    TextUI::UpdateHover(mouseX, mouseY);
+  }
+
+  g_tKeyWasHeld = t_key_held;
+
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
@@ -1637,6 +2015,8 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     NativeUI::Initialize();
     ControlUI::Initialize();
     KeyframeUI::Initialize();
+    AlignUI::Initialize();
+    TextUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 

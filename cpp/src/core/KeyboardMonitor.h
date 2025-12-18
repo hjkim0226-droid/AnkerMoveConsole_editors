@@ -20,6 +20,9 @@ enum KeyCode {
   KEY_Y = 0x10,         // Y key
   KEY_E = 0x0E,         // E key
   KEY_K = 0x28,         // K key (kVK_ANSI_K)
+  KEY_D = 0x02,         // D key (kVK_ANSI_D)
+  KEY_A = 0x00,         // A key (kVK_ANSI_A)
+  KEY_T = 0x11,         // T key (kVK_ANSI_T)
   KEY_SEMICOLON = 0x29, // ; key
   KEY_SHIFT = 0x38,     // Shift key
   KEY_CTRL = 0x3B,      // Control key
@@ -32,6 +35,9 @@ enum KeyCode {
   KEY_Y = 0x59,         // 'Y' key (VK_Y is same as ASCII 'Y')
   KEY_E = 0x45,         // 'E' key
   KEY_K = 0x4B,         // 'K' key (VK_K)
+  KEY_D = 0x44,         // 'D' key (VK_D)
+  KEY_A = 0x41,         // 'A' key (VK_A)
+  KEY_T = 0x54,         // 'T' key (VK_T)
   KEY_SEMICOLON = 0xBA, // ';' key (VK_OEM_1)
   KEY_SHIFT = 0x10,     // VK_SHIFT
   KEY_CTRL = 0x11,      // VK_CONTROL
