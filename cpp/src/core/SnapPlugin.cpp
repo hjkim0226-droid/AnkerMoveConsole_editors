@@ -221,7 +221,11 @@ static bool g_effectsLoaded = false;
 void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) {
   outBuffer[0] = L'\0';
 
-  char resultBuf[65536] = {0};  // Large buffer for all effects
+  // Use heap allocation to avoid stack overflow
+  char* resultBuf = new char[65536];
+  if (!resultBuf) return;
+  memset(resultBuf, 0, 65536);
+
   // Inline script to get all effects (doesn't depend on CEP panel)
   ExecuteScript(
       "(function(){"
@@ -235,11 +239,12 @@ void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) {
       "return r.join(';');"
       "}catch(ex){return '';}"
       "})();",
-      resultBuf, sizeof(resultBuf));
+      resultBuf, 65536);
 
   if (resultBuf[0] != '\0' && strncmp(resultBuf, "Error", 5) != 0) {
     MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, outBuffer, (int)bufSize);
   }
+  delete[] resultBuf;
 }
 
 /*****************************************************************************
@@ -1137,11 +1142,15 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Preload effects list on first idle (so Shift+E is fast)
   if (!g_effectsLoaded) {
-    wchar_t allEffects[65536];
-    GetAllEffectsList(allEffects, sizeof(allEffects) / sizeof(wchar_t));
-    if (allEffects[0] != L'\0') {
-      ControlUI::SetAvailableEffects(allEffects);
-      g_effectsLoaded = true;
+    // Use heap allocation to avoid stack overflow (65536 * 2 = 128KB is too large for stack)
+    wchar_t* allEffects = new wchar_t[65536];
+    if (allEffects) {
+      GetAllEffectsList(allEffects, 65536);
+      if (allEffects[0] != L'\0') {
+        ControlUI::SetAvailableEffects(allEffects);
+        g_effectsLoaded = true;
+      }
+      delete[] allEffects;
     }
   }
 
@@ -1347,62 +1356,73 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
             "})();");
       } else if (result.action == ControlUI::ACTION_SAVE_PRESET) {
         // Save current effects to preset slot - inline script
-        char presetData[65536] = {0};
-        ExecuteScript(
-            "(function(){"
-            "try{"
-            "var c=app.project.activeItem;"
-            "if(!c||!(c instanceof CompItem))return 'Error';"
-            "if(c.selectedLayers.length===0)return 'Error';"
-            "var layer=c.selectedLayers[0];"
-            "var fx=layer.property('ADBE Effect Parade');"
-            "if(!fx||fx.numProperties===0)return 'Error';"
-            "var allPresets={effects:[]};"
-            "for(var ei=0;ei<fx.numProperties;ei++){"
-            "var effect=fx.property(ei+1);"
-            "var preset={matchName:effect.matchName,name:effect.name,properties:[],expressions:[]};"
-            "for(var pi=1;pi<=effect.numProperties;pi++){"
-            "try{"
-            "var prop=effect.property(pi);"
-            "if(prop.propertyValueType===PropertyValueType.NO_VALUE)continue;"
-            "var pd={index:pi,name:prop.name,matchName:prop.matchName};"
-            "if(prop.numKeys===0){pd.value=prop.value;}else{pd.value=prop.valueAtTime(c.time,false);pd.hasKeyframes=true;}"
-            "if(prop.expression&&prop.expression.length>0){"
-            "preset.expressions.push({index:pi,expression:prop.expression,enabled:prop.expressionEnabled});"
-            "}"
-            "preset.properties.push(pd);"
-            "}catch(pe){}"
-            "}"
-            "allPresets.effects.push(preset);"
-            "}"
-            "return JSON.stringify(allPresets);"
-            "}catch(e){return 'Error';}"
-            "})();",
-            presetData, sizeof(presetData));
+        // Use heap allocation to avoid stack overflow
+        char* presetData = new char[65536];
+        if (presetData) {
+          memset(presetData, 0, 65536);
+          ExecuteScript(
+              "(function(){"
+              "try{"
+              "var c=app.project.activeItem;"
+              "if(!c||!(c instanceof CompItem))return 'Error';"
+              "if(c.selectedLayers.length===0)return 'Error';"
+              "var layer=c.selectedLayers[0];"
+              "var fx=layer.property('ADBE Effect Parade');"
+              "if(!fx||fx.numProperties===0)return 'Error';"
+              "var allPresets={effects:[]};"
+              "for(var ei=0;ei<fx.numProperties;ei++){"
+              "var effect=fx.property(ei+1);"
+              "var preset={matchName:effect.matchName,name:effect.name,properties:[],expressions:[]};"
+              "for(var pi=1;pi<=effect.numProperties;pi++){"
+              "try{"
+              "var prop=effect.property(pi);"
+              "if(prop.propertyValueType===PropertyValueType.NO_VALUE)continue;"
+              "var pd={index:pi,name:prop.name,matchName:prop.matchName};"
+              "if(prop.numKeys===0){pd.value=prop.value;}else{pd.value=prop.valueAtTime(c.time,false);pd.hasKeyframes=true;}"
+              "if(prop.expression&&prop.expression.length>0){"
+              "preset.expressions.push({index:pi,expression:prop.expression,enabled:prop.expressionEnabled});"
+              "}"
+              "preset.properties.push(pd);"
+              "}catch(pe){}"
+              "}"
+              "allPresets.effects.push(preset);"
+              "}"
+              "return JSON.stringify(allPresets);"
+              "}catch(e){return 'Error';}"
+              "})();",
+              presetData, 65536);
 
-        if (presetData[0] != '\0' && strncmp(presetData, "null", 4) != 0 &&
-            strncmp(presetData, "Error", 5) != 0) {
-          SavePresetToSlot(result.presetSlotIndex, presetData);
-          // Mark slot as filled for UI
-          ControlUI::SetPresetSlotFilled(result.presetSlotIndex, true);
-          // Show confirmation
-          char confirmScript[256];
-          snprintf(confirmScript, sizeof(confirmScript),
-                   "alert('Preset saved to slot %d')",
-                   result.presetSlotIndex + 1);
-          ExecuteScript(confirmScript);
+          if (presetData[0] != '\0' && strncmp(presetData, "null", 4) != 0 &&
+              strncmp(presetData, "Error", 5) != 0) {
+            SavePresetToSlot(result.presetSlotIndex, presetData);
+            // Mark slot as filled for UI
+            ControlUI::SetPresetSlotFilled(result.presetSlotIndex, true);
+            // Show confirmation
+            char confirmScript[256];
+            snprintf(confirmScript, sizeof(confirmScript),
+                     "alert('Preset saved to slot %d')",
+                     result.presetSlotIndex + 1);
+            ExecuteScript(confirmScript);
+          }
+          delete[] presetData;
         }
       } else if (result.action == ControlUI::ACTION_APPLY_PRESET) {
         // Apply preset from quick slot - inline script
-        char presetJson[65536] = {0};
-        if (LoadPresetFromSlot(result.presetSlotIndex, presetJson, sizeof(presetJson))) {
-          // Escape the JSON for use in script
-          char escapedJson[131072] = {0};
-          EscapeJsonForScript(presetJson, escapedJson, sizeof(escapedJson));
+        // Use heap allocation to avoid stack overflow
+        char* presetJson = new char[65536];
+        if (presetJson) {
+          memset(presetJson, 0, 65536);
+          if (LoadPresetFromSlot(result.presetSlotIndex, presetJson, 65536)) {
+            // Escape the JSON for use in script
+            char* escapedJson = new char[131072];
+            if (escapedJson) {
+              memset(escapedJson, 0, 131072);
+              EscapeJsonForScript(presetJson, escapedJson, 131072);
 
-          // Apply the preset with inline script
-          char script[150000];
-          snprintf(script, sizeof(script),
+              // Apply the preset with inline script
+              char* script = new char[150000];
+              if (script) {
+                snprintf(script, 150000,
                    "(function(){"
                    "try{"
                    "var allPresets=JSON.parse('%s');"
@@ -1440,14 +1460,20 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                    "}catch(e){}"
                    "})();",
                    escapedJson);
-          ExecuteScript(script);
-        } else {
-          // Slot is empty
-          char script[256];
-          snprintf(script, sizeof(script),
-                   "alert('Preset slot %d is empty')",
-                   result.presetSlotIndex + 1);
-          ExecuteScript(script);
+                ExecuteScript(script);
+                delete[] script;
+              }
+              delete[] escapedJson;
+            }
+          } else {
+            // Slot is empty
+            char emptyMsg[256];
+            snprintf(emptyMsg, sizeof(emptyMsg),
+                     "alert('Preset slot %d is empty')",
+                     result.presetSlotIndex + 1);
+            ExecuteScript(emptyMsg);
+          }
+          delete[] presetJson;
         }
       } else {
         // Mode 1: Add new effect to layer
