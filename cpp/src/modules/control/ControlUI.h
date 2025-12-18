@@ -49,7 +49,7 @@ struct ControlResult {
     wchar_t searchQuery[256];
     EffectAction action = ACTION_NONE;
     int effectIndex = -1;       // For layer effect actions
-    int presetSlotIndex = -1;   // For preset quick slot (0-2)
+    int presetSlotIndex = -1;   // For preset quick slot (0-5)
     bool saveMode = false;      // True when in save mode
 };
 
@@ -105,10 +105,20 @@ void SetLayerEffects(const wchar_t* effectList);
 void ClearLayerEffects();
 
 // Mark a preset slot as filled (call after saving preset)
+// slotIndex: 0-5 for the 6 preset slots
 void SetPresetSlotFilled(int slotIndex, bool filled);
 
 // Check if a preset slot is filled
 bool IsPresetSlotFilled(int slotIndex);
+
+// Set icon for a preset slot (0=None, 1=Color, 2=Blur, 3=Distort, 4=Star, 5=Lightning, 6=Magic)
+void SetPresetSlotIcon(int slotIndex, int iconType);
+
+// Get icon type for a preset slot
+int GetPresetSlotIcon(int slotIndex);
+
+// Set layer info for header display
+void SetLayerInfo(const wchar_t* layerName, int labelColor);
 
 } // namespace ControlUI
 

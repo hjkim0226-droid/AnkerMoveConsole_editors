@@ -73,22 +73,41 @@ static const Color COLOR_PRESET_BG(255, 50, 50, 60);
 static const Color COLOR_PRESET_HOVER(255, 70, 100, 130);
 static const Color COLOR_PRESET_ACTIVE(255, 74, 158, 255);
 
-// Close button state
-static bool g_closeButtonHover = false;
-
 // New EC window button state (Mode 2)
 static bool g_newECButtonHover = false;
 static const int NEW_EC_BUTTON_SIZE = 20;
 
+// Preset icons
+enum PresetIcon {
+    ICON_NONE = 0,      // Empty slot (no preset saved)
+    ICON_COLOR,         // Color wheel
+    ICON_BLUR,          // Blur circles
+    ICON_DISTORT,       // Wave
+    ICON_STAR,          // Star
+    ICON_LIGHTNING,     // Lightning bolt
+    ICON_MAGIC,         // Magic wand/sparkles
+    ICON_COUNT          // Number of icons (excluding NONE)
+};
+
 // Preset button state (Mode 2)
-static int g_hoveredPresetButton = -1;  // -1 = none, 0-2 = slot buttons
-static int g_presetSlots[3] = {-1, -1, -1};  // Assigned preset indices
+static int g_hoveredPresetButton = -1;  // -1 = none, 0-5 = slot buttons
+static const int PRESET_SLOT_COUNT = 6;
+static PresetIcon g_presetIcons[PRESET_SLOT_COUNT] = {ICON_NONE, ICON_NONE, ICON_NONE, ICON_NONE, ICON_NONE, ICON_NONE};
+
+// Icon selection state
+static bool g_showingIconSelector = false;
+static int g_iconSelectorForSlot = -1;  // Which slot is selecting icon
+static int g_hoveredIcon = -1;          // Hovered icon in selector
+
+// Long press state for icon change
+static UINT_PTR g_longPressTimerId = 0;
+static int g_longPressSlot = -1;
+static const UINT LONG_PRESS_MS = 500;  // 0.5 second hold to change icon
 
 // Save mode state (Mode 2)
 static bool g_saveMode = false;         // When true, clicking preset button saves
 static bool g_saveButtonHover = false;  // Hover state for save button
-static const int SAVE_BUTTON_WIDTH = 36;
-static const int SAVE_BUTTON_HEIGHT = 20;
+static const int SAVE_BUTTON_SIZE = 28; // Square button to match preset height
 
 // Delayed close timer (prevent immediate close on focus loss)
 static UINT_PTR g_closeTimerId = 0;
@@ -107,6 +126,35 @@ static bool g_isDragging = false;       // True while window is being dragged
 
 // Wait for Shift+E release before accepting input
 static bool g_waitingForKeyRelease = false;
+
+// Keep panel open option (persisted)
+static bool g_keepPanelOpen = false;
+static bool g_keepOpenButtonHover = false;
+
+// Current layer info for header display
+static wchar_t g_currentLayerName[256] = L"";
+static int g_currentLayerLabelColor = 0;  // 0-16 AE label colors
+
+// Label colors (AE default palette)
+static const Color LABEL_COLORS[] = {
+    Color(255, 128, 128, 128),  // 0: None (gray)
+    Color(255, 255, 50, 50),    // 1: Red
+    Color(255, 255, 200, 50),   // 2: Yellow
+    Color(255, 180, 220, 140),  // 3: Aqua
+    Color(255, 255, 180, 200),  // 4: Pink
+    Color(255, 200, 180, 255),  // 5: Lavender
+    Color(255, 255, 200, 150),  // 6: Peach
+    Color(255, 200, 200, 220),  // 7: Sea Foam
+    Color(255, 120, 180, 255),  // 8: Blue
+    Color(255, 120, 255, 120),  // 9: Green
+    Color(255, 200, 120, 255),  // 10: Purple
+    Color(255, 255, 160, 80),   // 11: Orange
+    Color(255, 165, 120, 80),   // 12: Brown
+    Color(255, 255, 120, 200),  // 13: Fuchsia
+    Color(255, 80, 200, 180),   // 14: Cyan
+    Color(255, 180, 200, 120),  // 15: Sandstone
+    Color(255, 100, 160, 100),  // 16: Dark Green
+};
 
 // Dynamic effects list (loaded from AE - localized names)
 static std::vector<ControlUI::EffectItem> g_availableEffects;
@@ -526,30 +574,28 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     Pen borderPen(COLOR_BORDER, 1);
     graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
 
-    // Search box background
+    // Search box background (full width - only pin button on right)
     SolidBrush searchBgBrush(COLOR_SEARCH_BG);
-    RectF searchRect(PADDING, PADDING, width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4, SEARCH_HEIGHT);
+    RectF searchRect(PADDING, PADDING, width - PADDING * 2 - NEW_EC_BUTTON_SIZE - 8, SEARCH_HEIGHT);
     graphics.FillRectangle(&searchBgBrush, searchRect);
 
-    // Close button [x]
-    int closeBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
-    int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
-    RectF closeRect((REAL)closeBtnX, (REAL)closeBtnY, (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
+    // Keep open (pin) button - right side
+    int pinBtnX = width - PADDING - NEW_EC_BUTTON_SIZE;
+    int pinBtnY = PADDING + (SEARCH_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+    RectF pinRect((REAL)pinBtnX, (REAL)pinBtnY, (REAL)NEW_EC_BUTTON_SIZE, (REAL)NEW_EC_BUTTON_SIZE);
 
-    if (g_closeButtonHover) {
-        SolidBrush closeBgBrush(COLOR_CLOSE_HOVER);
-        graphics.FillRectangle(&closeBgBrush, closeRect);
+    if (g_keepOpenButtonHover || g_keepPanelOpen) {
+        SolidBrush pinBgBrush(g_keepPanelOpen ? COLOR_PRESET_ACTIVE : COLOR_PRESET_HOVER);
+        graphics.FillRectangle(&pinBgBrush, pinRect);
     }
 
-    // Draw X
-    Pen xPen(COLOR_TEXT, 2);
-    float margin = 5.0f;
-    graphics.DrawLine(&xPen,
-        closeBtnX + margin, closeBtnY + margin,
-        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
-    graphics.DrawLine(&xPen,
-        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + margin,
-        closeBtnX + margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
+    // Draw pin icon
+    Color pinColor = g_keepPanelOpen ? Color(255, 255, 255, 255) : Color(255, 140, 140, 140);
+    Pen pinPen(pinColor, 1.5f);
+    float px = (float)pinBtnX, py = (float)pinBtnY;
+    float ps = (float)NEW_EC_BUTTON_SIZE;
+    graphics.DrawEllipse(&pinPen, px + ps * 0.3f, py + ps * 0.2f, ps * 0.4f, ps * 0.35f);
+    graphics.DrawLine(&pinPen, px + ps * 0.5f, py + ps * 0.55f, px + ps * 0.5f, py + ps * 0.8f);
 
     // Search text
     FontFamily fontFamily(L"Segoe UI");
@@ -655,6 +701,116 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     }
 }
 
+// Draw preset icon inside a rectangle
+void DrawPresetIcon(Graphics& graphics, PresetIcon icon, RectF rect, bool filled) {
+    float cx = rect.X + rect.Width / 2;
+    float cy = rect.Y + rect.Height / 2;
+    float r = min(rect.Width, rect.Height) / 2 - 4;
+
+    Color iconColor = filled ? Color(255, 255, 255, 255) : Color(255, 100, 100, 110);
+    Pen iconPen(iconColor, 2);
+    SolidBrush iconBrush(iconColor);
+
+    switch (icon) {
+        case ICON_COLOR: {
+            // Color wheel - three overlapping circles (RGB)
+            float sr = r * 0.5f;
+            graphics.DrawEllipse(&iconPen, cx - sr, cy - r * 0.4f, sr * 1.4f, sr * 1.4f);
+            graphics.DrawEllipse(&iconPen, cx - sr * 0.7f - sr * 0.4f, cy + r * 0.1f, sr * 1.4f, sr * 1.4f);
+            graphics.DrawEllipse(&iconPen, cx + sr * 0.7f - sr * 0.7f, cy + r * 0.1f, sr * 1.4f, sr * 1.4f);
+            break;
+        }
+        case ICON_BLUR: {
+            // Concentric circles (blur effect)
+            graphics.DrawEllipse(&iconPen, cx - r, cy - r, r * 2, r * 2);
+            graphics.DrawEllipse(&iconPen, cx - r * 0.6f, cy - r * 0.6f, r * 1.2f, r * 1.2f);
+            graphics.DrawEllipse(&iconPen, cx - r * 0.25f, cy - r * 0.25f, r * 0.5f, r * 0.5f);
+            break;
+        }
+        case ICON_DISTORT: {
+            // Wave/distort
+            GraphicsPath path;
+            float waveY = cy;
+            PointF points[7];
+            for (int i = 0; i < 7; i++) {
+                float wx = cx - r + (r * 2 * i / 6.0f);
+                float wy = cy + sinf(i * 3.14159f / 2) * r * 0.5f;
+                points[i] = PointF(wx, wy);
+            }
+            graphics.DrawCurve(&iconPen, points, 7, 0.5f);
+            break;
+        }
+        case ICON_STAR: {
+            // 5-pointed star
+            GraphicsPath path;
+            PointF starPoints[10];
+            for (int i = 0; i < 10; i++) {
+                float angle = (i * 36.0f - 90.0f) * 3.14159f / 180.0f;
+                float sr = (i % 2 == 0) ? r : r * 0.45f;
+                starPoints[i] = PointF(cx + cosf(angle) * sr, cy + sinf(angle) * sr);
+            }
+            path.AddPolygon(starPoints, 10);
+            graphics.FillPath(&iconBrush, &path);
+            break;
+        }
+        case ICON_LIGHTNING: {
+            // Lightning bolt
+            PointF bolt[] = {
+                PointF(cx + r * 0.2f, cy - r),
+                PointF(cx - r * 0.3f, cy - r * 0.1f),
+                PointF(cx + r * 0.1f, cy - r * 0.1f),
+                PointF(cx - r * 0.2f, cy + r),
+                PointF(cx + r * 0.3f, cy + r * 0.1f),
+                PointF(cx - r * 0.1f, cy + r * 0.1f),
+                PointF(cx + r * 0.2f, cy - r)
+            };
+            GraphicsPath path;
+            path.AddPolygon(bolt, 7);
+            graphics.FillPath(&iconBrush, &path);
+            break;
+        }
+        case ICON_MAGIC: {
+            // Magic wand with sparkle
+            // Wand diagonal line
+            Pen wandPen(iconColor, 2.5f);
+            graphics.DrawLine(&wandPen, cx - r * 0.7f, cy + r * 0.7f, cx + r * 0.5f, cy - r * 0.5f);
+            // Sparkle at tip
+            float sx = cx + r * 0.5f, sy = cy - r * 0.5f;
+            Pen sparklePen(iconColor, 1.5f);
+            graphics.DrawLine(&sparklePen, sx - r * 0.3f, sy, sx + r * 0.3f, sy);
+            graphics.DrawLine(&sparklePen, sx, sy - r * 0.3f, sx, sy + r * 0.3f);
+            graphics.DrawLine(&sparklePen, sx - r * 0.2f, sy - r * 0.2f, sx + r * 0.2f, sy + r * 0.2f);
+            graphics.DrawLine(&sparklePen, sx + r * 0.2f, sy - r * 0.2f, sx - r * 0.2f, sy + r * 0.2f);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+// Draw save icon (floppy disk)
+void DrawSaveIcon(Graphics& graphics, RectF rect, bool hover) {
+    float cx = rect.X + rect.Width / 2;
+    float cy = rect.Y + rect.Height / 2;
+    float s = min(rect.Width, rect.Height) / 2 - 3;
+
+    Color iconColor = hover ? Color(255, 74, 207, 255) : Color(255, 200, 200, 200);
+    Pen iconPen(iconColor, 1.5f);
+    SolidBrush iconBrush(iconColor);
+
+    // Floppy disk outline
+    RectF diskRect(cx - s, cy - s, s * 2, s * 2);
+    graphics.DrawRectangle(&iconPen, diskRect);
+
+    // Metal slider area at top
+    RectF sliderRect(cx - s * 0.6f, cy - s, s * 1.2f, s * 0.5f);
+    graphics.FillRectangle(&iconBrush, sliderRect);
+
+    // Label area at bottom
+    RectF labelRect(cx - s * 0.7f, cy + s * 0.1f, s * 1.4f, s * 0.7f);
+    graphics.DrawRectangle(&iconPen, labelRect);
+}
+
 // Draw the effects panel (Mode 2)
 void DrawEffectsPanel(HDC hdc, int width, int height) {
     Graphics graphics(hdc);
@@ -674,7 +830,6 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     Font headerFont(&fontFamily, 12, FontStyleBold, UnitPixel);
     Font itemFont(&fontFamily, 12, FontStyleRegular, UnitPixel);
     Font indexFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
-    Font presetFont(&fontFamily, 14, FontStyleBold, UnitPixel);
     SolidBrush textBrush(COLOR_TEXT);
     SolidBrush dimBrush(COLOR_TEXT_DIM);
     SolidBrush accentBrush(COLOR_ACCENT);
@@ -689,32 +844,45 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
 
     int currentY = PADDING;
 
-    // ===== Header bar =====
-    SolidBrush headerBgBrush(COLOR_SEARCH_BG);
-    RectF headerRect(PADDING, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - NEW_EC_BUTTON_SIZE - 8, HEADER_HEIGHT);
-    graphics.FillRectangle(&headerBgBrush, headerRect);
+    // ===== Header bar with layer name and label color =====
+    // Label color indicator (small square)
+    int labelSize = 8;
+    int labelX = PADDING + 4;
+    int labelY = currentY + (HEADER_HEIGHT - labelSize) / 2;
+    int labelIndex = (g_currentLayerLabelColor >= 0 && g_currentLayerLabelColor <= 16) ? g_currentLayerLabelColor : 0;
+    SolidBrush labelBrush(LABEL_COLORS[labelIndex]);
+    graphics.FillRectangle(&labelBrush, labelX, labelY, labelSize, labelSize);
 
-    // Close button [x]
-    int closeBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
-    int closeBtnY = currentY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
-    RectF closeRect((REAL)closeBtnX, (REAL)closeBtnY, (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
-
-    if (g_closeButtonHover) {
-        SolidBrush closeBgBrush(COLOR_CLOSE_HOVER);
-        graphics.FillRectangle(&closeBgBrush, closeRect);
+    // Layer name
+    RectF titleRect(PADDING + labelSize + 10, currentY, width - PADDING * 2 - NEW_EC_BUTTON_SIZE - 10, HEADER_HEIGHT);
+    if (wcslen(g_currentLayerName) > 0) {
+        graphics.DrawString(g_currentLayerName, -1, &headerFont, titleRect, &sf, &textBrush);
+    } else {
+        graphics.DrawString(L"Selected Layer", -1, &headerFont, titleRect, &sf, &dimBrush);
     }
 
-    Pen xPen(COLOR_TEXT, 2);
-    float margin = 5.0f;
-    graphics.DrawLine(&xPen,
-        closeBtnX + margin, closeBtnY + margin,
-        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
-    graphics.DrawLine(&xPen,
-        closeBtnX + CLOSE_BUTTON_SIZE - margin, closeBtnY + margin,
-        closeBtnX + margin, closeBtnY + CLOSE_BUTTON_SIZE - margin);
+    // Keep open (pin) button - right side
+    int pinBtnX = width - PADDING - NEW_EC_BUTTON_SIZE;
+    int pinBtnY = currentY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+    RectF pinRect((REAL)pinBtnX, (REAL)pinBtnY, (REAL)NEW_EC_BUTTON_SIZE, (REAL)NEW_EC_BUTTON_SIZE);
 
-    // New EC window button [+] - left of close button
-    int newECBtnX = closeBtnX - NEW_EC_BUTTON_SIZE - 4;
+    if (g_keepOpenButtonHover || g_keepPanelOpen) {
+        SolidBrush pinBgBrush(g_keepPanelOpen ? COLOR_PRESET_ACTIVE : COLOR_PRESET_HOVER);
+        graphics.FillRectangle(&pinBgBrush, pinRect);
+    }
+
+    // Draw pin icon (pushpin)
+    Color pinColor = g_keepPanelOpen ? Color(255, 255, 255, 255) : Color(255, 140, 140, 140);
+    Pen pinPen(pinColor, 1.5f);
+    float px = (float)pinBtnX, py = (float)pinBtnY;
+    float ps = (float)NEW_EC_BUTTON_SIZE;
+    // Pin head (circle)
+    graphics.DrawEllipse(&pinPen, px + ps * 0.3f, py + ps * 0.2f, ps * 0.4f, ps * 0.35f);
+    // Pin needle (line down)
+    graphics.DrawLine(&pinPen, px + ps * 0.5f, py + ps * 0.55f, px + ps * 0.5f, py + ps * 0.8f);
+
+    // New EC window button [+] - left of pin button
+    int newECBtnX = pinBtnX - NEW_EC_BUTTON_SIZE - 4;
     int newECBtnY = currentY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
     RectF newECRect((REAL)newECBtnX, (REAL)newECBtnY, (REAL)NEW_EC_BUTTON_SIZE, (REAL)NEW_EC_BUTTON_SIZE);
 
@@ -726,80 +894,74 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     // Draw + sign
     Pen plusPen(COLOR_ACCENT, 2);
     float plusMargin = 5.0f;
-    // Horizontal line
     graphics.DrawLine(&plusPen,
         (REAL)(newECBtnX + plusMargin), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE / 2),
         (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE - plusMargin), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE / 2));
-    // Vertical line
     graphics.DrawLine(&plusPen,
         (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE / 2), (REAL)(newECBtnY + plusMargin),
         (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE / 2), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE - plusMargin));
 
-    // Save button [S] - left of [+] button
-    int saveBtnX = newECBtnX - SAVE_BUTTON_WIDTH - 4;
-    int saveBtnY = currentY + (HEADER_HEIGHT - SAVE_BUTTON_HEIGHT) / 2;
-    RectF saveRect((REAL)saveBtnX, (REAL)saveBtnY, (REAL)SAVE_BUTTON_WIDTH, (REAL)SAVE_BUTTON_HEIGHT);
+    currentY += HEADER_HEIGHT + 4;
 
-    // Save button background - highlight when in save mode
+    // ===== Preset buttons bar with icons =====
+    int presetBarY = currentY;
+    int presetBtnSpacing = 4;
+    // 6 preset buttons + save button
+    int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
+    int presetStartX = (width - totalPresetWidth) / 2;
+
+    for (int i = 0; i < PRESET_SLOT_COUNT; i++) {
+        int btnX = presetStartX + i * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
+        int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
+
+        RectF btnRect((REAL)btnX, (REAL)btnY, (REAL)PRESET_BUTTON_HEIGHT, (REAL)PRESET_BUTTON_HEIGHT);
+        bool hasFx = (g_presetIcons[i] != ICON_NONE);
+
+        // Button background
+        Color btnColor;
+        if (g_saveMode) {
+            // Save mode: orange glow
+            btnColor = (i == g_hoveredPresetButton) ? Color(255, 255, 180, 0) : Color(255, 200, 120, 0);
+        } else {
+            btnColor = (i == g_hoveredPresetButton) ? COLOR_PRESET_HOVER :
+                       hasFx ? COLOR_PRESET_ACTIVE : COLOR_PRESET_BG;
+        }
+        SolidBrush btnBrush(btnColor);
+        graphics.FillRectangle(&btnBrush, btnRect);
+
+        // Button border
+        if (hasFx) {
+            Pen btnBorder(COLOR_BORDER, 1);
+            graphics.DrawRectangle(&btnBorder, btnRect);
+        } else {
+            // Empty slot: dashed border
+            Pen dashPen(Color(255, 80, 80, 90), 1);
+            float dashes[] = {3.0f, 3.0f};
+            dashPen.SetDashPattern(dashes, 2);
+            graphics.DrawRectangle(&dashPen, btnRect);
+        }
+
+        // Draw icon or empty state
+        if (hasFx) {
+            DrawPresetIcon(graphics, g_presetIcons[i], btnRect, true);
+        }
+    }
+
+    // Save button (floppy disk icon) - right of preset buttons
+    int saveBtnX = presetStartX + PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
+    int saveBtnY = presetBarY + (PRESET_BAR_HEIGHT - SAVE_BUTTON_SIZE) / 2;
+    RectF saveRect((REAL)saveBtnX, (REAL)saveBtnY, (REAL)SAVE_BUTTON_SIZE, (REAL)SAVE_BUTTON_SIZE);
+
     Color saveBtnColor = g_saveMode ? COLOR_PRESET_ACTIVE :
                          g_saveButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
     SolidBrush saveBtnBrush(saveBtnColor);
     graphics.FillRectangle(&saveBtnBrush, saveRect);
 
-    // Save button border
     Pen saveBorder(COLOR_BORDER, 1);
     graphics.DrawRectangle(&saveBorder, saveRect);
 
-    // Save button text "S"
-    Font saveFont(L"Segoe UI", 10, FontStyleBold, UnitPixel);
-    graphics.DrawString(L"S", -1, &saveFont, saveRect, &sfCenter, &textBrush);
-
-    // Header text
-    RectF titleRect(PADDING + 8, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - NEW_EC_BUTTON_SIZE - 20, HEADER_HEIGHT);
-    graphics.DrawString(L"Layer Effects", -1, &headerFont, titleRect, &sf, &textBrush);
-
-    currentY += HEADER_HEIGHT + 4;
-
-    // ===== Preset buttons bar =====
-    int presetBarY = currentY;
-    int presetBtnSpacing = 4;
-    int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
-    int presetStartX = (width - totalPresetWidth) / 2;
-
-    for (int i = 0; i < 3; i++) {
-        int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + presetBtnSpacing);
-        int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
-
-        RectF btnRect((REAL)btnX, (REAL)btnY, (REAL)PRESET_BUTTON_WIDTH, (REAL)PRESET_BUTTON_HEIGHT);
-
-        // Button background - different color in save mode
-        Color btnColor;
-        if (g_saveMode) {
-            // In save mode: all buttons glow orange to indicate ready for save
-            btnColor = (i == g_hoveredPresetButton) ? Color(255, 255, 180, 0) :  // Bright orange on hover
-                       Color(255, 200, 120, 0);  // Orange glow
-        } else {
-            // Normal mode
-            btnColor = (i == g_hoveredPresetButton) ? COLOR_PRESET_HOVER :
-                       (g_presetSlots[i] >= 0) ? COLOR_PRESET_ACTIVE : COLOR_PRESET_BG;
-        }
-        SolidBrush btnBrush(btnColor);
-        graphics.FillRectangle(&btnBrush, btnRect);
-
-        // Button border - thicker in save mode
-        if (g_saveMode) {
-            Pen btnBorder(Color(255, 255, 200, 100), 2);
-            graphics.DrawRectangle(&btnBorder, btnRect);
-        } else {
-            Pen btnBorder(COLOR_BORDER, 1);
-            graphics.DrawRectangle(&btnBorder, btnRect);
-        }
-
-        // Button text
-        wchar_t btnText[4];
-        swprintf_s(btnText, L"%d", i + 1);
-        graphics.DrawString(btnText, -1, &presetFont, btnRect, &sfCenter, &textBrush);
-    }
+    // Draw save icon
+    DrawSaveIcon(graphics, saveRect, g_saveButtonHover || g_saveMode);
 
     currentY += PRESET_BAR_HEIGHT;
 
@@ -1121,13 +1283,13 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int headerHeight = SEARCH_HEIGHT;
                 int startY = PADDING + headerHeight + PADDING;
 
-                // Check close button hover
-                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-                int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
-                bool wasCloseHover = g_closeButtonHover;
-                g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
-                                      y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
-                if (wasCloseHover != g_closeButtonHover) needRedraw = true;
+                // Check pin button hover
+                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnY = PADDING + (headerHeight - NEW_EC_BUTTON_SIZE) / 2;
+                bool wasPinHover = g_keepOpenButtonHover;
+                g_keepOpenButtonHover = (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
+                                         y >= pinBtnY && y < pinBtnY + NEW_EC_BUTTON_SIZE);
+                if (wasPinHover != g_keepOpenButtonHover) needRedraw = true;
 
                 // Check item hover
                 int itemCount = (int)g_searchResults.size();
@@ -1151,47 +1313,47 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int searchBarY = presetBarY + PRESET_BAR_HEIGHT;
                 int itemsStartY = searchBarY + SEARCH_HEIGHT + PADDING;
 
-                // Check close button hover (in header)
-                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-                int closeBtnY = headerY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
-                bool wasCloseHover = g_closeButtonHover;
-                g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
-                                      y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
-                if (wasCloseHover != g_closeButtonHover) needRedraw = true;
+                // Check pin button hover (in header - right side)
+                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                bool wasPinHover = g_keepOpenButtonHover;
+                g_keepOpenButtonHover = (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
+                                         y >= pinBtnY && y < pinBtnY + NEW_EC_BUTTON_SIZE);
+                if (wasPinHover != g_keepOpenButtonHover) needRedraw = true;
 
-                // Check new EC button hover [+]
-                int newECBtnX = closeBtnX - NEW_EC_BUTTON_SIZE - 4;
+                // Check new EC button hover [+] - left of pin
+                int newECBtnX = pinBtnX - NEW_EC_BUTTON_SIZE - 4;
                 int newECBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
                 bool wasNewECHover = g_newECButtonHover;
                 g_newECButtonHover = (x >= newECBtnX && x < newECBtnX + NEW_EC_BUTTON_SIZE &&
                                       y >= newECBtnY && y < newECBtnY + NEW_EC_BUTTON_SIZE);
                 if (wasNewECHover != g_newECButtonHover) needRedraw = true;
 
-                // Check save button hover [S]
-                int saveBtnX = newECBtnX - SAVE_BUTTON_WIDTH - 4;
-                int saveBtnY = headerY + (HEADER_HEIGHT - SAVE_BUTTON_HEIGHT) / 2;
-                bool wasSaveHover = g_saveButtonHover;
-                g_saveButtonHover = (x >= saveBtnX && x < saveBtnX + SAVE_BUTTON_WIDTH &&
-                                     y >= saveBtnY && y < saveBtnY + SAVE_BUTTON_HEIGHT);
-                if (wasSaveHover != g_saveButtonHover) needRedraw = true;
-
-                // Check preset button hover
+                // Check preset buttons and save button hover (in preset bar)
                 int presetBtnSpacing = 4;
-                int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
+                int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
                 int presetStartX = (rc.right - totalPresetWidth) / 2;
                 int oldHoveredPreset = g_hoveredPresetButton;
                 g_hoveredPresetButton = -1;
 
-                for (int i = 0; i < 3; i++) {
-                    int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + presetBtnSpacing);
+                for (int i = 0; i < PRESET_SLOT_COUNT; i++) {
+                    int btnX = presetStartX + i * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
                     int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
-                    if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
+                    if (x >= btnX && x < btnX + PRESET_BUTTON_HEIGHT &&
                         y >= btnY && y < btnY + PRESET_BUTTON_HEIGHT) {
                         g_hoveredPresetButton = i;
                         break;
                     }
                 }
                 if (oldHoveredPreset != g_hoveredPresetButton) needRedraw = true;
+
+                // Check save button hover (right of preset buttons)
+                int saveBtnX = presetStartX + PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
+                int saveBtnY = presetBarY + (PRESET_BAR_HEIGHT - SAVE_BUTTON_SIZE) / 2;
+                bool wasSaveHover = g_saveButtonHover;
+                g_saveButtonHover = (x >= saveBtnX && x < saveBtnX + SAVE_BUTTON_SIZE &&
+                                     y >= saveBtnY && y < saveBtnY + SAVE_BUTTON_SIZE);
+                if (wasSaveHover != g_saveButtonHover) needRedraw = true;
 
                 // Check item hover
                 int itemCount = (int)g_layerEffects.size();
@@ -1224,13 +1386,13 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int headerHeight = SEARCH_HEIGHT;
                 int startY = PADDING + headerHeight + PADDING;
 
-                // Check close button click
-                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-                int closeBtnY = PADDING + (headerHeight - CLOSE_BUTTON_SIZE) / 2;
-                if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
-                    y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
-                    g_result.cancelled = true;
-                    ControlUI::HidePanel();
+                // Check pin button click (toggle keep-open)
+                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnY = PADDING + (headerHeight - NEW_EC_BUTTON_SIZE) / 2;
+                if (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
+                    y >= pinBtnY && y < pinBtnY + NEW_EC_BUTTON_SIZE) {
+                    g_keepPanelOpen = !g_keepPanelOpen;
+                    InvalidateRect(hwnd, NULL, FALSE);
                     return 0;
                 }
 
@@ -1241,7 +1403,10 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         g_result.effectSelected = true;
                         g_result.selectedEffect = g_searchResults[idx];
                         wcscpy_s(g_result.searchQuery, g_searchQuery);
-                        ControlUI::HidePanel();
+                        // Auto-close unless pinned
+                        if (!g_keepPanelOpen) {
+                            ControlUI::HidePanel();
+                        }
                     }
                 }
             } else {
@@ -1252,90 +1417,119 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int searchBarY = presetBarY + PRESET_BAR_HEIGHT;
                 int itemsStartY = searchBarY + SEARCH_HEIGHT + PADDING;
 
-                // Check close button click (in header)
-                int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-                int closeBtnY = headerY + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
-                if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
-                    y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
-                    g_result.cancelled = true;
-                    ControlUI::HidePanel();
-                    return 0;
-                }
-
-                // Check new EC button click [+]
-                int newECBtnX = closeBtnX - NEW_EC_BUTTON_SIZE - 4;
-                int newECBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
-                if (x >= newECBtnX && x < newECBtnX + NEW_EC_BUTTON_SIZE &&
-                    y >= newECBtnY && y < newECBtnY + NEW_EC_BUTTON_SIZE) {
-                    g_result.action = ControlUI::ACTION_NEW_EC_WINDOW;
-                    ControlUI::HidePanel();
-                    return 0;
-                }
-
-                // Check save button click [S]
-                int saveBtnX = newECBtnX - SAVE_BUTTON_WIDTH - 4;
-                int saveBtnY = headerY + (HEADER_HEIGHT - SAVE_BUTTON_HEIGHT) / 2;
-                if (x >= saveBtnX && x < saveBtnX + SAVE_BUTTON_WIDTH &&
-                    y >= saveBtnY && y < saveBtnY + SAVE_BUTTON_HEIGHT) {
-                    // Toggle save mode
-                    g_saveMode = !g_saveMode;
+                // Check pin button click (toggle keep-open) - in header, right side
+                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                if (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
+                    y >= pinBtnY && y < pinBtnY + NEW_EC_BUTTON_SIZE) {
+                    g_keepPanelOpen = !g_keepPanelOpen;
                     InvalidateRect(hwnd, NULL, FALSE);
                     return 0;
                 }
 
-                // Check preset button click
+                // Check new EC button click [+] - left of pin button
+                int newECBtnX = pinBtnX - NEW_EC_BUTTON_SIZE - 4;
+                int newECBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                if (x >= newECBtnX && x < newECBtnX + NEW_EC_BUTTON_SIZE &&
+                    y >= newECBtnY && y < newECBtnY + NEW_EC_BUTTON_SIZE) {
+                    g_result.action = ControlUI::ACTION_NEW_EC_WINDOW;
+                    if (!g_keepPanelOpen) {
+                        ControlUI::HidePanel();
+                    }
+                    return 0;
+                }
+
+                // Check preset buttons and save button in preset bar
                 int presetBtnSpacing = 4;
-                int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
+                int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
                 int presetStartX = (rc.right - totalPresetWidth) / 2;
 
-                for (int i = 0; i < 3; i++) {
-                    int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + presetBtnSpacing);
+                // Check 6 preset buttons (square, PRESET_BUTTON_HEIGHT x PRESET_BUTTON_HEIGHT)
+                for (int i = 0; i < PRESET_SLOT_COUNT; i++) {
+                    int btnX = presetStartX + i * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
                     int btnY = presetBarY + (PRESET_BAR_HEIGHT - PRESET_BUTTON_HEIGHT) / 2;
-                    if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
+                    if (x >= btnX && x < btnX + PRESET_BUTTON_HEIGHT &&
                         y >= btnY && y < btnY + PRESET_BUTTON_HEIGHT) {
                         // Preset button clicked
                         if (g_saveMode) {
                             // Save mode: save current effects to this slot
                             g_result.action = ControlUI::ACTION_SAVE_PRESET;
                             g_result.presetSlotIndex = i;
-                            g_result.effectSelected = true;  // Signal that action is valid
-                            g_saveMode = false;  // Exit save mode
-                            ControlUI::HidePanel();
+                            g_result.effectSelected = true;
+                            g_saveMode = false;
+                            if (!g_keepPanelOpen) {
+                                ControlUI::HidePanel();
+                            } else {
+                                InvalidateRect(hwnd, NULL, FALSE);
+                            }
                         } else {
-                            // Normal mode: always try to apply preset
-                            // (SnapPlugin will check if file exists and show "slot empty" if not)
-                            g_result.action = ControlUI::ACTION_APPLY_PRESET;
-                            g_result.presetSlotIndex = i;
-                            g_result.effectSelected = true;  // Signal that action is valid
-                            ControlUI::HidePanel();
+                            // Normal mode: apply preset (if slot has icon, meaning preset exists)
+                            if (g_presetIcons[i] != ICON_NONE) {
+                                g_result.action = ControlUI::ACTION_APPLY_PRESET;
+                                g_result.presetSlotIndex = i;
+                                g_result.effectSelected = true;
+                                if (!g_keepPanelOpen) {
+                                    ControlUI::HidePanel();
+                                }
+                            }
+                            // Empty slot - do nothing
                         }
                         return 0;
                     }
                 }
 
-                // Check effect item click
+                // Check save button click (floppy icon) - right of preset buttons in preset bar
+                int saveBtnX = presetStartX + PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
+                int saveBtnY = presetBarY + (PRESET_BAR_HEIGHT - SAVE_BUTTON_SIZE) / 2;
+                if (x >= saveBtnX && x < saveBtnX + SAVE_BUTTON_SIZE &&
+                    y >= saveBtnY && y < saveBtnY + SAVE_BUTTON_SIZE) {
+                    // Toggle save mode
+                    g_saveMode = !g_saveMode;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+
+                // Check effect item click (search results or layer effects)
+                bool isSearching = wcslen(g_searchQuery) > 0;
                 if (y >= itemsStartY) {
                     int idx = (y - itemsStartY) / ITEM_HEIGHT;
-                    if (idx >= 0 && idx < (int)g_layerEffects.size()) {
-                        int itemY = itemsStartY + idx * ITEM_HEIGHT;
-                        int btnX = rc.right - PADDING - ACTION_BUTTON_SIZE - 4;
-                        int btnY = itemY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
+                    if (isSearching) {
+                        // Search results mode - add effect to layer
+                        if (idx >= 0 && idx < (int)g_searchResults.size()) {
+                            g_result.effectSelected = true;
+                            g_result.selectedEffect = g_searchResults[idx];
+                            wcscpy_s(g_result.searchQuery, g_searchQuery);
+                            if (!g_keepPanelOpen) {
+                                ControlUI::HidePanel();
+                            }
+                        }
+                    } else {
+                        // Layer effects mode
+                        if (idx >= 0 && idx < (int)g_layerEffects.size()) {
+                            int itemY = itemsStartY + idx * ITEM_HEIGHT;
+                            int btnX = rc.right - PADDING - ACTION_BUTTON_SIZE - 4;
+                            int btnY = itemY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
 
-                        // Check if clicked on delete button
-                        if (x >= btnX && x < btnX + ACTION_BUTTON_SIZE &&
-                            y >= btnY && y < btnY + ACTION_BUTTON_SIZE) {
-                            g_result.effectSelected = true;
-                            g_result.selectedEffect = g_layerEffects[idx];
-                            g_result.action = ControlUI::ACTION_DELETE;
-                            g_result.effectIndex = g_layerEffects[idx].index;
-                            ControlUI::HidePanel();
-                        } else {
-                            // Clicked on effect name -> expand this effect
-                            g_result.effectSelected = true;
-                            g_result.selectedEffect = g_layerEffects[idx];
-                            g_result.action = ControlUI::ACTION_EXPAND;
-                            g_result.effectIndex = g_layerEffects[idx].index;
-                            ControlUI::HidePanel();
+                            // Check if clicked on delete button
+                            if (x >= btnX && x < btnX + ACTION_BUTTON_SIZE &&
+                                y >= btnY && y < btnY + ACTION_BUTTON_SIZE) {
+                                g_result.effectSelected = true;
+                                g_result.selectedEffect = g_layerEffects[idx];
+                                g_result.action = ControlUI::ACTION_DELETE;
+                                g_result.effectIndex = g_layerEffects[idx].index;
+                                if (!g_keepPanelOpen) {
+                                    ControlUI::HidePanel();
+                                }
+                            } else {
+                                // Clicked on effect name -> expand this effect
+                                g_result.effectSelected = true;
+                                g_result.selectedEffect = g_layerEffects[idx];
+                                g_result.action = ControlUI::ACTION_EXPAND;
+                                g_result.effectIndex = g_layerEffects[idx].index;
+                                if (!g_keepPanelOpen) {
+                                    ControlUI::HidePanel();
+                                }
+                            }
                         }
                     }
                 }
@@ -1386,23 +1580,22 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             RECT rc;
             GetClientRect(hwnd, &rc);
 
-            // Calculate close button position
-            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
-            int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
-
-            // Check if on close button
-            if (pt.x >= closeBtnX && pt.x <= rc.right - PADDING &&
-                pt.y >= closeBtnY && pt.y <= closeBtnY + CLOSE_BUTTON_SIZE) {
-                return HTCLIENT;  // Let click through for close button
-            }
-
             if (g_panelMode == ControlUI::MODE_SEARCH) {
                 // Mode 1: Search mode
-                int searchBottom = PADDING + SEARCH_HEIGHT;
+                int headerHeight = SEARCH_HEIGHT;
+                int searchBottom = PADDING + headerHeight;
                 int itemsStartY = searchBottom + PADDING;
 
-                // Search input area (excluding close button area)
-                if (pt.y >= PADDING && pt.y < searchBottom && pt.x < closeBtnX) {
+                // Pin button (right side of search bar)
+                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnY = PADDING + (headerHeight - NEW_EC_BUTTON_SIZE) / 2;
+                if (pt.x >= pinBtnX && pt.x <= pinBtnX + NEW_EC_BUTTON_SIZE &&
+                    pt.y >= pinBtnY && pt.y <= pinBtnY + NEW_EC_BUTTON_SIZE) {
+                    return HTCLIENT;  // Pin button - clickable
+                }
+
+                // Search input area (excluding pin button area)
+                if (pt.y >= PADDING && pt.y < searchBottom && pt.x < pinBtnX) {
                     return HTCLIENT;  // Text input area - no drag
                 }
 
@@ -1415,15 +1608,34 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 }
             } else {
                 // Mode 2: Effects list mode
-                int headerBottom = PADDING + HEADER_HEIGHT;
-                int presetBottom = headerBottom + PRESET_BAR_HEIGHT;
-                int searchBarY = presetBottom + 4;
+                int headerY = PADDING;
+                int headerBottom = headerY + HEADER_HEIGHT;
+                int presetBarY = headerBottom + 4;
+                int presetBottom = presetBarY + PRESET_BAR_HEIGHT;
+                int searchBarY = presetBottom;
                 int searchBottom = searchBarY + SEARCH_HEIGHT;
                 int itemsStartY = searchBottom + PADDING;
 
-                // Preset buttons area (check individual buttons)
-                if (pt.y >= headerBottom && pt.y < presetBottom) {
-                    int totalPresetWidth = g_settings.slotCount * (PRESET_BUTTON_WIDTH + 4) + SAVE_BUTTON_WIDTH + 8;
+                // Pin button (header, right side)
+                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                if (pt.x >= pinBtnX && pt.x <= pinBtnX + NEW_EC_BUTTON_SIZE &&
+                    pt.y >= pinBtnY && pt.y <= pinBtnY + NEW_EC_BUTTON_SIZE) {
+                    return HTCLIENT;  // Pin button - clickable
+                }
+
+                // New EC button [+] (header, left of pin)
+                int newECBtnX = pinBtnX - NEW_EC_BUTTON_SIZE - 4;
+                int newECBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                if (pt.x >= newECBtnX && pt.x <= newECBtnX + NEW_EC_BUTTON_SIZE &&
+                    pt.y >= newECBtnY && pt.y <= newECBtnY + NEW_EC_BUTTON_SIZE) {
+                    return HTCLIENT;  // New EC button - clickable
+                }
+
+                // Preset buttons area (6 preset buttons + save button)
+                if (pt.y >= presetBarY && pt.y < presetBottom) {
+                    int presetBtnSpacing = 4;
+                    int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
                     int presetStartX = (rc.right - totalPresetWidth) / 2;
                     int presetEndX = presetStartX + totalPresetWidth;
                     if (pt.x >= presetStartX && pt.x < presetEndX) {
@@ -1435,14 +1647,6 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 if (pt.y >= searchBarY && pt.y < searchBottom &&
                     pt.x >= PADDING && pt.x <= rc.right - PADDING) {
                     return HTCLIENT;  // Text input area - no drag
-                }
-
-                // New EC button (in header)
-                int newECBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
-                int newECBtnY = PADDING + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
-                if (pt.x >= newECBtnX && pt.x <= newECBtnX + NEW_EC_BUTTON_SIZE &&
-                    pt.y >= newECBtnY && pt.y <= newECBtnY + NEW_EC_BUTTON_SIZE) {
-                    return HTCLIENT;  // New EC button - clickable
                 }
 
                 // Effect items area
@@ -1475,16 +1679,48 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 void ControlUI::SetPresetSlotFilled(int slotIndex, bool filled) {
-    if (slotIndex >= 0 && slotIndex < 3) {
-        g_presetSlots[slotIndex] = filled ? slotIndex : -1;
+    if (slotIndex >= 0 && slotIndex < PRESET_SLOT_COUNT) {
+        // If filled but icon is NONE, set a default icon
+        if (filled && g_presetIcons[slotIndex] == ICON_NONE) {
+            g_presetIcons[slotIndex] = ICON_MAGIC;  // Default icon
+        } else if (!filled) {
+            g_presetIcons[slotIndex] = ICON_NONE;
+        }
     }
 }
 
 bool ControlUI::IsPresetSlotFilled(int slotIndex) {
-    if (slotIndex >= 0 && slotIndex < 3) {
-        return g_presetSlots[slotIndex] >= 0;
+    if (slotIndex >= 0 && slotIndex < PRESET_SLOT_COUNT) {
+        return g_presetIcons[slotIndex] != ICON_NONE;
     }
     return false;
+}
+
+// Set icon for a preset slot
+void ControlUI::SetPresetSlotIcon(int slotIndex, int iconType) {
+    if (slotIndex >= 0 && slotIndex < PRESET_SLOT_COUNT) {
+        if (iconType >= ICON_NONE && iconType < ICON_COUNT) {
+            g_presetIcons[slotIndex] = static_cast<PresetIcon>(iconType);
+        }
+    }
+}
+
+// Get icon type for a preset slot
+int ControlUI::GetPresetSlotIcon(int slotIndex) {
+    if (slotIndex >= 0 && slotIndex < PRESET_SLOT_COUNT) {
+        return static_cast<int>(g_presetIcons[slotIndex]);
+    }
+    return ICON_NONE;
+}
+
+// Set layer info for header display
+void ControlUI::SetLayerInfo(const wchar_t* layerName, int labelColor) {
+    if (layerName) {
+        wcscpy_s(g_currentLayerName, layerName);
+    } else {
+        g_currentLayerName[0] = L'\0';
+    }
+    g_currentLayerLabelColor = labelColor;
 }
 
 #else // macOS stub
@@ -1493,14 +1729,23 @@ namespace ControlUI {
 
 void Initialize() {}
 void Shutdown() {}
+void SetMode(PanelMode) {}
+PanelMode GetMode() { return MODE_SEARCH; }
 void ShowPanel() {}
+void ShowPanelAt(int, int) {}
 void HidePanel() {}
 bool IsVisible() { return false; }
 ControlResult GetResult() { return ControlResult(); }
 ControlSettings& GetSettings() { static ControlSettings s; return s; }
 void UpdateSearch(const wchar_t*) {}
+void SetAvailableEffects(const wchar_t*) {}
+void SetLayerEffects(const wchar_t*) {}
+void ClearLayerEffects() {}
 void SetPresetSlotFilled(int, bool) {}
 bool IsPresetSlotFilled(int) { return false; }
+void SetPresetSlotIcon(int, int) {}
+int GetPresetSlotIcon(int) { return 0; }
+void SetLayerInfo(const wchar_t*, int) {}
 
 } // namespace ControlUI
 
