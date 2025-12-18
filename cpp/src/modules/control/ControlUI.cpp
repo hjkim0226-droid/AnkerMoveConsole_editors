@@ -1330,23 +1330,82 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_NCHITTEST: {
-            // Allow dragging the window from header area
+            // Allow dragging from non-interactive areas
             POINT pt = { LOWORD(lParam), HIWORD(lParam) };
             ScreenToClient(hwnd, &pt);
             RECT rc;
             GetClientRect(hwnd, &rc);
 
-            // Define draggable header area (excluding close button)
-            int headerHeight = (g_panelMode == ControlUI::MODE_SEARCH) ? SEARCH_HEIGHT : HEADER_HEIGHT;
+            // Calculate close button position
             int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+            int closeBtnY = PADDING + (SEARCH_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
 
-            if (pt.y >= 0 && pt.y < PADDING + headerHeight) {
-                // In header area - check if not on close button
-                if (pt.x < closeBtnX) {
-                    return HTCAPTION;  // Allow dragging
+            // Check if on close button
+            if (pt.x >= closeBtnX && pt.x <= rc.right - PADDING &&
+                pt.y >= closeBtnY && pt.y <= closeBtnY + CLOSE_BUTTON_SIZE) {
+                return HTCLIENT;  // Let click through for close button
+            }
+
+            if (g_panelMode == ControlUI::MODE_SEARCH) {
+                // Mode 1: Search mode
+                int searchBottom = PADDING + SEARCH_HEIGHT;
+                int itemsStartY = searchBottom + PADDING;
+
+                // Search input area (excluding close button area)
+                if (pt.y >= PADDING && pt.y < searchBottom && pt.x < closeBtnX) {
+                    return HTCLIENT;  // Text input area - no drag
+                }
+
+                // Result items area
+                int visibleCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
+                int itemsEndY = itemsStartY + visibleCount * ITEM_HEIGHT;
+                if (pt.y >= itemsStartY && pt.y < itemsEndY &&
+                    pt.x >= PADDING && pt.x <= rc.right - PADDING) {
+                    return HTCLIENT;  // Item area - clickable
+                }
+            } else {
+                // Mode 2: Effects list mode
+                int headerBottom = PADDING + HEADER_HEIGHT;
+                int presetBottom = headerBottom + PRESET_BAR_HEIGHT;
+                int searchBarY = presetBottom + 4;
+                int searchBottom = searchBarY + SEARCH_HEIGHT;
+                int itemsStartY = searchBottom + PADDING;
+
+                // Preset buttons area (check individual buttons)
+                if (pt.y >= headerBottom && pt.y < presetBottom) {
+                    int totalPresetWidth = g_settings.slotCount * (PRESET_BUTTON_WIDTH + 4) + SAVE_BUTTON_WIDTH + 8;
+                    int presetStartX = (rc.right - totalPresetWidth) / 2;
+                    int presetEndX = presetStartX + totalPresetWidth;
+                    if (pt.x >= presetStartX && pt.x < presetEndX) {
+                        return HTCLIENT;  // Preset buttons - clickable
+                    }
+                }
+
+                // Search input area
+                if (pt.y >= searchBarY && pt.y < searchBottom &&
+                    pt.x >= PADDING && pt.x <= rc.right - PADDING) {
+                    return HTCLIENT;  // Text input area - no drag
+                }
+
+                // New EC button (in header)
+                int newECBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int newECBtnY = PADDING + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
+                if (pt.x >= newECBtnX && pt.x <= newECBtnX + NEW_EC_BUTTON_SIZE &&
+                    pt.y >= newECBtnY && pt.y <= newECBtnY + NEW_EC_BUTTON_SIZE) {
+                    return HTCLIENT;  // New EC button - clickable
+                }
+
+                // Effect items area
+                int visibleCount = min((int)(wcslen(g_searchQuery) > 0 ? g_searchResults.size() : g_layerEffects.size()), MAX_VISIBLE_ITEMS);
+                int itemsEndY = itemsStartY + visibleCount * ITEM_HEIGHT;
+                if (pt.y >= itemsStartY && pt.y < itemsEndY &&
+                    pt.x >= PADDING && pt.x <= rc.right - PADDING) {
+                    return HTCLIENT;  // Item area - clickable
                 }
             }
-            return DefWindowProc(hwnd, msg, wParam, lParam);
+
+            // Everything else is draggable
+            return HTCAPTION;
         }
 
         case WM_TIMER: {
@@ -1365,13 +1424,13 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-void SetPresetSlotFilled(int slotIndex, bool filled) {
+void ControlUI::SetPresetSlotFilled(int slotIndex, bool filled) {
     if (slotIndex >= 0 && slotIndex < 3) {
         g_presetSlots[slotIndex] = filled ? slotIndex : -1;
     }
 }
 
-bool IsPresetSlotFilled(int slotIndex) {
+bool ControlUI::IsPresetSlotFilled(int slotIndex) {
     if (slotIndex >= 0 && slotIndex < 3) {
         return g_presetSlots[slotIndex] >= 0;
     }
