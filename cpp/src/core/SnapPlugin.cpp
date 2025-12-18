@@ -9,6 +9,7 @@
 #include "KeyboardMonitor.h"
 #include "GridUI.h"
 #include "ControlUI.h"
+#include "KeyframeUI.h"
 #include "CEPBridge.h"
 #include <chrono>
 #include <cstdarg>
@@ -38,6 +39,12 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 // Control module state
 static bool g_controlVisible = false;
 static bool g_eKeyWasHeld = false;
+
+// Keyframe module state
+static bool g_keyframeVisible = false;
+static bool g_kKeyWasHeld = false;
+static std::chrono::steady_clock::time_point g_kKeyPressTime;
+static bool g_kWaitingForHold = false;
 
 // Forward declaration for ExecuteScript (defined later)
 A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
@@ -680,6 +687,120 @@ void SaveSettingsToFile() {
 }
 
 /*****************************************************************************
+ * GetPresetFilePath
+ * Get the file path for a preset slot
+ *****************************************************************************/
+void GetPresetFilePath(int slotIndex, char* outPath, size_t pathSize) {
+#ifdef MSWindows
+  const char *appdata = getenv("APPDATA");
+  if (!appdata) {
+    outPath[0] = '\0';
+    return;
+  }
+  snprintf(outPath, pathSize,
+           "%s\\Adobe\\CEP\\extensions\\com.anchor.snap\\preset_%d.json",
+           appdata, slotIndex);
+#else
+  const char *home = getenv("HOME");
+  if (!home) {
+    outPath[0] = '\0';
+    return;
+  }
+  snprintf(outPath, pathSize,
+           "%s/Library/Application Support/Adobe/CEP/extensions/com.anchor.snap/preset_%d.json",
+           home, slotIndex);
+#endif
+}
+
+/*****************************************************************************
+ * SavePresetToSlot
+ * Save effect preset data to a file
+ *****************************************************************************/
+void SavePresetToSlot(int slotIndex, const char* presetJson) {
+  if (slotIndex < 0 || slotIndex > 2) return;
+  if (!presetJson || presetJson[0] == '\0') return;
+
+  char path[512];
+  GetPresetFilePath(slotIndex, path, sizeof(path));
+  if (path[0] == '\0') return;
+
+  FILE *f = fopen(path, "w");
+  if (f) {
+    fputs(presetJson, f);
+    fclose(f);
+  }
+}
+
+/*****************************************************************************
+ * LoadPresetFromSlot
+ * Load effect preset data from a file
+ *****************************************************************************/
+bool LoadPresetFromSlot(int slotIndex, char* outBuffer, size_t bufSize) {
+  if (slotIndex < 0 || slotIndex > 2) return false;
+  if (!outBuffer || bufSize == 0) return false;
+
+  outBuffer[0] = '\0';
+
+  char path[512];
+  GetPresetFilePath(slotIndex, path, sizeof(path));
+  if (path[0] == '\0') return false;
+
+  FILE *f = fopen(path, "r");
+  if (!f) return false;
+
+  size_t len = fread(outBuffer, 1, bufSize - 1, f);
+  outBuffer[len] = '\0';
+  fclose(f);
+
+  return len > 0;
+}
+
+/*****************************************************************************
+ * PresetSlotExists
+ * Check if a preset file exists for a slot
+ *****************************************************************************/
+bool PresetSlotExists(int slotIndex) {
+  if (slotIndex < 0 || slotIndex > 2) return false;
+
+  char path[512];
+  GetPresetFilePath(slotIndex, path, sizeof(path));
+  if (path[0] == '\0') return false;
+
+  FILE *f = fopen(path, "r");
+  if (f) {
+    fclose(f);
+    return true;
+  }
+  return false;
+}
+
+/*****************************************************************************
+ * EscapeJsonForScript
+ * Escape JSON string for use in ExtendScript
+ *****************************************************************************/
+void EscapeJsonForScript(const char* input, char* output, size_t outputSize) {
+  size_t j = 0;
+  for (size_t i = 0; input[i] != '\0' && j < outputSize - 2; i++) {
+    if (input[i] == '\\') {
+      output[j++] = '\\';
+      output[j++] = '\\';
+    } else if (input[i] == '\'') {
+      output[j++] = '\\';
+      output[j++] = '\'';
+    } else if (input[i] == '\n') {
+      output[j++] = '\\';
+      output[j++] = 'n';
+    } else if (input[i] == '\r') {
+      output[j++] = '\\';
+      output[j++] = 'r';
+    } else {
+      output[j++] = input[i];
+    }
+  }
+  output[j] = '\0';
+}
+
+/*****************************************************************************
  * ShowAnchorGrid
  * Show the native anchor grid at specified position
  *****************************************************************************/
@@ -1162,15 +1283,43 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       } else if (result.action == ControlUI::ACTION_NEW_EC_WINDOW) {
         // Open new locked Effect Controls window
         ExecuteScript("openEffectControlsForLayer();");
+      } else if (result.action == ControlUI::ACTION_SAVE_PRESET) {
+        // Save current effects to preset slot
+        char presetData[65536] = {0};
+        ExecuteScript("getAllEffectsPresetData()", presetData, sizeof(presetData));
+
+        if (presetData[0] != '\0' && strncmp(presetData, "null", 4) != 0 &&
+            strncmp(presetData, "error", 5) != 0) {
+          SavePresetToSlot(result.presetSlotIndex, presetData);
+          // Show confirmation
+          char confirmScript[256];
+          snprintf(confirmScript, sizeof(confirmScript),
+                   "alert('Preset saved to slot %d')",
+                   result.presetSlotIndex + 1);
+          ExecuteScript(confirmScript);
+        }
       } else if (result.action == ControlUI::ACTION_APPLY_PRESET) {
         // Apply preset from quick slot
-        // TODO: Load preset from settings and apply
-        // For now, just log
-        char script[256];
-        snprintf(script, sizeof(script),
-                 "alert('Preset slot %d clicked. Preset feature coming soon.')",
-                 result.presetSlotIndex + 1);
-        ExecuteScript(script);
+        char presetJson[65536] = {0};
+        if (LoadPresetFromSlot(result.presetSlotIndex, presetJson, sizeof(presetJson))) {
+          // Escape the JSON for use in script
+          char escapedJson[131072] = {0};
+          EscapeJsonForScript(presetJson, escapedJson, sizeof(escapedJson));
+
+          // Apply the preset
+          char script[140000];
+          snprintf(script, sizeof(script),
+                   "applyMultiEffectPreset('%s')",
+                   escapedJson);
+          ExecuteScript(script);
+        } else {
+          // Slot is empty
+          char script[256];
+          snprintf(script, sizeof(script),
+                   "alert('Preset slot %d is empty')",
+                   result.presetSlotIndex + 1);
+          ExecuteScript(script);
+        }
       } else {
         // Mode 1: Add new effect to layer
         char matchNameA[256];
@@ -1196,6 +1345,67 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   }
 
   g_eKeyWasHeld = shift_e_pressed;
+
+  // =========================================================================
+  // KEYFRAME MODULE: K key 0.4s hold for keyframe easing panel
+  // =========================================================================
+  bool k_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_K);
+
+  // K key just pressed
+  if (k_key_held && !g_kKeyWasHeld && !IsTextInputFocused() &&
+      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
+    // Start waiting for hold
+    g_kKeyPressTime = now;
+    g_kWaitingForHold = true;
+  }
+  // K key still held - check if hold duration reached
+  else if (k_key_held && g_kWaitingForHold && !g_keyframeVisible) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - g_kKeyPressTime).count();
+    if (elapsed >= HOLD_DELAY_MS) {
+      // Show keyframe panel
+      int mouseX = 0, mouseY = 0;
+      KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+      KeyframeUI::ShowPanel(mouseX, mouseY);
+      g_keyframeVisible = true;
+      g_kWaitingForHold = false;
+    }
+  }
+  // K key still held and panel visible - update hover
+  else if (k_key_held && g_keyframeVisible) {
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+    KeyframeUI::UpdateHover(mouseX, mouseY);
+  }
+  // K key just released
+  else if (!k_key_held && g_kKeyWasHeld) {
+    g_kWaitingForHold = false;
+
+    if (g_keyframeVisible) {
+      KeyframeUI::KeyframeResult result = KeyframeUI::HidePanel();
+      g_keyframeVisible = false;
+
+      if (result.applied) {
+        // Apply keyframe easing using ExtendScript
+        char script[1024];
+        snprintf(script, sizeof(script),
+                 "applyKeyframeEasing({outSpeed:%.2f,outInfluence:%.2f,"
+                 "inSpeed:%.2f,inInfluence:%.2f})",
+                 result.outSpeed, result.outInfluence,
+                 result.inSpeed, result.inInfluence);
+        ExecuteScript(script);
+      }
+    }
+  }
+
+  // Safety: force close if panel visible but K key not held
+  if (g_keyframeVisible && !k_key_held) {
+    KeyframeUI::HidePanel();
+    g_keyframeVisible = false;
+  }
+
+  g_kKeyWasHeld = k_key_held;
+
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
@@ -1223,6 +1433,7 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     // Initialize native UI modules
     NativeUI::Initialize();
     ControlUI::Initialize();
+    KeyframeUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 

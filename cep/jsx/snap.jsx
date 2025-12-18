@@ -768,3 +768,202 @@ function applyMultiEffectPreset(allPresetsJson) {
         return "Error: " + e.toString();
     }
 }
+
+// =========================================================================
+// Keyframe Module - Keyframe Easing Functions
+// =========================================================================
+
+/**
+ * Get information about selected keyframes for easing
+ * Returns JSON with property info and keyframe pairs
+ */
+function getSelectedKeyframeInfo() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return JSON.stringify({error: "No active composition"});
+        }
+
+        var props = comp.selectedProperties;
+        if (!props || props.length === 0) {
+            return JSON.stringify({error: "No properties selected"});
+        }
+
+        var result = [];
+
+        for (var i = 0; i < props.length; i++) {
+            var prop = props[i];
+
+            // Check if property has keyframes and at least 2 are selected
+            if (!prop.selectedKeys || prop.selectedKeys.length < 2) continue;
+
+            var keys = prop.selectedKeys;
+            for (var j = 0; j < keys.length - 1; j++) {
+                var k1 = keys[j];
+                var k2 = keys[j + 1];
+
+                // Get current easing info
+                var outEase = prop.keyOutTemporalEase(k1);  // Ease leaving k1
+                var inEase = prop.keyInTemporalEase(k2);    // Ease entering k2
+
+                result.push({
+                    propName: prop.name,
+                    propMatchName: prop.matchName,
+                    keyIndex1: k1,
+                    keyIndex2: k2,
+                    time1: prop.keyTime(k1),
+                    time2: prop.keyTime(k2),
+                    value1: prop.keyValue(k1),
+                    value2: prop.keyValue(k2),
+                    // Current easing (first dimension for multi-dimensional props)
+                    outEase: {
+                        speed: outEase[0].speed,
+                        influence: outEase[0].influence
+                    },
+                    inEase: {
+                        speed: inEase[0].speed,
+                        influence: inEase[0].influence
+                    }
+                });
+            }
+        }
+
+        return JSON.stringify(result);
+    } catch (e) {
+        return JSON.stringify({error: e.toString()});
+    }
+}
+
+/**
+ * Apply keyframe easing to selected keyframes
+ * @param {object} data - Object with outSpeed, outInfluence, inSpeed, inInfluence
+ * @returns {string} "OK" or error message
+ */
+function applyKeyframeEasing(data) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+
+        var props = comp.selectedProperties;
+        if (!props || props.length === 0) {
+            return "Error: No properties selected";
+        }
+
+        app.beginUndoGroup("Apply Keyframe Easing");
+
+        for (var i = 0; i < props.length; i++) {
+            var prop = props[i];
+
+            // Check if property has keyframes and at least 2 are selected
+            if (!prop.selectedKeys || prop.selectedKeys.length < 2) continue;
+
+            var keys = prop.selectedKeys;
+
+            // Get number of dimensions for this property
+            var numDims = 1;
+            if (prop.propertyValueType === PropertyValueType.TwoD ||
+                prop.propertyValueType === PropertyValueType.TwoD_SPATIAL) {
+                numDims = 2;
+            } else if (prop.propertyValueType === PropertyValueType.ThreeD ||
+                       prop.propertyValueType === PropertyValueType.ThreeD_SPATIAL) {
+                numDims = 3;
+            } else if (prop.propertyValueType === PropertyValueType.COLOR) {
+                numDims = 4;
+            }
+
+            // Create ease objects for each dimension
+            var outEaseArr = [];
+            var inEaseArr = [];
+            for (var d = 0; d < numDims; d++) {
+                outEaseArr.push(new KeyframeEase(data.outSpeed, data.outInfluence));
+                inEaseArr.push(new KeyframeEase(data.inSpeed, data.inInfluence));
+            }
+
+            // Apply to each keyframe pair
+            for (var j = 0; j < keys.length; j++) {
+                var k = keys[j];
+
+                // Apply out ease to this keyframe (affects transition to next key)
+                if (j < keys.length - 1) {
+                    try {
+                        prop.setTemporalEaseAtKey(k, prop.keyInTemporalEase(k), outEaseArr);
+                    } catch (e1) {
+                        // Some properties don't support temporal ease
+                    }
+                }
+
+                // Apply in ease to this keyframe (affects transition from previous key)
+                if (j > 0) {
+                    try {
+                        prop.setTemporalEaseAtKey(k, inEaseArr, prop.keyOutTemporalEase(k));
+                    } catch (e2) {
+                        // Some properties don't support temporal ease
+                    }
+                }
+            }
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Get velocity at a specific time for a property
+ * Uses numerical differentiation
+ * @param {Property} prop - The property to measure
+ * @param {number} time - Time in seconds
+ * @returns {number} Velocity (rate of change)
+ */
+function calculateVelocity(prop, time) {
+    try {
+        var dt = 0.001;  // Small time delta
+        var v1 = prop.valueAtTime(time - dt, false);
+        var v2 = prop.valueAtTime(time + dt, false);
+
+        // Handle scalar vs array values
+        if (typeof v1 === "number") {
+            return (v2 - v1) / (2 * dt);
+        } else if (v1 instanceof Array) {
+            // Calculate magnitude of velocity vector
+            var sum = 0;
+            for (var i = 0; i < v1.length; i++) {
+                sum += Math.pow(v2[i] - v1[i], 2);
+            }
+            return Math.sqrt(sum) / (2 * dt);
+        }
+        return 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
+/**
+ * Apply preset easing curve (like Flow plugin)
+ * @param {string} presetName - Name of preset ("linear", "easeIn", "easeOut", "easeInOut", "easeOutIn")
+ * @returns {string} "OK" or error message
+ */
+function applyEasingPreset(presetName) {
+    try {
+        var presets = {
+            "linear": {outSpeed: 0, outInfluence: 33.33, inSpeed: 0, inInfluence: 33.33},
+            "easeIn": {outSpeed: 0, outInfluence: 100, inSpeed: 0, inInfluence: 100},
+            "easeOut": {outSpeed: 0, outInfluence: 0.1, inSpeed: 0, inInfluence: 100},
+            "easeInOut": {outSpeed: 0, outInfluence: 100, inSpeed: 0, inInfluence: 100},
+            "easeOutIn": {outSpeed: 0, outInfluence: 0.1, inSpeed: 0, inInfluence: 0.1}
+        };
+
+        var preset = presets[presetName];
+        if (!preset) {
+            return "Error: Unknown preset '" + presetName + "'";
+        }
+
+        return applyKeyframeEasing(preset);
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}

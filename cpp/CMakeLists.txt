@@ -49,6 +49,8 @@ set(PLUGIN_SOURCES
     src/modules/grid/GridUI.cpp
     # Control module
     src/modules/control/ControlUI.cpp
+    # Keyframe module
+    src/modules/keyframe/KeyframeUI.cpp
     # SDK
     ${AE_SDK_PATH}/Util/AEGP_SuiteHandler.cpp
 )
@@ -63,6 +65,8 @@ set(PLUGIN_HEADERS
     src/modules/grid/GridUI.h
     # Control module
     src/modules/control/ControlUI.h
+    # Keyframe module
+    src/modules/keyframe/KeyframeUI.h
 )
 
 # ============================================================================
@@ -76,6 +80,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/modules/grid
     ${CMAKE_SOURCE_DIR}/src/modules/control
+    ${CMAKE_SOURCE_DIR}/src/modules/keyframe
     ${AE_SDK_PATH}
     ${AE_SDK_PATH}/SP
     ${AE_SDK_PATH}/Util

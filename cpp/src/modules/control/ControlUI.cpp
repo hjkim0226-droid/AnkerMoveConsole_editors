@@ -84,6 +84,12 @@ static const int NEW_EC_BUTTON_SIZE = 20;
 static int g_hoveredPresetButton = -1;  // -1 = none, 0-2 = slot buttons
 static int g_presetSlots[3] = {-1, -1, -1};  // Assigned preset indices
 
+// Save mode state (Mode 2)
+static bool g_saveMode = false;         // When true, clicking preset button saves
+static bool g_saveButtonHover = false;  // Hover state for save button
+static const int SAVE_BUTTON_WIDTH = 36;
+static const int SAVE_BUTTON_HEIGHT = 20;
+
 // Delayed close timer (prevent immediate close on focus loss)
 static UINT_PTR g_closeTimerId = 0;
 static const UINT CLOSE_DELAY_MS = 100;
@@ -260,6 +266,7 @@ void HidePanel() {
 
     ShowWindow(g_hwnd, SW_HIDE);
     g_isVisible = false;
+    g_saveMode = false;  // Reset save mode when panel closes
 }
 
 bool IsVisible() {
@@ -651,6 +658,25 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
         (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE / 2), (REAL)(newECBtnY + plusMargin),
         (REAL)(newECBtnX + NEW_EC_BUTTON_SIZE / 2), (REAL)(newECBtnY + NEW_EC_BUTTON_SIZE - plusMargin));
 
+    // Save button [S] - left of [+] button
+    int saveBtnX = newECBtnX - SAVE_BUTTON_WIDTH - 4;
+    int saveBtnY = currentY + (HEADER_HEIGHT - SAVE_BUTTON_HEIGHT) / 2;
+    RectF saveRect((REAL)saveBtnX, (REAL)saveBtnY, (REAL)SAVE_BUTTON_WIDTH, (REAL)SAVE_BUTTON_HEIGHT);
+
+    // Save button background - highlight when in save mode
+    Color saveBtnColor = g_saveMode ? COLOR_PRESET_ACTIVE :
+                         g_saveButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
+    SolidBrush saveBtnBrush(saveBtnColor);
+    graphics.FillRectangle(&saveBtnBrush, saveRect);
+
+    // Save button border
+    Pen saveBorder(COLOR_BORDER, 1);
+    graphics.DrawRectangle(&saveBorder, saveRect);
+
+    // Save button text "S"
+    Font saveFont(L"Segoe UI", 10, FontStyleBold, UnitPixel);
+    graphics.DrawString(L"S", -1, &saveFont, saveRect, &sfCenter, &textBrush);
+
     // Header text
     RectF titleRect(PADDING + 8, currentY, width - PADDING * 2 - CLOSE_BUTTON_SIZE - NEW_EC_BUTTON_SIZE - 20, HEADER_HEIGHT);
     graphics.DrawString(L"Layer Effects", -1, &headerFont, titleRect, &sf, &textBrush);
@@ -669,15 +695,28 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
 
         RectF btnRect((REAL)btnX, (REAL)btnY, (REAL)PRESET_BUTTON_WIDTH, (REAL)PRESET_BUTTON_HEIGHT);
 
-        // Button background
-        Color btnColor = (i == g_hoveredPresetButton) ? COLOR_PRESET_HOVER :
-                         (g_presetSlots[i] >= 0) ? COLOR_PRESET_ACTIVE : COLOR_PRESET_BG;
+        // Button background - different color in save mode
+        Color btnColor;
+        if (g_saveMode) {
+            // In save mode: all buttons glow orange to indicate ready for save
+            btnColor = (i == g_hoveredPresetButton) ? Color(255, 255, 180, 0) :  // Bright orange on hover
+                       Color(255, 200, 120, 0);  // Orange glow
+        } else {
+            // Normal mode
+            btnColor = (i == g_hoveredPresetButton) ? COLOR_PRESET_HOVER :
+                       (g_presetSlots[i] >= 0) ? COLOR_PRESET_ACTIVE : COLOR_PRESET_BG;
+        }
         SolidBrush btnBrush(btnColor);
         graphics.FillRectangle(&btnBrush, btnRect);
 
-        // Button border
-        Pen btnBorder(COLOR_BORDER, 1);
-        graphics.DrawRectangle(&btnBorder, btnRect);
+        // Button border - thicker in save mode
+        if (g_saveMode) {
+            Pen btnBorder(Color(255, 255, 200, 100), 2);
+            graphics.DrawRectangle(&btnBorder, btnRect);
+        } else {
+            Pen btnBorder(COLOR_BORDER, 1);
+            graphics.DrawRectangle(&btnBorder, btnRect);
+        }
 
         // Button text
         wchar_t btnText[4];
@@ -954,6 +993,14 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                                       y >= newECBtnY && y < newECBtnY + NEW_EC_BUTTON_SIZE);
                 if (wasNewECHover != g_newECButtonHover) needRedraw = true;
 
+                // Check save button hover [S]
+                int saveBtnX = newECBtnX - SAVE_BUTTON_WIDTH - 4;
+                int saveBtnY = headerY + (HEADER_HEIGHT - SAVE_BUTTON_HEIGHT) / 2;
+                bool wasSaveHover = g_saveButtonHover;
+                g_saveButtonHover = (x >= saveBtnX && x < saveBtnX + SAVE_BUTTON_WIDTH &&
+                                     y >= saveBtnY && y < saveBtnY + SAVE_BUTTON_HEIGHT);
+                if (wasSaveHover != g_saveButtonHover) needRedraw = true;
+
                 // Check preset button hover
                 int presetBtnSpacing = 4;
                 int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
@@ -1051,6 +1098,17 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     return 0;
                 }
 
+                // Check save button click [S]
+                int saveBtnX = newECBtnX - SAVE_BUTTON_WIDTH - 4;
+                int saveBtnY = headerY + (HEADER_HEIGHT - SAVE_BUTTON_HEIGHT) / 2;
+                if (x >= saveBtnX && x < saveBtnX + SAVE_BUTTON_WIDTH &&
+                    y >= saveBtnY && y < saveBtnY + SAVE_BUTTON_HEIGHT) {
+                    // Toggle save mode
+                    g_saveMode = !g_saveMode;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+
                 // Check preset button click
                 int presetBtnSpacing = 4;
                 int totalPresetWidth = 3 * PRESET_BUTTON_WIDTH + 2 * presetBtnSpacing;
@@ -1062,9 +1120,18 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
                         y >= btnY && y < btnY + PRESET_BUTTON_HEIGHT) {
                         // Preset button clicked
-                        if (g_presetSlots[i] >= 0) {
+                        if (g_saveMode) {
+                            // Save mode: save current effects to this slot
+                            g_result.action = ControlUI::ACTION_SAVE_PRESET;
+                            g_result.presetSlotIndex = i;
+                            g_result.effectSelected = true;  // Signal that action is valid
+                            g_saveMode = false;  // Exit save mode
+                            ControlUI::HidePanel();
+                        } else if (g_presetSlots[i] >= 0) {
+                            // Normal mode: apply preset if slot is filled
                             g_result.action = ControlUI::ACTION_APPLY_PRESET;
                             g_result.presetSlotIndex = i;
+                            g_result.effectSelected = true;  // Signal that action is valid
                             ControlUI::HidePanel();
                         }
                         return 0;

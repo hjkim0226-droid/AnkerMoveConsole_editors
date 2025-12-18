@@ -30,13 +30,14 @@ struct EffectItem {
 // Action for layer effects
 enum EffectAction {
     ACTION_NONE = 0,
-    ACTION_SELECT,      // Select effect in Effect Controls
-    ACTION_DELETE,      // Delete effect from layer
-    ACTION_DUPLICATE,   // Duplicate effect
-    ACTION_MOVE_UP,     // Move effect up
-    ACTION_MOVE_DOWN,   // Move effect down
-    ACTION_EXPAND,      // Expand effect (collapse others)
+    ACTION_SELECT,       // Select effect in Effect Controls
+    ACTION_DELETE,       // Delete effect from layer
+    ACTION_DUPLICATE,    // Duplicate effect
+    ACTION_MOVE_UP,      // Move effect up
+    ACTION_MOVE_DOWN,    // Move effect down
+    ACTION_EXPAND,       // Expand effect (collapse others)
     ACTION_APPLY_PRESET, // Apply preset from quick slot
+    ACTION_SAVE_PRESET,  // Save current effects to preset slot
     ACTION_NEW_EC_WINDOW // Open new locked EC window
 };
 
@@ -49,6 +50,7 @@ struct ControlResult {
     EffectAction action = ACTION_NONE;
     int effectIndex = -1;       // For layer effect actions
     int presetSlotIndex = -1;   // For preset quick slot (0-2)
+    bool saveMode = false;      // True when in save mode
 };
 
 // Control panel settings

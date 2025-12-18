@@ -19,6 +19,7 @@ namespace KeyboardMonitor {
 enum KeyCode {
   KEY_Y = 0x10,         // Y key
   KEY_E = 0x0E,         // E key
+  KEY_K = 0x28,         // K key (kVK_ANSI_K)
   KEY_SEMICOLON = 0x29, // ; key
   KEY_SHIFT = 0x38,     // Shift key
   KEY_CTRL = 0x3B,      // Control key
@@ -30,6 +31,7 @@ enum KeyCode {
 enum KeyCode {
   KEY_Y = 0x59,         // 'Y' key (VK_Y is same as ASCII 'Y')
   KEY_E = 0x45,         // 'E' key
+  KEY_K = 0x4B,         // 'K' key (VK_K)
   KEY_SEMICOLON = 0xBA, // ';' key (VK_OEM_1)
   KEY_SHIFT = 0x10,     // VK_SHIFT
   KEY_CTRL = 0x11,      // VK_CONTROL
