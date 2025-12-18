@@ -105,6 +105,9 @@ static const UINT CURSOR_BLINK_MS = 530; // Cursor blink interval
 // Window drag state
 static bool g_isDragging = false;       // True while window is being dragged
 
+// Ignore first keypress (to prevent Shift+E trigger key from being typed)
+static bool g_ignoreFirstChar = false;
+
 // Dynamic effects list (loaded from AE - localized names)
 static std::vector<ControlUI::EffectItem> g_availableEffects;
 
@@ -222,6 +225,7 @@ void ShowPanelAt(int x, int y) {
     g_selectionEnd = -1;
     g_cursorVisible = true;
     g_isDragging = false;
+    g_ignoreFirstChar = true;  // Ignore the 'E' from Shift+E that opened the panel
 
     int itemCount = 0;
     int headerHeight = 0;
@@ -942,6 +946,19 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         case WM_CHAR: {
             wchar_t ch = (wchar_t)wParam;
+
+            // Ignore 'E' if Shift is held (Shift+E is the trigger shortcut)
+            if ((ch == L'E' || ch == L'e') && (GetKeyState(VK_SHIFT) & 0x8000)) {
+                return 0;
+            }
+
+            // Ignore first character after panel opens (the 'E' from Shift+E)
+            if (g_ignoreFirstChar) {
+                g_ignoreFirstChar = false;
+                if (ch == L'E' || ch == L'e') {
+                    return 0;
+                }
+            }
 
             // Reset cursor blink on any input
             g_cursorVisible = true;
