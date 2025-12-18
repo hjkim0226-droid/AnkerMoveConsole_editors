@@ -306,6 +306,34 @@ void ShowPanelAt(int x, int y) {
         searchBarCenterY = PADDING + HEADER_HEIGHT + 4 + PRESET_BAR_HEIGHT + SEARCH_HEIGHT / 2;
     }
 
+    // Calculate initial window position (centered on mouse)
+    int windowX = x - WINDOW_WIDTH / 2;
+    int windowY = y - searchBarCenterY;
+
+    // Clamp window position to stay within monitor bounds
+    POINT mousePoint = { x, y };
+    HMONITOR hMonitor = MonitorFromPoint(mousePoint, MONITOR_DEFAULTTONEAREST);
+    if (hMonitor) {
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        if (GetMonitorInfo(hMonitor, &mi)) {
+            RECT workArea = mi.rcWork;  // Working area excludes taskbar
+
+            // Clamp X: ensure window stays within horizontal bounds
+            if (windowX < workArea.left) {
+                windowX = workArea.left;
+            } else if (windowX + WINDOW_WIDTH > workArea.right) {
+                windowX = workArea.right - WINDOW_WIDTH;
+            }
+
+            // Clamp Y: ensure window stays within vertical bounds
+            if (windowY < workArea.top) {
+                windowY = workArea.top;
+            } else if (windowY + windowHeight > workArea.bottom) {
+                windowY = workArea.bottom - windowHeight;
+            }
+        }
+    }
+
     // Create or reposition window
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
@@ -313,8 +341,8 @@ void ShowPanelAt(int x, int y) {
             CONTROL_CLASS_NAME,
             g_panelMode == MODE_SEARCH ? L"Effect Search" : L"Layer Effects",
             WS_POPUP,
-            x - WINDOW_WIDTH / 2,
-            y - searchBarCenterY,
+            windowX,
+            windowY,
             WINDOW_WIDTH,
             windowHeight,
             NULL, NULL,
@@ -324,8 +352,8 @@ void ShowPanelAt(int x, int y) {
         SetLayeredWindowAttributes(g_hwnd, 0, 245, LWA_ALPHA);
     } else {
         SetWindowPos(g_hwnd, HWND_TOPMOST,
-                     x - WINDOW_WIDTH / 2,
-                     y - searchBarCenterY,
+                     windowX,
+                     windowY,
                      WINDOW_WIDTH, windowHeight,
                      SWP_SHOWWINDOW);
     }
