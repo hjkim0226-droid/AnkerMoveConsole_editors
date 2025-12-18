@@ -1329,6 +1329,26 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
 
+        case WM_NCHITTEST: {
+            // Allow dragging the window from header area
+            POINT pt = { LOWORD(lParam), HIWORD(lParam) };
+            ScreenToClient(hwnd, &pt);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+
+            // Define draggable header area (excluding close button)
+            int headerHeight = (g_panelMode == ControlUI::MODE_SEARCH) ? SEARCH_HEIGHT : HEADER_HEIGHT;
+            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+
+            if (pt.y >= 0 && pt.y < PADDING + headerHeight) {
+                // In header area - check if not on close button
+                if (pt.x < closeBtnX) {
+                    return HTCAPTION;  // Allow dragging
+                }
+            }
+            return DefWindowProc(hwnd, msg, wParam, lParam);
+        }
+
         case WM_TIMER: {
             if (wParam == 2) {  // Cursor blink timer
                 g_cursorVisible = !g_cursorVisible;
