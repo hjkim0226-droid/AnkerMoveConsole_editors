@@ -65,7 +65,7 @@ struct KeyframeResult {
 
 // Keyframe module settings
 struct KeyframeSettings {
-    int slotCount = 3;              // Number of preset slots
+    int slotCount = 4;              // Number of preset slots
     bool showVelocityGraph = true;  // Show velocity visualization
     bool showNumericValues = true;  // Show speed/influence numbers
 };
