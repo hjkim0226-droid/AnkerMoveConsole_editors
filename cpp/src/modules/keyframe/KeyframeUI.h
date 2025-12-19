@@ -86,6 +86,9 @@ void UpdateHover(int screenX, int screenY);
 // Hide panel and get result
 KeyframeResult HidePanel();
 
+// Get result (for toggle mode - call after IsVisible() becomes false)
+KeyframeResult GetResult();
+
 // Check if panel is visible
 bool IsVisible();
 

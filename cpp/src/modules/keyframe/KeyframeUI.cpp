@@ -417,6 +417,10 @@ KeyframeResult HidePanel() {
     return g_result;
 }
 
+KeyframeResult GetResult() {
+    return g_result;
+}
+
 bool IsVisible() {
     return g_isVisible;
 }
@@ -1262,6 +1266,7 @@ void Shutdown() {}
 void ShowPanel(int, int) {}
 void UpdateHover(int, int) {}
 KeyframeResult HidePanel() { return KeyframeResult(); }
+KeyframeResult GetResult() { return KeyframeResult(); }
 bool IsVisible() { return false; }
 void SetKeyframeInfo(const wchar_t*) {}
 VelocityCurve GetCurrentCurve() { return VelocityCurve(); }

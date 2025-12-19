@@ -1,0 +1,344 @@
+/*****************************************************************************
+ * DMenuUI.cpp
+ *
+ * D-key quick menu implementation
+ * Win32 + GDI+ based popup with focus for key interception
+ *****************************************************************************/
+
+#include "DMenuUI.h"
+#include "GdiPlusIncludes.h"
+
+#ifdef MSWindows
+#include <windowsx.h>
+
+using namespace Gdiplus;
+
+namespace DMenuUI {
+
+// Window dimensions
+static const int WINDOW_WIDTH = 140;
+static const int WINDOW_HEIGHT = 98;
+static const int ITEM_HEIGHT = 28;
+static const int PADDING = 8;
+
+// Colors
+static const Color COLOR_BG(250, 30, 30, 35);
+static const Color COLOR_BORDER(255, 60, 60, 70);
+static const Color COLOR_ITEM_HOVER(255, 50, 80, 120);
+static const Color COLOR_TEXT(255, 220, 220, 220);
+static const Color COLOR_KEY(255, 100, 180, 255);
+static const Color COLOR_TEXT_DIM(255, 140, 140, 140);
+
+// Menu items
+struct MenuItem {
+    wchar_t key;
+    const wchar_t* label;
+    MenuAction action;
+};
+
+static const MenuItem MENU_ITEMS[] = {
+    { L'A', L"Align", ACTION_ALIGN },
+    { L'T', L"Text", ACTION_TEXT },
+    { L'K', L"Keyframe", ACTION_KEYFRAME }
+};
+static const int MENU_ITEM_COUNT = 3;
+
+// Global state
+static HWND g_hwnd = NULL;
+static bool g_visible = false;
+static ULONG_PTR g_gdiplusToken = 0;
+static MenuAction g_action = ACTION_NONE;
+static int g_hoverIndex = -1;
+
+// Forward declarations
+static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static void Draw(HDC hdc);
+static int HitTest(int x, int y);
+
+/*****************************************************************************
+ * Initialize
+ *****************************************************************************/
+void Initialize() {
+    if (g_hwnd) return;
+
+    // Initialize GDI+
+    GdiplusStartupInput gdiplusStartupInput;
+    Status gdipStatus = GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+    if (gdipStatus != Ok) {
+        return;
+    }
+
+    // Register window class
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXW);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = NULL;
+    wc.lpszClassName = L"DMenuUIWindow";
+    ATOM classAtom = RegisterClassExW(&wc);
+    if (classAtom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+        return;
+    }
+
+    // Create window (initially hidden) - NOTE: NO WS_EX_NOACTIVATE, we WANT focus
+    g_hwnd = CreateWindowExW(
+        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+        L"DMenuUIWindow",
+        L"",
+        WS_POPUP,
+        0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+        NULL, NULL, GetModuleHandle(NULL), NULL
+    );
+
+    if (!g_hwnd) {
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+        return;
+    }
+}
+
+/*****************************************************************************
+ * Shutdown
+ *****************************************************************************/
+void Shutdown() {
+    if (g_hwnd) {
+        DestroyWindow(g_hwnd);
+        g_hwnd = NULL;
+    }
+    if (g_gdiplusToken) {
+        GdiplusShutdown(g_gdiplusToken);
+        g_gdiplusToken = 0;
+    }
+}
+
+/*****************************************************************************
+ * ShowMenu
+ *****************************************************************************/
+void ShowMenu(int x, int y) {
+    if (!g_hwnd) Initialize();
+    if (!g_hwnd) return;
+
+    g_action = ACTION_NONE;
+    g_hoverIndex = -1;
+
+    // Position near mouse
+    RECT workArea;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+
+    int posX = x - WINDOW_WIDTH / 2;
+    int posY = y - 10; // Slightly above cursor
+
+    if (posX < workArea.left) posX = workArea.left;
+    if (posY < workArea.top) posY = workArea.top;
+    if (posX + WINDOW_WIDTH > workArea.right) posX = workArea.right - WINDOW_WIDTH;
+    if (posY + WINDOW_HEIGHT > workArea.bottom) posY = workArea.bottom - WINDOW_HEIGHT;
+
+    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_SHOWWINDOW);
+    ShowWindow(g_hwnd, SW_SHOW);
+
+    // Take focus - this is key to intercepting keyboard input
+    SetForegroundWindow(g_hwnd);
+    SetFocus(g_hwnd);
+
+    g_visible = true;
+}
+
+/*****************************************************************************
+ * HideMenu
+ *****************************************************************************/
+void HideMenu() {
+    if (g_hwnd) {
+        ShowWindow(g_hwnd, SW_HIDE);
+    }
+    g_visible = false;
+}
+
+/*****************************************************************************
+ * IsVisible
+ *****************************************************************************/
+bool IsVisible() {
+    return g_visible && g_hwnd && IsWindowVisible(g_hwnd);
+}
+
+/*****************************************************************************
+ * GetAction
+ *****************************************************************************/
+MenuAction GetAction() {
+    return g_action;
+}
+
+/*****************************************************************************
+ * Update
+ *****************************************************************************/
+void Update() {
+    // Called from idle hook - can be used for animations or timeout
+}
+
+/*****************************************************************************
+ * HitTest
+ *****************************************************************************/
+static int HitTest(int x, int y) {
+    if (x < PADDING || x > WINDOW_WIDTH - PADDING) return -1;
+
+    int itemY = PADDING;
+    for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+        if (y >= itemY && y < itemY + ITEM_HEIGHT) {
+            return i;
+        }
+        itemY += ITEM_HEIGHT;
+    }
+    return -1;
+}
+
+/*****************************************************************************
+ * Draw
+ *****************************************************************************/
+static void Draw(HDC hdc) {
+    Graphics g(hdc);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+
+    // Background with rounded corners
+    SolidBrush bgBrush(COLOR_BG);
+    Pen borderPen(COLOR_BORDER, 1);
+
+    // Simple rectangle for now
+    g.FillRectangle(&bgBrush, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    g.DrawRectangle(&borderPen, 0, 0, WINDOW_WIDTH - 1, WINDOW_HEIGHT - 1);
+
+    // Menu items
+    FontFamily fontFamily(L"Segoe UI");
+    Font keyFont(&fontFamily, 11, FontStyleBold, UnitPixel);
+    Font labelFont(&fontFamily, 11, FontStyleRegular, UnitPixel);
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush keyBrush(COLOR_KEY);
+    SolidBrush hoverBrush(COLOR_ITEM_HOVER);
+
+    int itemY = PADDING;
+    for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+        RECT itemRect = { PADDING, itemY, WINDOW_WIDTH - PADDING, itemY + ITEM_HEIGHT };
+
+        // Hover background
+        if (i == g_hoverIndex) {
+            g.FillRectangle(&hoverBrush, itemRect.left, itemRect.top,
+                           itemRect.right - itemRect.left, itemRect.bottom - itemRect.top);
+        }
+
+        // Key indicator [A]
+        wchar_t keyText[4];
+        swprintf(keyText, 4, L"[%c]", MENU_ITEMS[i].key);
+        g.DrawString(keyText, -1, &keyFont, PointF((REAL)(PADDING + 4), (REAL)(itemY + 5)), &keyBrush);
+
+        // Label
+        g.DrawString(MENU_ITEMS[i].label, -1, &labelFont,
+                    PointF((REAL)(PADDING + 40), (REAL)(itemY + 6)), &textBrush);
+
+        itemY += ITEM_HEIGHT;
+    }
+}
+
+/*****************************************************************************
+ * WndProc
+ *****************************************************************************/
+static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        Draw(hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_MOUSEMOVE: {
+        int x = GET_X_LPARAM(lParam);
+        int y = GET_Y_LPARAM(lParam);
+        int newHover = HitTest(x, y);
+        if (newHover != g_hoverIndex) {
+            g_hoverIndex = newHover;
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN: {
+        int x = GET_X_LPARAM(lParam);
+        int y = GET_Y_LPARAM(lParam);
+        int index = HitTest(x, y);
+        if (index >= 0 && index < MENU_ITEM_COUNT) {
+            g_action = MENU_ITEMS[index].action;
+            HideMenu();
+        }
+        return 0;
+    }
+
+    case WM_KEYDOWN: {
+        // Handle key shortcuts
+        switch (wParam) {
+        case 'A':
+        case 'a':
+            g_action = ACTION_ALIGN;
+            HideMenu();
+            break;
+        case 'T':
+        case 't':
+            g_action = ACTION_TEXT;
+            HideMenu();
+            break;
+        case 'K':
+        case 'k':
+            g_action = ACTION_KEYFRAME;
+            HideMenu();
+            break;
+        case VK_ESCAPE:
+            g_action = ACTION_CANCELLED;
+            HideMenu();
+            break;
+        }
+        return 0;
+    }
+
+    case WM_CHAR:
+        // Consume char events to prevent beeps
+        return 0;
+
+    case WM_ACTIVATE:
+        // WM_ACTIVATE is more reliable than WM_KILLFOCUS for detecting outside clicks
+        if (LOWORD(wParam) == WA_INACTIVE) {
+            // Window is being deactivated (clicked outside)
+            g_action = ACTION_CANCELLED;
+            HideMenu();
+        }
+        return 0;
+
+    case WM_KILLFOCUS:
+        // Backup: also handle kill focus
+        g_action = ACTION_CANCELLED;
+        HideMenu();
+        return 0;
+    }
+
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+} // namespace DMenuUI
+
+#else // macOS stubs
+
+namespace DMenuUI {
+
+void Initialize() {}
+void Shutdown() {}
+void ShowMenu(int x, int y) { (void)x; (void)y; }
+void HideMenu() {}
+bool IsVisible() { return false; }
+MenuAction GetAction() { return ACTION_NONE; }
+void Update() {}
+
+} // namespace DMenuUI
+
+#endif

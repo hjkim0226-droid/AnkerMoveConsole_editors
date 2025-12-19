@@ -12,6 +12,7 @@
 #include "KeyframeUI.h"
 #include "AlignUI.h"
 #include "TextUI.h"
+#include "DMenuUI.h"
 #include "CEPBridge.h"
 #include <chrono>
 #include <cstdarg>
@@ -42,23 +43,18 @@ static bool g_toggleClickMode = false; // Toggle mode vs hold mode
 static bool g_controlVisible = false;
 static bool g_eKeyWasHeld = false;
 
-// Keyframe module state
+// Keyframe module state (toggle mode via D→K)
 static bool g_keyframeVisible = false;
-static bool g_kKeyWasHeld = false;
-static std::chrono::steady_clock::time_point g_kKeyPressTime;
-static bool g_kWaitingForHold = false;
 
-// Align module state (D→A sequence)
-static bool g_alignVisible = false;
+// D Menu state (D key shows menu, then A/T/K opens panels)
+static bool g_dMenuVisible = false;
 static bool g_dKeyWasHeld = false;
-static bool g_aKeyWasHeld = false;
-static bool g_dKeyPressed = false; // D key in sequence mode
-static std::chrono::steady_clock::time_point g_dKeyPressTime;
-static const int SEQUENCE_TIMEOUT_MS = 500; // 500ms window for D→A/D→T
 
-// Text module state (D→T sequence)
+// Align module state
+static bool g_alignVisible = false;
+
+// Text module state
 static bool g_textVisible = false;
-static bool g_tKeyWasHeld = false;
 
 // Forward declaration for ExecuteScript (defined later)
 A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
@@ -1550,194 +1546,179 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   g_eKeyWasHeld = shift_e_pressed;
 
   // =========================================================================
-  // KEYFRAME MODULE: K key 0.4s hold for keyframe easing panel
+  // KEYFRAME MODULE: Toggle mode via D→K (DMenuUI)
+  // Panel stays open until closed by outside click, ESC, or D→K toggle
   // =========================================================================
-  bool k_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_K);
 
-  // K key just pressed
-  if (k_key_held && !g_kKeyWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_controlVisible) {
-    // Start waiting for hold
-    g_kKeyPressTime = now;
-    g_kWaitingForHold = true;
-  }
-  // K key still held - check if hold duration reached
-  else if (k_key_held && g_kWaitingForHold && !g_keyframeVisible) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_kKeyPressTime).count();
-    if (elapsed >= HOLD_DELAY_MS) {
-      // Get keyframe info before showing panel
-      const char* getInfoScript =
-        "(function(){"
-        "try{"
-        "var c=app.project.activeItem;"
-        "if(!c||!(c instanceof CompItem))return '';"
-        "var props=c.selectedProperties;"
-        "if(!props||props.length===0)return '';"
-        "var prop=props[0];"  // Use first selected property
-        "if(!prop.selectedKeys||prop.selectedKeys.length<2)return '';"
-        "var keys=prop.selectedKeys;"
-        "var k1=keys[0],k2=keys[1];"  // Use first two selected keyframes
-        "var t1=prop.keyTime(k1),t2=prop.keyTime(k2);"
-        "var v1=prop.keyValue(k1),v2=prop.keyValue(k2);"
-        // Handle multi-dimensional values (use magnitude for spatial)
-        "var val1=v1,val2=v2;"
-        "if(v1 instanceof Array){"
-        "var sum1=0,sum2=0;"
-        "for(var i=0;i<v1.length;i++){sum1+=v1[i]*v1[i];sum2+=v2[i]*v2[i];}"
-        "val1=Math.sqrt(sum1);val2=Math.sqrt(sum2);"
-        "}"
-        // Get easing info
-        "var outEase=prop.keyOutTemporalEase(k1);"
-        "var inEase=prop.keyInTemporalEase(k2);"
-        "var outSpd=outEase[0].speed,outInf=outEase[0].influence;"
-        "var inSpd=inEase[0].speed,inInf=inEase[0].influence;"
-        // Calculate average speed
-        "var dur=t2-t1;"
-        "var valChange=val2-val1;"
-        "var avgSpd=Math.abs(dur)>0.0001?Math.abs(valChange/dur):0;"
-        // Return JSON
-        "return '{\"propName\":\"'+prop.name.replace(/\"/g,'\\\\\"')+'\",'+"
-        "'\"propMatchName\":\"'+prop.matchName.replace(/\"/g,'\\\\\"')+'\",'+"
-        "'\"keyIndex1\":'+k1+',\"keyIndex2\":'+k2+','+"
-        "'\"time1\":'+t1+',\"time2\":'+t2+','+"
-        "'\"value1\":'+val1+',\"value2\":'+val2+','+"
-        "'\"outSpeed\":'+outSpd+',\"outInfluence\":'+outInf+','+"
-        "'\"inSpeed\":'+inSpd+',\"inInfluence\":'+inInf+','+"
-        "'\"avgSpeed\":'+avgSpd+'}';"
-        "}catch(e){return '';}"
-        "})();";
+  // Check if Keyframe panel closed and process result
+  if (g_keyframeVisible && !KeyframeUI::IsVisible()) {
+    KeyframeUI::KeyframeResult result = KeyframeUI::GetResult();
+    g_keyframeVisible = false;
 
-      char resultBuf[2048] = {0};
-      ExecuteScript(getInfoScript, resultBuf, sizeof(resultBuf));
-
-      // Show keyframe panel
-      int mouseX = 0, mouseY = 0;
-      KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
-
-      // Set keyframe info if we got valid data
-      if (resultBuf[0] == '{') {
-        wchar_t wResult[2048];
-        MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
-        KeyframeUI::SetKeyframeInfo(wResult);
-      }
-
-      KeyframeUI::ShowPanel(mouseX, mouseY);
-      g_keyframeVisible = true;
-      g_kWaitingForHold = false;
+    if (result.applied) {
+      // Apply keyframe easing using inline ExtendScript
+      char script[4096];
+      snprintf(script, sizeof(script),
+               "(function(){"
+               "try{"
+               "var c=app.project.activeItem;"
+               "if(!c||!(c instanceof CompItem))return;"
+               "var props=c.selectedProperties;"
+               "if(!props||props.length===0)return;"
+               "var outSpd=%.2f,outInf=%.2f,inSpd=%.2f,inInf=%.2f;"
+               "app.beginUndoGroup('Apply Keyframe Easing');"
+               "for(var i=0;i<props.length;i++){"
+               "var prop=props[i];"
+               "if(!prop.selectedKeys||prop.selectedKeys.length<2)continue;"
+               "var keys=prop.selectedKeys;"
+               "var numDims=1;"
+               "if(prop.propertyValueType===PropertyValueType.TwoD||"
+               "prop.propertyValueType===PropertyValueType.TwoD_SPATIAL)numDims=2;"
+               "else if(prop.propertyValueType===PropertyValueType.ThreeD||"
+               "prop.propertyValueType===PropertyValueType.ThreeD_SPATIAL)numDims=3;"
+               "else if(prop.propertyValueType===PropertyValueType.COLOR)numDims=4;"
+               "var outArr=[],inArr=[];"
+               "for(var d=0;d<numDims;d++){"
+               "outArr.push(new KeyframeEase(outSpd,outInf));"
+               "inArr.push(new KeyframeEase(inSpd,inInf));"
+               "}"
+               "for(var j=0;j<keys.length;j++){"
+               "var k=keys[j];"
+               "if(j<keys.length-1){"
+               "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e1){}"
+               "}"
+               "if(j>0){"
+               "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e2){}"
+               "}"
+               "}"
+               "}"
+               "app.endUndoGroup();"
+               "}catch(e){}"
+               "})();",
+               result.outSpeed, result.outInfluence,
+               result.inSpeed, result.inInfluence);
+      ExecuteScript(script);
     }
   }
-  // K key still held and panel visible - update hover
-  else if (k_key_held && g_keyframeVisible) {
+
+  // Update hover while keyframe panel is visible
+  if (g_keyframeVisible && KeyframeUI::IsVisible()) {
     int mouseX = 0, mouseY = 0;
     KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
     KeyframeUI::UpdateHover(mouseX, mouseY);
   }
-  // K key just released
-  else if (!k_key_held && g_kKeyWasHeld) {
-    g_kWaitingForHold = false;
-
-    if (g_keyframeVisible) {
-      KeyframeUI::KeyframeResult result = KeyframeUI::HidePanel();
-      g_keyframeVisible = false;
-
-      if (result.applied) {
-        // Apply keyframe easing using inline ExtendScript
-        char script[4096];
-        snprintf(script, sizeof(script),
-                 "(function(){"
-                 "try{"
-                 "var c=app.project.activeItem;"
-                 "if(!c||!(c instanceof CompItem))return;"
-                 "var props=c.selectedProperties;"
-                 "if(!props||props.length===0)return;"
-                 "var outSpd=%.2f,outInf=%.2f,inSpd=%.2f,inInf=%.2f;"
-                 "app.beginUndoGroup('Apply Keyframe Easing');"
-                 "for(var i=0;i<props.length;i++){"
-                 "var prop=props[i];"
-                 "if(!prop.selectedKeys||prop.selectedKeys.length<2)continue;"
-                 "var keys=prop.selectedKeys;"
-                 "var numDims=1;"
-                 "if(prop.propertyValueType===PropertyValueType.TwoD||"
-                 "prop.propertyValueType===PropertyValueType.TwoD_SPATIAL)numDims=2;"
-                 "else if(prop.propertyValueType===PropertyValueType.ThreeD||"
-                 "prop.propertyValueType===PropertyValueType.ThreeD_SPATIAL)numDims=3;"
-                 "else if(prop.propertyValueType===PropertyValueType.COLOR)numDims=4;"
-                 "var outArr=[],inArr=[];"
-                 "for(var d=0;d<numDims;d++){"
-                 "outArr.push(new KeyframeEase(outSpd,outInf));"
-                 "inArr.push(new KeyframeEase(inSpd,inInf));"
-                 "}"
-                 "for(var j=0;j<keys.length;j++){"
-                 "var k=keys[j];"
-                 "if(j<keys.length-1){"
-                 "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e1){}"
-                 "}"
-                 "if(j>0){"
-                 "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e2){}"
-                 "}"
-                 "}"
-                 "}"
-                 "app.endUndoGroup();"
-                 "}catch(e){}"
-                 "})();",
-                 result.outSpeed, result.outInfluence,
-                 result.inSpeed, result.inInfluence);
-        ExecuteScript(script);
-      }
-    }
-  }
-
-  // Safety: force close if panel visible but K key not held
-  if (g_keyframeVisible && !k_key_held) {
-    KeyframeUI::HidePanel();
-    g_keyframeVisible = false;
-  }
-
-  g_kKeyWasHeld = k_key_held;
 
   // =========================================================================
-  // ALIGN MODULE: D→A sequence for quick align/distribute panel
-  // D key starts sequence, A key within 500ms triggers panel
+  // D MENU MODULE: D key shows menu, user selects A/T/K
+  // Menu popup takes focus, so keys go to menu not AE
   // =========================================================================
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
-  bool a_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_A);
 
-  // D key just pressed - start sequence timer
+  // D key just pressed - show D menu
   if (d_key_held && !g_dKeyWasHeld && !IsTextInputFocused() &&
       IsAfterEffectsForeground() && !g_globals.menu_visible &&
-      !g_controlVisible && !g_keyframeVisible && !g_alignVisible && !g_textVisible) {
-    g_dKeyPressed = true;
-    g_dKeyPressTime = now;
+      !g_controlVisible && !g_keyframeVisible && !g_alignVisible &&
+      !g_textVisible && !g_dMenuVisible) {
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+    DMenuUI::ShowMenu(mouseX, mouseY);
+    g_dMenuVisible = true;
   }
 
-  // A key just pressed while D sequence active
-  if (a_key_held && !g_aKeyWasHeld && g_dKeyPressed && !IsTextInputFocused() &&
-      IsAfterEffectsForeground()) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_dKeyPressTime).count();
-    if (elapsed <= SEQUENCE_TIMEOUT_MS) {
-      // D→A sequence detected! Show align panel
-      int mouseX = 0, mouseY = 0;
-      KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+  // Check if D menu closed and handle action
+  if (g_dMenuVisible && !DMenuUI::IsVisible()) {
+    g_dMenuVisible = false;
+    DMenuUI::MenuAction action = DMenuUI::GetAction();
+
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+
+    switch (action) {
+    case DMenuUI::ACTION_ALIGN:
       AlignUI::ShowPanel(mouseX, mouseY);
       g_alignVisible = true;
-      g_dKeyPressed = false; // Reset sequence
-    }
-  }
+      break;
 
-  // D sequence timeout
-  if (g_dKeyPressed) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_dKeyPressTime).count();
-    if (elapsed > SEQUENCE_TIMEOUT_MS) {
-      g_dKeyPressed = false; // Timeout - reset sequence
-    }
-  }
+    case DMenuUI::ACTION_TEXT:
+      if (HasSelectedTextLayer()) {
+        // Get text layer info before showing panel
+        const char* getTextInfoScript =
+          "(function(){"
+          "try{"
+          "var c=app.project.activeItem;"
+          "if(!c||!(c instanceof CompItem))return '';"
+          "var sel=c.selectedLayers;"
+          "var textLayer=null;"
+          "for(var i=0;i<sel.length;i++){"
+          "if(sel[i] instanceof TextLayer){textLayer=sel[i];break;}"
+          "}"
+          "if(!textLayer)return '';"
+          "var txt=textLayer.text.sourceText.value;"
+          "var font=txt.font||'Arial';"
+          "var fontStyle=txt.fontStyle||'Regular';"
+          "var fontSize=txt.fontSize||72;"
+          "var tracking=txt.tracking||0;"
+          "var leading=txt.leading||0;"
+          "var strokeWidth=txt.strokeWidth||0;"
+          "var fill=txt.fillColor||[1,1,1];"
+          "var stroke=txt.strokeColor||[0,0,0];"
+          "var applyFill=txt.applyFill!==false;"
+          "var applyStroke=txt.applyStroke||false;"
+          "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
+          "var justNum=0;"
+          "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
+          "else if(just==ParagraphJustification.CENTER_JUSTIFY)justNum=1;"
+          "else if(just==ParagraphJustification.RIGHT_JUSTIFY)justNum=2;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT)justNum=3;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER)justNum=4;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
+          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
+          "return '{'+"
+          "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
+          "'\"fontStyle\":\"'+fontStyle.replace(/\"/g,'\\\\\"')+'\",'+"
+          "'\"fontSize\":'+fontSize+','+"
+          "'\"tracking\":'+tracking+','+"
+          "'\"leading\":'+leading+','+"
+          "'\"strokeWidth\":'+strokeWidth+','+"
+          "'\"fillColor\":['+fill[0]+','+fill[1]+','+fill[2]+'],'+"
+          "'\"strokeColor\":['+stroke[0]+','+stroke[1]+','+stroke[2]+'],'+"
+          "'\"applyFill\":'+applyFill+','+"
+          "'\"applyStroke\":'+applyStroke+','+"
+          "'\"justify\":'+justNum+','+"
+          "'\"layerName\":\"'+textLayer.name.replace(/\"/g,'\\\\\"')+'\"'+"
+          "'}';"
+          "}catch(e){return '';}"
+          "})();";
 
-  // D key released - reset sequence (unless panel is showing)
-  if (!d_key_held && g_dKeyWasHeld && !g_alignVisible) {
-    g_dKeyPressed = false;
+        char resultBuf[2048] = {0};
+        ExecuteScript(getTextInfoScript, resultBuf, sizeof(resultBuf));
+
+        if (resultBuf[0] == '{') {
+          wchar_t wResult[2048];
+          MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
+          TextUI::SetTextInfo(wResult);
+        }
+
+        TextUI::ShowPanel(mouseX, mouseY);
+        g_textVisible = true;
+      }
+      break;
+
+    case DMenuUI::ACTION_KEYFRAME:
+      // Toggle keyframe panel (not hold mode)
+      if (g_keyframeVisible) {
+        KeyframeUI::HidePanel();
+        g_keyframeVisible = false;
+      } else {
+        KeyframeUI::ShowPanel(mouseX, mouseY);
+        g_keyframeVisible = true;
+      }
+      break;
+
+    default:
+      // ACTION_NONE or ACTION_CANCELLED - do nothing
+      break;
+    }
   }
 
   // Check if Align panel closed and process result
@@ -1878,94 +1859,6 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   }
 
   g_dKeyWasHeld = d_key_held;
-  g_aKeyWasHeld = a_key_held;
-
-  // =========================================================================
-  // TEXT MODULE: D→T sequence for quick text options panel
-  // D key starts sequence, T key within 500ms triggers panel
-  // Only shows when a text layer is selected
-  // =========================================================================
-  bool t_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_T);
-
-  // T key just pressed while D sequence active
-  if (t_key_held && !g_tKeyWasHeld && g_dKeyPressed && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_textVisible) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - g_dKeyPressTime).count();
-    if (elapsed <= SEQUENCE_TIMEOUT_MS) {
-      // Check if a text layer is selected
-      if (HasSelectedTextLayer()) {
-        // Get text layer info before showing panel
-        const char* getTextInfoScript =
-          "(function(){"
-          "try{"
-          "var c=app.project.activeItem;"
-          "if(!c||!(c instanceof CompItem))return '';"
-          "var sel=c.selectedLayers;"
-          "var textLayer=null;"
-          "for(var i=0;i<sel.length;i++){"
-          "if(sel[i] instanceof TextLayer){textLayer=sel[i];break;}"
-          "}"
-          "if(!textLayer)return '';"
-          "var txt=textLayer.text.sourceText.value;"
-          // txt is a TextDocument object
-          "var font=txt.font||'Arial';"
-          "var fontStyle=txt.fontStyle||'Regular';"
-          "var fontSize=txt.fontSize||72;"
-          "var tracking=txt.tracking||0;"
-          "var leading=txt.leading||0;" // 0 = Auto
-          "var strokeWidth=txt.strokeWidth||0;"
-          "var fill=txt.fillColor||[1,1,1];"
-          "var stroke=txt.strokeColor||[0,0,0];"
-          "var applyFill=txt.applyFill!==false;"
-          "var applyStroke=txt.applyStroke||false;"
-          "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
-          // Convert justification to number
-          "var justNum=0;"
-          "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
-          "else if(just==ParagraphJustification.CENTER_JUSTIFY)justNum=1;"
-          "else if(just==ParagraphJustification.RIGHT_JUSTIFY)justNum=2;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT)justNum=3;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER)justNum=4;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
-          "return '{'+"
-          "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
-          "'\"fontStyle\":\"'+fontStyle.replace(/\"/g,'\\\\\"')+'\",'+"
-          "'\"fontSize\":'+fontSize+','+"
-          "'\"tracking\":'+tracking+','+"
-          "'\"leading\":'+leading+','+"
-          "'\"strokeWidth\":'+strokeWidth+','+"
-          "'\"fillColor\":['+fill[0]+','+fill[1]+','+fill[2]+'],'+"
-          "'\"strokeColor\":['+stroke[0]+','+stroke[1]+','+stroke[2]+'],'+"
-          "'\"applyFill\":'+applyFill+','+"
-          "'\"applyStroke\":'+applyStroke+','+"
-          "'\"justify\":'+justNum+','+"
-          "'\"layerName\":\"'+textLayer.name.replace(/\"/g,'\\\\\"')+'\"'+"
-          "'}';"
-          "}catch(e){return '';}"
-          "})();";
-
-        char resultBuf[2048] = {0};
-        ExecuteScript(getTextInfoScript, resultBuf, sizeof(resultBuf));
-
-        // Show text panel
-        int mouseX = 0, mouseY = 0;
-        KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
-
-        // Set text info if we got valid data
-        if (resultBuf[0] == '{') {
-          wchar_t wResult[2048];
-          MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
-          TextUI::SetTextInfo(wResult);
-        }
-
-        TextUI::ShowPanel(mouseX, mouseY);
-        g_textVisible = true;
-        g_dKeyPressed = false; // Reset sequence
-      }
-    }
-  }
 
   // Check if Text panel closed and process result
   if (g_textVisible && !TextUI::IsVisible()) {
@@ -1984,8 +1877,6 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
     TextUI::UpdateHover(mouseX, mouseY);
   }
-
-  g_tKeyWasHeld = t_key_held;
 
   *max_sleepPL = 33; // ~30fps for hover updates
 
@@ -2017,6 +1908,7 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     KeyframeUI::Initialize();
     AlignUI::Initialize();
     TextUI::Initialize();
+    DMenuUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;
 
