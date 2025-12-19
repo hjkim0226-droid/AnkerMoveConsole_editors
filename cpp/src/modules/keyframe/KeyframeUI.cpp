@@ -1152,8 +1152,8 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     Color lenIconColor = g_lockLength ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM;
     Pen lenIconPen(lenIconColor, 1.5f);
     // Chain link icon (two interlocking ovals)
-    graphics.DrawEllipse(&lenIconPen, lenIconX, lenIconY - 5, 8, 10);
-    graphics.DrawEllipse(&lenIconPen, lenIconX + 6, lenIconY - 5, 8, 10);
+    graphics.DrawEllipse(&lenIconPen, lenIconX, lenIconY - 5.0f, 8.0f, 10.0f);
+    graphics.DrawEllipse(&lenIconPen, lenIconX + 6.0f, lenIconY - 5.0f, 8.0f, 10.0f);
     // "Len" text
     RectF lenTextRect((REAL)(lockX + 20), (REAL)lockY, 36, (REAL)LOCK_BUTTON_SIZE);
     SolidBrush lenTextBrush(g_lockLength ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM);
