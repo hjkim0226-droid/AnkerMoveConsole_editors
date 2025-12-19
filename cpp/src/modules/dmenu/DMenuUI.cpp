@@ -10,6 +10,7 @@
 
 #ifdef MSWindows
 #include <windowsx.h>
+#include <cwchar>
 
 using namespace Gdiplus;
 
