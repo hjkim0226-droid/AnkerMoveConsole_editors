@@ -59,6 +59,154 @@ cep/                    # CEP Panel (Settings UI)
 
 ---
 
+## Module UI Guidelines (모듈 UI 가이드라인)
+
+### 모듈 타입별 UI 요소
+
+| 요소 | 도구 모듈 | 팝업 메뉴 |
+|-----|----------|----------|
+| **핀 버튼** | ✅ 필수 | ❌ 없음 |
+| **X 버튼** | ❌ 없음 | ❌ 없음 |
+| **창 이동** | ✅ 헤더 드래그 | ❌ 없음 |
+| **ESC 닫기** | ✅ 필수 | ✅ 필수 |
+
+**도구 모듈**: Grid, Control, Keyframe, Align, Text
+**팝업 메뉴**: DMenu
+
+### 공통 상수 (표준)
+```cpp
+// === 레이아웃 ===
+static const int WINDOW_WIDTH = 320;          // 창 너비 (고정)
+static const int PADDING = 8;                 // 기본 여백
+static const int HEADER_HEIGHT = 32;          // 헤더 높이
+static const int SEARCH_HEIGHT = 36;          // 검색창 높이
+static const int ITEM_HEIGHT = 32;            // 리스트 아이템 높이
+static const int MAX_VISIBLE_ITEMS = 8;       // 최대 표시 아이템
+
+// === 버튼 ===
+static const int PIN_BUTTON_SIZE = 20;        // 핀/닫기 버튼
+static const int ACTION_BUTTON_SIZE = 20;     // 액션 버튼
+static const int PRESET_BUTTON_SIZE = 28;     // 프리셋 버튼
+static const int BUTTON_MARGIN = 4;           // 버튼 여백
+
+// === 아이콘 ===
+static const int ICON_SIZE_SMALL = 16;        // 작은 아이콘
+static const int ICON_SIZE_MEDIUM = 20;       // 중간 아이콘
+static const int ICON_SIZE_LARGE = 34;        // 큰 아이콘
+```
+
+### 색상 팔레트 (표준)
+```cpp
+// === 배경 ===
+static const Color COLOR_BG(240, 28, 28, 32);             // 패널 배경
+static const Color COLOR_HEADER_BG(255, 40, 40, 48);      // 헤더/검색창
+static const Color COLOR_CELL_BG(255, 35, 35, 40);        // 셀/아이템
+
+// === 텍스트 ===
+static const Color COLOR_TEXT(255, 220, 220, 220);        // 기본 텍스트
+static const Color COLOR_TEXT_DIM(255, 140, 140, 140);    // 보조 텍스트
+
+// === 상호작용 ===
+static const Color COLOR_HOVER(255, 60, 80, 100);         // 호버 배경
+static const Color COLOR_SELECTED(255, 74, 158, 255);     // 선택됨 (파란색)
+static const Color COLOR_ACCENT(255, 74, 207, 255);       // 강조 (시안)
+static const Color COLOR_BORDER(255, 60, 60, 70);         // 테두리
+
+// === 특수 ===
+static const Color COLOR_DELETE_HOVER(255, 200, 80, 80);  // 삭제 호버
+static const Color COLOR_SAVE_ACTIVE(255, 255, 180, 0);   // 저장 모드
+```
+
+### 폰트 (표준)
+```cpp
+static const wchar_t* FONT_FAMILY = L"Segoe UI";
+static const int FONT_SIZE_HEADER = 12;     // 헤더, 타이틀 (Bold)
+static const int FONT_SIZE_ITEM = 12;       // 리스트 아이템
+static const int FONT_SIZE_SEARCH = 14;     // 검색창
+static const int FONT_SIZE_SMALL = 10;      // 카테고리, 인덱스
+
+// 렌더링
+graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+```
+
+### 더블 버퍼링 (필수)
+```cpp
+case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint(hwnd, &ps);
+
+    // 더블 버퍼링
+    HDC memDC = CreateCompatibleDC(hdc);
+    HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
+    HGDIOBJ oldBitmap = SelectObject(memDC, memBitmap);
+
+    // memDC에 그리기...
+
+    // 화면에 복사
+    BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
+
+    // 정리
+    SelectObject(memDC, oldBitmap);
+    DeleteObject(memBitmap);
+    DeleteDC(memDC);
+    EndPaint(hwnd, &ps);
+    return 0;
+}
+```
+
+### 핀 버튼 구현
+```cpp
+// 헤더 오른쪽에 위치
+int pinBtnX = width - PADDING - CLOSE_BUTTON_SIZE;
+int pinBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
+
+// 핀 아이콘: 원 + 선 (압정 모양)
+float pinCx = pinBtnX + CLOSE_BUTTON_SIZE / 2.0f;
+float pinCy = pinBtnY + CLOSE_BUTTON_SIZE / 2.0f;
+graphics.FillEllipse(&pinBrush, pinCx - 4, pinCy - 6, 8, 8);  // 머리
+graphics.DrawLine(&pinPen, pinCx, pinCy + 2, pinCx, pinCy + 8); // 바늘
+```
+
+### 창 드래그 이동 구현
+```cpp
+// 변수
+static bool g_windowDragging = false;
+static POINT g_windowDragOffset = {0, 0};
+
+// WM_LBUTTONDOWN (헤더 영역, 버튼 제외)
+if (y >= PADDING && y < PADDING + HEADER_HEIGHT && x < pinBtnX) {
+    g_windowDragging = true;
+    SetCapture(hwnd);
+    // 오프셋 계산...
+}
+
+// WM_MOUSEMOVE
+if (g_windowDragging) {
+    POINT pt;
+    GetCursorPos(&pt);
+    SetWindowPos(hwnd, NULL, pt.x - offset.x, pt.y - offset.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+// WM_LBUTTONUP
+if (g_windowDragging) {
+    g_windowDragging = false;
+    ReleaseCapture();
+}
+```
+
+### WM_ACTIVATE 처리 (핀 모드 지원)
+```cpp
+case WM_ACTIVATE:
+    if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen) {
+        // 창 닫기
+        HidePanel();
+    }
+    return 0;
+```
+
+---
+
 ## Troubleshooting (문제 해결 가이드)
 
 ### 플러그인이 키 입력에 반응하지 않을 때

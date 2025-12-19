@@ -318,9 +318,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         // WM_ACTIVATE is more reliable than WM_KILLFOCUS for detecting outside clicks
         if (LOWORD(wParam) == WA_INACTIVE) {
             // Check if within grace period (ignore focus loss right after showing)
+            // Only cancel if no action was already set (prevents overwriting click selection)
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - g_showTime).count();
-            if (elapsed > FOCUS_GRACE_PERIOD_MS) {
+            if (elapsed > FOCUS_GRACE_PERIOD_MS && g_action == ACTION_NONE) {
                 // Window is being deactivated (clicked outside)
                 g_action = ACTION_CANCELLED;
                 HideMenu();
@@ -330,10 +331,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
     case WM_KILLFOCUS:
         // Backup: also handle kill focus (with grace period check)
+        // Only cancel if no action was already set (prevents overwriting click selection)
         {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - g_showTime).count();
-            if (elapsed > FOCUS_GRACE_PERIOD_MS) {
+            if (elapsed > FOCUS_GRACE_PERIOD_MS && g_action == ACTION_NONE) {
                 g_action = ACTION_CANCELLED;
                 HideMenu();
             }
