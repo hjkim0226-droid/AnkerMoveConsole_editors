@@ -586,9 +586,20 @@ float IntegrateVelocityCurve(const KeyframeUI::VelocityCurve& curve, float t) {
 }
 
 // Draw the bezier curve in the graph area
+// Graph padding constant for overshoot visualization
+static const float GRAPH_Y_PADDING = 0.2f;  // 20% padding above and below
+
+// Helper: Map curve Y value (with overshoot) to screen Y
+inline float CurveYToScreen(float curveY, int graphY, int graphH) {
+    // curveY range: -0.2 to 1.2 (with padding)
+    // Screen: top = 1.2, bottom = -0.2
+    float normalizedY = (1.0f + GRAPH_Y_PADDING - curveY) / (1.0f + GRAPH_Y_PADDING * 2);
+    return graphY + normalizedY * graphH;
+}
+
 void DrawBezierCurve(Graphics& graphics, const KeyframeUI::VelocityCurve& curve,
                      int x, int y, int w, int h) {
-    // Draw the velocity curve as a bezier
+    // Draw the velocity curve as a bezier with overshoot support
     std::vector<PointF> points;
     const int segments = 50;
 
@@ -596,9 +607,11 @@ void DrawBezierCurve(Graphics& graphics, const KeyframeUI::VelocityCurve& curve,
         float t = (float)i / segments;
         PointF pt = EvalCubicBezier(t, 0, 1, curve.p0_x, 1 - curve.p0_y,
                                     curve.p1_x, 1 - curve.p1_y, 1, 0);
-        // Map to graph coordinates (Y inverted for screen)
+        // Map to graph coordinates with padding for overshoot
         float px = x + pt.X * w;
-        float py = y + pt.Y * h;
+        // pt.Y is inverted (0=bottom, 1=top in curve space)
+        float curveY = 1.0f - pt.Y;  // Convert back to curve Y
+        float py = CurveYToScreen(curveY, y, h);
         points.push_back(PointF(px, py));
     }
 
@@ -608,16 +621,20 @@ void DrawBezierCurve(Graphics& graphics, const KeyframeUI::VelocityCurve& curve,
         graphics.DrawLines(&curvePen, points.data(), (INT)points.size());
     }
 
-    // Draw control point handles
+    // Draw control point handles (with overshoot support)
     float p0_screenX = x + curve.p0_x * w;
-    float p0_screenY = y + (1 - curve.p0_y) * h;
+    float p0_screenY = CurveYToScreen(curve.p0_y, y, h);
     float p1_screenX = x + curve.p1_x * w;
-    float p1_screenY = y + (1 - curve.p1_y) * h;
+    float p1_screenY = CurveYToScreen(curve.p1_y, y, h);
+
+    // Endpoint screen positions (0 and 1 in curve space)
+    float startY = CurveYToScreen(0.0f, y, h);  // Bottom endpoint
+    float endY = CurveYToScreen(1.0f, y, h);    // Top endpoint
 
     // Lines from endpoints to handles
     Pen handleLinePen(COLOR_CURVE_DIM, 1);
-    graphics.DrawLine(&handleLinePen, (REAL)x, (REAL)(y + h), p0_screenX, p0_screenY);
-    graphics.DrawLine(&handleLinePen, (REAL)(x + w), (REAL)y, p1_screenX, p1_screenY);
+    graphics.DrawLine(&handleLinePen, (REAL)x, startY, p0_screenX, p0_screenY);
+    graphics.DrawLine(&handleLinePen, (REAL)(x + w), endY, p1_screenX, p1_screenY);
 
     // Handle circles
     const float handleRadius = 6.0f;
@@ -638,10 +655,10 @@ void DrawBezierCurve(Graphics& graphics, const KeyframeUI::VelocityCurve& curve,
     SolidBrush endpointBrush(COLOR_TEXT);
     const float endpointRadius = 4.0f;
     graphics.FillEllipse(&endpointBrush,
-        (REAL)x - endpointRadius, (REAL)(y + h) - endpointRadius,
+        (REAL)x - endpointRadius, startY - endpointRadius,
         endpointRadius * 2, endpointRadius * 2);
     graphics.FillEllipse(&endpointBrush,
-        (REAL)(x + w) - endpointRadius, (REAL)y - endpointRadius,
+        (REAL)(x + w) - endpointRadius, endY - endpointRadius,
         endpointRadius * 2, endpointRadius * 2);
 }
 
@@ -651,25 +668,41 @@ void DrawVelocityGraph(Graphics& graphics, int x, int y, int width, int height) 
     SolidBrush bgBrush(COLOR_GRAPH_BG);
     graphics.FillRectangle(&bgBrush, x, y, width, height);
 
+    // Overshoot areas (dimmer background)
+    float line0Y = CurveYToScreen(0.0f, y, height);  // Y=0 line
+    float line1Y = CurveYToScreen(1.0f, y, height);  // Y=1 line
+    SolidBrush overshootBrush(Color(40, 255, 100, 100));  // Subtle red tint
+    // Top overshoot area (above Y=1)
+    graphics.FillRectangle(&overshootBrush, x, y, width, (int)(line1Y - y));
+    // Bottom overshoot area (below Y=0)
+    graphics.FillRectangle(&overshootBrush, x, (int)line0Y, width, (int)(y + height - line0Y));
+
     // Border
     Pen borderPen(COLOR_BORDER, 1);
     graphics.DrawRectangle(&borderPen, x, y, width - 1, height - 1);
 
-    // Grid lines
+    // Grid lines (within 0-1 range)
     Pen gridPen(COLOR_GRAPH_GRID, 1);
     const int gridLines = 4;
     for (int i = 1; i < gridLines; i++) {
         float ratio = (float)i / gridLines;
         int gx = x + (int)(ratio * width);
-        int gy = y + (int)(ratio * height);
+        // Vertical grid lines span full height
         graphics.DrawLine(&gridPen, gx, y, gx, y + height);
-        graphics.DrawLine(&gridPen, x, gy, x + width, gy);
+        // Horizontal grid lines at 0.25, 0.5, 0.75 in curve space
+        float lineY = CurveYToScreen(ratio, y, height);
+        graphics.DrawLine(&gridPen, x, (int)lineY, x + width, (int)lineY);
     }
 
-    // Diagonal reference line (linear)
+    // Boundary lines at Y=0 and Y=1 (more visible)
+    Pen boundaryPen(Color(180, 100, 180, 255), 1);  // Purple-ish
+    graphics.DrawLine(&boundaryPen, x, (int)line0Y, x + width, (int)line0Y);
+    graphics.DrawLine(&boundaryPen, x, (int)line1Y, x + width, (int)line1Y);
+
+    // Diagonal reference line (linear) - from (0,0) to (1,1) in curve space
     Pen refPen(COLOR_GRAPH_GRID, 1);
     refPen.SetDashStyle(DashStyleDash);
-    graphics.DrawLine(&refPen, x, y + height, x + width, y);
+    graphics.DrawLine(&refPen, (REAL)x, line0Y, (REAL)(x + width), line1Y);
 
     // Store graph rect for hit testing
     g_graphRect.left = x;
@@ -1032,12 +1065,18 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // Handle dragging
             if (g_draggingHandle >= 0) {
                 // Convert screen pos to curve coordinates
-                float nx = (float)(x - g_graphRect.left) / (g_graphRect.right - g_graphRect.left);
-                float ny = 1.0f - (float)(y - g_graphRect.top) / (g_graphRect.bottom - g_graphRect.top);
+                // Graph has 20% padding for overshoot visualization
+                float graphPadding = 0.2f;
+                float effectiveHeight = 1.0f + graphPadding * 2;  // -0.2 to 1.2 range
 
-                // Clamp
+                float nx = (float)(x - g_graphRect.left) / (g_graphRect.right - g_graphRect.left);
+                float rawY = 1.0f - (float)(y - g_graphRect.top) / (g_graphRect.bottom - g_graphRect.top);
+                float ny = rawY * effectiveHeight - graphPadding;  // Map to -0.2 ~ 1.2
+
+                // X is clamped to 0-1 (time can't go backwards)
                 nx = max(0.0f, min(1.0f, nx));
-                ny = max(0.0f, min(1.0f, ny));
+                // Y allows overshoot: -0.5 to 1.5 range
+                ny = max(-0.5f, min(1.5f, ny));
 
                 if (g_draggingHandle == 0) {
                     g_currentCurve.p0_x = nx;
@@ -1124,10 +1163,12 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
             // Check handle hover (when not dragging)
             if (g_draggingHandle < 0) {
-                float p0_screenX = g_graphRect.left + g_currentCurve.p0_x * (g_graphRect.right - g_graphRect.left);
-                float p0_screenY = g_graphRect.top + (1 - g_currentCurve.p0_y) * (g_graphRect.bottom - g_graphRect.top);
-                float p1_screenX = g_graphRect.left + g_currentCurve.p1_x * (g_graphRect.right - g_graphRect.left);
-                float p1_screenY = g_graphRect.top + (1 - g_currentCurve.p1_y) * (g_graphRect.bottom - g_graphRect.top);
+                int graphW = g_graphRect.right - g_graphRect.left;
+                int graphH = g_graphRect.bottom - g_graphRect.top;
+                float p0_screenX = g_graphRect.left + g_currentCurve.p0_x * graphW;
+                float p0_screenY = CurveYToScreen(g_currentCurve.p0_y, g_graphRect.top, graphH);
+                float p1_screenX = g_graphRect.left + g_currentCurve.p1_x * graphW;
+                float p1_screenY = CurveYToScreen(g_currentCurve.p1_y, g_graphRect.top, graphH);
 
                 const float handleRadius = 10.0f;
                 bool oldHover0 = g_handleHover[0];
