@@ -216,7 +216,11 @@ static const int INFO_HEIGHT = 60;
 static const int SLOT_BAR_HEIGHT = 36;
 static const int PADDING = 10;
 static const int CLOSE_BUTTON_SIZE = 20;
-static const int SLOT_BUTTON_SIZE = 40;  // Square buttons for graph preview
+static const int PRESET_BUTTON_WIDTH = 40;   // Square for graph preview
+static const int PRESET_BUTTON_HEIGHT = 40;
+static const int SLOT_BUTTON_WIDTH = 40;
+static const int SLOT_BUTTON_HEIGHT = 40;
+static const int SLOT_BUTTON_SIZE = 40;  // Alias for square buttons
 static const int NUM_TOTAL_SLOTS = 10;   // 5 presets + 5 custom slots
 
 // Colors (matching ControlUI style)
