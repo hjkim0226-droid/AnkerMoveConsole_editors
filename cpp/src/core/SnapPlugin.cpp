@@ -1615,7 +1615,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  if (d_key_held && !g_dKeyWasHeld && !IsTextInputFocused() &&
+  // Check !alt_held for consistency with Y key (Alt+D might be an AE shortcut)
+  if (d_key_held && !g_dKeyWasHeld && !alt_held && !IsTextInputFocused() &&
       IsAfterEffectsForeground() && !g_globals.menu_visible &&
       !g_controlVisible && !g_keyframeVisible && !g_alignVisible &&
       !g_textVisible && !g_dMenuVisible) {

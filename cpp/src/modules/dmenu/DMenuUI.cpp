@@ -11,6 +11,7 @@
 #ifdef MSWindows
 #include <windowsx.h>
 #include <cwchar>
+#include <chrono>
 
 using namespace Gdiplus;
 
@@ -21,6 +22,10 @@ static const int WINDOW_WIDTH = 140;
 static const int WINDOW_HEIGHT = 98;
 static const int ITEM_HEIGHT = 28;
 static const int PADDING = 8;
+
+// Grace period to ignore focus loss after showing menu (ms)
+// This prevents the menu from closing when D key is released
+static const int FOCUS_GRACE_PERIOD_MS = 300;
 
 // Colors
 static const Color COLOR_BG(250, 30, 30, 35);
@@ -50,6 +55,7 @@ static bool g_visible = false;
 static ULONG_PTR g_gdiplusToken = 0;
 static MenuAction g_action = ACTION_NONE;
 static int g_hoverIndex = -1;
+static std::chrono::steady_clock::time_point g_showTime;  // When menu was shown
 
 // Forward declarations
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -146,6 +152,7 @@ void ShowMenu(int x, int y) {
     SetFocus(g_hwnd);
 
     g_visible = true;
+    g_showTime = std::chrono::steady_clock::now();  // Record show time for grace period
 }
 
 /*****************************************************************************
@@ -310,16 +317,27 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_ACTIVATE:
         // WM_ACTIVATE is more reliable than WM_KILLFOCUS for detecting outside clicks
         if (LOWORD(wParam) == WA_INACTIVE) {
-            // Window is being deactivated (clicked outside)
-            g_action = ACTION_CANCELLED;
-            HideMenu();
+            // Check if within grace period (ignore focus loss right after showing)
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - g_showTime).count();
+            if (elapsed > FOCUS_GRACE_PERIOD_MS) {
+                // Window is being deactivated (clicked outside)
+                g_action = ACTION_CANCELLED;
+                HideMenu();
+            }
         }
         return 0;
 
     case WM_KILLFOCUS:
-        // Backup: also handle kill focus
-        g_action = ACTION_CANCELLED;
-        HideMenu();
+        // Backup: also handle kill focus (with grace period check)
+        {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - g_showTime).count();
+            if (elapsed > FOCUS_GRACE_PERIOD_MS) {
+                g_action = ACTION_CANCELLED;
+                HideMenu();
+            }
+        }
         return 0;
     }
 
