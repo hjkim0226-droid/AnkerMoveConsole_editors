@@ -1710,6 +1710,54 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         KeyframeUI::HidePanel();
         g_keyframeVisible = false;
       } else {
+        // Get keyframe info before showing panel
+        const char* getInfoScript =
+          "(function(){"
+          "try{"
+          "var c=app.project.activeItem;"
+          "if(!c||!(c instanceof CompItem))return '';"
+          "var props=c.selectedProperties;"
+          "if(!props||props.length===0)return '';"
+          "var prop=props[0];"
+          "if(!prop.selectedKeys||prop.selectedKeys.length<2)return '';"
+          "var keys=prop.selectedKeys;"
+          "var k1=keys[0],k2=keys[1];"
+          "var t1=prop.keyTime(k1),t2=prop.keyTime(k2);"
+          "var v1=prop.keyValue(k1),v2=prop.keyValue(k2);"
+          "var val1=v1,val2=v2;"
+          "if(v1 instanceof Array){"
+          "var sum1=0,sum2=0;"
+          "for(var i=0;i<v1.length;i++){sum1+=v1[i]*v1[i];sum2+=v2[i]*v2[i];}"
+          "val1=Math.sqrt(sum1);val2=Math.sqrt(sum2);"
+          "}"
+          "var outEase=prop.keyOutTemporalEase(k1);"
+          "var inEase=prop.keyInTemporalEase(k2);"
+          "var outSpd=outEase[0].speed,outInf=outEase[0].influence;"
+          "var inSpd=inEase[0].speed,inInf=inEase[0].influence;"
+          "var dur=t2-t1;"
+          "var valChange=val2-val1;"
+          "var avgSpd=Math.abs(dur)>0.0001?Math.abs(valChange/dur):0;"
+          "return '{\"propName\":\"'+prop.name.replace(/\"/g,'\\\\\"')+'\",'+"
+          "'\"propMatchName\":\"'+prop.matchName.replace(/\"/g,'\\\\\"')+'\",'+"
+          "'\"keyIndex1\":'+k1+',\"keyIndex2\":'+k2+','+"
+          "'\"time1\":'+t1+',\"time2\":'+t2+','+"
+          "'\"value1\":'+val1+',\"value2\":'+val2+','+"
+          "'\"outSpeed\":'+outSpd+',\"outInfluence\":'+outInf+','+"
+          "'\"inSpeed\":'+inSpd+',\"inInfluence\":'+inInf+','+"
+          "'\"avgSpeed\":'+avgSpd+'}';"
+          "}catch(e){return '';}"
+          "})();";
+
+        char resultBuf[2048] = {0};
+        ExecuteScript(getInfoScript, resultBuf, sizeof(resultBuf));
+
+        // Set keyframe info if we got valid data
+        if (resultBuf[0] == '{') {
+          wchar_t wResult[2048];
+          MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
+          KeyframeUI::SetKeyframeInfo(wResult);
+        }
+
         KeyframeUI::ShowPanel(mouseX, mouseY);
         g_keyframeVisible = true;
       }
