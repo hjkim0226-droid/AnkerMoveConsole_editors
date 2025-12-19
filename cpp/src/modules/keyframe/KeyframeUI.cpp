@@ -239,6 +239,7 @@ static bool g_saveButtonHover = false;
 static bool g_saveMode = false;
 static bool g_pinButtonHover = false;
 static bool g_keepPanelOpen = false;  // Pin mode
+static bool g_applyButtonHover = false;  // Apply button hover state
 
 // Handle dragging
 static int g_draggingHandle = -1;  // -1=none, 0=first handle (p0), 1=second handle (p1)
@@ -360,6 +361,7 @@ void ShowPanel(int screenX, int screenY) {
     g_saveMode = false;
     g_draggingHandle = -1;
     g_pinButtonHover = false;
+    g_applyButtonHover = false;
     // Don't reset g_keepPanelOpen - preserve pin state across sessions
 
     // Create or reposition window
@@ -877,7 +879,8 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     // ===== Custom preset slots (4 slots with icons) =====
     int slotBtnSpacing = 6;
     int saveBtnWidth = 44;
-    int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
+    int applyBtnWidth = 60;  // Apply button width
+    int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 2 + saveBtnWidth + applyBtnWidth;
     int slotStartX = (width - totalSlotWidth) / 2;
 
     // "Slots:" label
@@ -957,6 +960,22 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     // Metal slide (bottom-right)
     SolidBrush diskBrush(diskColor);
     graphics.FillRectangle(&diskBrush, diskCx - diskSize/6, diskCy + diskSize/6, diskSize/3, diskSize/3);
+
+    // Apply button (green, with checkmark icon)
+    int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
+    RectF applyBtnRect((REAL)applyBtnX, (REAL)currentY,
+                       (REAL)applyBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
+
+    Color applyBtnColor = g_applyButtonHover ? Color(255, 80, 180, 80) : Color(255, 50, 140, 50);
+    SolidBrush applyBtnBrush(applyBtnColor);
+    graphics.FillRectangle(&applyBtnBrush, applyBtnRect);
+
+    Pen applyBorder(Color(255, 100, 200, 100), 1);
+    graphics.DrawRectangle(&applyBorder, applyBtnRect);
+
+    // Draw "Apply" text
+    SolidBrush applyTextBrush(Color(255, 255, 255, 255));
+    graphics.DrawString(L"Apply", -1, &presetFont, applyBtnRect, &sfCenter, &applyTextBrush);
 }
 
 // Window procedure
@@ -1072,7 +1091,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int slotY = currentY + PRESET_BUTTON_HEIGHT + PADDING + 24 + 30;
             int slotBtnSpacing = 6;
             int saveBtnWidth = 44;
-            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
+            int applyBtnWidth = 60;
+            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 2 + saveBtnWidth + applyBtnWidth;
             int slotStartX = (rc.right - totalSlotWidth) / 2;
 
             int oldHoveredSlot = g_hoveredSlotButton;
@@ -1094,6 +1114,13 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             g_saveButtonHover = (x >= saveBtnX && x < saveBtnX + saveBtnWidth &&
                                  y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
             if (wasSaveHover != g_saveButtonHover) needRedraw = true;
+
+            // Check apply button hover
+            int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
+            bool wasApplyHover = g_applyButtonHover;
+            g_applyButtonHover = (x >= applyBtnX && x < applyBtnX + applyBtnWidth &&
+                                  y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
+            if (wasApplyHover != g_applyButtonHover) needRedraw = true;
 
             // Check handle hover (when not dragging)
             if (g_draggingHandle < 0) {
@@ -1169,7 +1196,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int slotY = currentY + PRESET_BUTTON_HEIGHT + PADDING + 24 + 30;
             int slotBtnSpacing = 6;
             int saveBtnWidth = 44;
-            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing + saveBtnWidth;
+            int applyBtnWidthLocal = 60;
+            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 2 + saveBtnWidth + applyBtnWidthLocal;
             int slotStartX = (rc.right - totalSlotWidth) / 2;
 
             for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
@@ -1196,6 +1224,22 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
                 g_saveMode = !g_saveMode;
                 InvalidateRect(hwnd, NULL, TRUE);
+                return 0;
+            }
+
+            // Check apply button click
+            int applyBtnWidth = 60;
+            int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
+            if (x >= applyBtnX && x < applyBtnX + applyBtnWidth &&
+                y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                // Apply current curve
+                g_result.applied = true;
+                g_result.preset = g_currentPreset;
+                g_result.customCurve = g_currentCurve;
+                KeyframeUI::CalculateAEEase(g_currentCurve,
+                    g_result.outSpeed, g_result.outInfluence,
+                    g_result.inSpeed, g_result.inInfluence);
+                KeyframeUI::HidePanel();
                 return 0;
             }
 
