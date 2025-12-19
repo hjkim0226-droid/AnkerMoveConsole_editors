@@ -802,28 +802,90 @@ function getSelectedKeyframeInfo() {
                 var k1 = keys[j];
                 var k2 = keys[j + 1];
 
+                // Get interpolation types for keyframes
+                // KeyframeInterpolationType: LINEAR=6612, BEZIER=6613, HOLD=6614
+                var outInterp = prop.keyOutInterpolationType(k1);  // How k1 leaves
+                var inInterp = prop.keyInInterpolationType(k2);    // How k2 enters
+
+                // Determine if linear (6612) or hold (6614)
+                var isLinearOut = (outInterp === KeyframeInterpolationType.LINEAR);
+                var isLinearIn = (inInterp === KeyframeInterpolationType.LINEAR);
+                var isHoldOut = (outInterp === KeyframeInterpolationType.HOLD);
+                var isHoldIn = (inInterp === KeyframeInterpolationType.HOLD);
+
                 // Get current easing info
                 var outEase = prop.keyOutTemporalEase(k1);  // Ease leaving k1
                 var inEase = prop.keyInTemporalEase(k2);    // Ease entering k2
+
+                // Calculate average speed for normalization
+                var t1 = prop.keyTime(k1);
+                var t2 = prop.keyTime(k2);
+                var v1 = prop.keyValue(k1);
+                var v2 = prop.keyValue(k2);
+                var duration = t2 - t1;
+
+                // Calculate value change (handle multi-dimensional properties)
+                var valueChange = 0;
+                if (typeof v1 === "number" && typeof v2 === "number") {
+                    // 1D property (Opacity, Rotation, etc.)
+                    valueChange = Math.abs(v2 - v1);
+                } else if (v1 instanceof Array && v2 instanceof Array) {
+                    // Multi-dimensional (Position, Scale, etc.)
+                    // Use magnitude of change vector
+                    var sumSq = 0;
+                    for (var d = 0; d < v1.length; d++) {
+                        var delta = v2[d] - v1[d];
+                        sumSq += delta * delta;
+                    }
+                    valueChange = Math.sqrt(sumSq);
+                }
+
+                var avgSpeed = (duration > 0.0001) ? (valueChange / duration) : 0;
+
+                // For linear/hold keyframes, normalize speed values
+                var outSpeed = outEase[0].speed;
+                var outInfluence = outEase[0].influence;
+                var inSpeed = inEase[0].speed;
+                var inInfluence = inEase[0].influence;
+
+                // Linear keyframes: speed should equal avgSpeed for diagonal line
+                if (isLinearOut && avgSpeed > 0) {
+                    outSpeed = avgSpeed;
+                    outInfluence = 33.33;
+                }
+                if (isLinearIn && avgSpeed > 0) {
+                    inSpeed = avgSpeed;
+                    inInfluence = 33.33;
+                }
+
+                // Hold keyframes: speed = 0, special handling
+                if (isHoldOut) {
+                    outSpeed = 0;
+                    outInfluence = 100;
+                }
+                if (isHoldIn) {
+                    inSpeed = 0;
+                    inInfluence = 100;
+                }
 
                 result.push({
                     propName: prop.name,
                     propMatchName: prop.matchName,
                     keyIndex1: k1,
                     keyIndex2: k2,
-                    time1: prop.keyTime(k1),
-                    time2: prop.keyTime(k2),
-                    value1: prop.keyValue(k1),
-                    value2: prop.keyValue(k2),
-                    // Current easing (first dimension for multi-dimensional props)
-                    outEase: {
-                        speed: outEase[0].speed,
-                        influence: outEase[0].influence
-                    },
-                    inEase: {
-                        speed: inEase[0].speed,
-                        influence: inEase[0].influence
-                    }
+                    time1: t1,
+                    time2: t2,
+                    value1: (typeof v1 === "number") ? v1 : v1[0],  // First value for display
+                    value2: (typeof v2 === "number") ? v2 : v2[0],
+                    avgSpeed: avgSpeed,  // Calculated average speed
+                    // Keyframe types (1=linear, 2=bezier, 3=hold)
+                    outType: isHoldOut ? 3 : (isLinearOut ? 1 : 2),
+                    inType: isHoldIn ? 3 : (isLinearIn ? 1 : 2),
+                    // Flat structure for C++ simple JSON parser
+                    outSpeed: outSpeed,
+                    outInfluence: outInfluence,
+                    inSpeed: inSpeed,
+                    inInfluence: inInfluence
                 });
             }
         }

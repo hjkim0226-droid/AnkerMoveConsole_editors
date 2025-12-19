@@ -88,10 +88,12 @@ static void ConvertAEToBezier(
     float outSpeed, float outInfluence,
     float inSpeed, float inInfluence,
     float avgSpeed,
+    KeyframeUI::KeyframeType outType,
+    KeyframeUI::KeyframeType inType,
     KeyframeUI::VelocityCurve& curve)
 {
     // Handle edge case: no value change (avgSpeed = 0)
-    // In this case, show a flat line (linear)
+    // In this case, show a flat line
     if (fabs(avgSpeed) < 0.0001f) {
         curve.p0_x = 0.25f;
         curve.p0_y = 0.25f;
@@ -100,6 +102,35 @@ static void ConvertAEToBezier(
         return;
     }
 
+    // Handle special keyframe types
+    // Hold keyframe: horizontal line (instant value jump at start/end)
+    if (outType == KeyframeUI::KEYFRAME_HOLD) {
+        // Out from hold: horizontal line at start
+        curve.p0_x = 0.33f;
+        curve.p0_y = 0.0f;  // Flat at bottom
+        curve.p1_x = 0.67f;
+        curve.p1_y = 1.0f;  // Jump to top at end
+        return;
+    }
+    if (inType == KeyframeUI::KEYFRAME_HOLD) {
+        // In to hold: horizontal line at end
+        curve.p0_x = 0.33f;
+        curve.p0_y = 0.0f;  // Start at bottom
+        curve.p1_x = 0.67f;
+        curve.p1_y = 1.0f;  // Jump at end
+        return;
+    }
+
+    // Linear keyframe: diagonal line (constant velocity)
+    if (outType == KeyframeUI::KEYFRAME_LINEAR && inType == KeyframeUI::KEYFRAME_LINEAR) {
+        curve.p0_x = 0.33f;
+        curve.p0_y = 0.33f;
+        curve.p1_x = 0.67f;
+        curve.p1_y = 0.67f;
+        return;
+    }
+
+    // Bezier keyframe: use speed/influence to calculate control points
     // Clamp influence to valid range
     outInfluence = max(0.1f, min(100.0f, outInfluence));
     inInfluence = max(0.1f, min(100.0f, inInfluence));
@@ -107,6 +138,16 @@ static void ConvertAEToBezier(
     // Normalized speeds (relative to average)
     float normalizedOutSpeed = outSpeed / avgSpeed;
     float normalizedInSpeed = inSpeed / avgSpeed;
+
+    // Handle linear out with bezier in (or vice versa)
+    if (outType == KeyframeUI::KEYFRAME_LINEAR) {
+        normalizedOutSpeed = 1.0f;  // Linear = same as average speed
+        outInfluence = 33.33f;
+    }
+    if (inType == KeyframeUI::KEYFRAME_LINEAR) {
+        normalizedInSpeed = 1.0f;
+        inInfluence = 33.33f;
+    }
 
     // First control point (affects "out" from first keyframe)
     curve.p0_x = outInfluence / 100.0f;
@@ -166,8 +207,8 @@ static HWND g_hwnd = NULL;
 static bool g_isVisible = false;
 
 // UI Constants
-static const int WINDOW_WIDTH = 360;
-static const int WINDOW_HEIGHT = 400;
+static const int WINDOW_WIDTH = 480;   // Widened for Multi-View mode
+static const int WINDOW_HEIGHT = 450;  // Increased for lock buttons + navigation
 static const int HEADER_HEIGHT = 32;
 static const int GRAPH_HEIGHT = 180;
 static const int PRESET_BAR_HEIGHT = 40;
@@ -210,6 +251,26 @@ static KeyframeUI::KeyframeInfo g_keyframeInfo = {};
 static bool g_hasKeyframeInfo = false;
 static float g_avgSpeed = 0.0f;  // Cached average speed for conversions
 
+// Multi-View mode: support multiple keyframe pairs
+static const int MAX_KEYFRAME_PAIRS = 10;  // Max supported pairs
+struct KeyframePairInfo {
+    KeyframeUI::KeyframeInfo info;
+    KeyframeUI::VelocityCurve curve;
+    float avgSpeed;
+    bool isMiddleKeyframe;  // K2 in K1-K2-K3 has both in and out handles
+};
+static KeyframePairInfo g_keyframePairs[MAX_KEYFRAME_PAIRS];
+static int g_numKeyframePairs = 0;
+static int g_currentPairIndex = 0;  // Currently selected/viewed pair
+static bool g_multiViewMode = false;  // True if more than 2 keyframes selected
+
+// Navigation button states
+static bool g_navPrevHover = false;
+static bool g_navNextHover = false;
+static bool g_pressedNavPrev = false;
+static bool g_pressedNavNext = false;
+static const int NAV_BUTTON_SIZE = 28;
+
 // Preset curves (control points for cubic bezier)
 static KeyframeUI::VelocityCurve g_presetCurves[] = {
     {0.25f, 0.25f, 0.75f, 0.75f},   // LINEAR: constant velocity
@@ -247,6 +308,26 @@ static bool g_handleHover[2] = {false, false};
 
 // Graph area (calculated on draw)
 static RECT g_graphRect = {0};
+
+// Click feedback animation
+static const UINT_PTR CLICK_FEEDBACK_TIMER_ID = 1001;
+static const int CLICK_FEEDBACK_DURATION_MS = 100;  // 100ms feedback duration
+static int g_pressedPresetButton = -1;    // Which preset button is pressed (-1 = none)
+static int g_pressedSlotButton = -1;      // Which slot button is pressed (-1 = none)
+static bool g_pressedSaveButton = false;  // Save button pressed state
+static bool g_pressedApplyButton = false; // Apply button pressed state
+static bool g_pressedPinButton = false;   // Pin button pressed state
+static bool g_pressedCloseButton = false; // Close button pressed state
+
+// Lock toggles for handle constraints
+static bool g_lockLength = true;      // Lock handle lengths (sync between both handles)
+static bool g_lockDirection = true;   // Lock handle directions (aligned opposite directions)
+static bool g_lockLengthHover = false;
+static bool g_lockDirectionHover = false;
+static bool g_pressedLockLength = false;
+static bool g_pressedLockDirection = false;
+static const int LOCK_BUTTON_SIZE = 24;
+static const int LOCK_BUTTON_SPACING = 4;
 
 // Forward declarations
 LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -364,6 +445,26 @@ void ShowPanel(int screenX, int screenY) {
     g_applyButtonHover = false;
     // Don't reset g_keepPanelOpen - preserve pin state across sessions
 
+    // Reset all pressed states
+    g_pressedPresetButton = -1;
+    g_pressedSlotButton = -1;
+    g_pressedSaveButton = false;
+    g_pressedApplyButton = false;
+    g_pressedPinButton = false;
+    g_pressedCloseButton = false;
+    g_pressedLockLength = false;
+    g_pressedLockDirection = false;
+    g_lockLengthHover = false;
+    g_lockDirectionHover = false;
+    // Don't reset g_lockLength/g_lockDirection - preserve across sessions
+
+    // Reset navigation states
+    g_navPrevHover = false;
+    g_navNextHover = false;
+    g_pressedNavPrev = false;
+    g_pressedNavNext = false;
+    g_currentPairIndex = 0;  // Start from first pair
+
     // Create or reposition window
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
@@ -409,12 +510,37 @@ void UpdateHover(int screenX, int screenY) {
 KeyframeResult HidePanel() {
     if (!g_isVisible) return g_result;
 
+    // Kill any active timer
+    if (g_hwnd) {
+        KillTimer(g_hwnd, CLICK_FEEDBACK_TIMER_ID);
+    }
+
     ShowWindow(g_hwnd, SW_HIDE);
     g_isVisible = false;
     g_saveMode = false;
     g_draggingHandle = -1;
     g_hasKeyframeInfo = false;  // Reset for next open
     g_pinButtonHover = false;
+
+    // Reset all pressed states
+    g_pressedPresetButton = -1;
+    g_pressedSlotButton = -1;
+    g_pressedSaveButton = false;
+    g_pressedApplyButton = false;
+    g_pressedPinButton = false;
+    g_pressedCloseButton = false;
+    g_pressedLockLength = false;
+    g_pressedLockDirection = false;
+    g_lockLengthHover = false;
+    g_lockDirectionHover = false;
+
+    // Reset navigation states
+    g_navPrevHover = false;
+    g_navNextHover = false;
+    g_pressedNavPrev = false;
+    g_pressedNavNext = false;
+    g_numKeyframePairs = 0;
+    g_multiViewMode = false;
 
     return g_result;
 }
@@ -427,71 +553,154 @@ bool IsVisible() {
     return g_isVisible;
 }
 
+// Helper: Parse a single keyframe pair object from JSON
+static void ParseSingleKeyframePair(const wchar_t* json, KeyframePairInfo& pair) {
+    // Extract property name
+    JsonGetString(json, L"propName", pair.info.propName, 128);
+    JsonGetString(json, L"propMatchName", pair.info.propMatchName, 128);
+
+    // Extract keyframe indices
+    pair.info.keyIndex1 = (int)JsonGetFloat(json, L"keyIndex1", 1);
+    pair.info.keyIndex2 = (int)JsonGetFloat(json, L"keyIndex2", 2);
+
+    // Extract times and values
+    pair.info.time1 = JsonGetFloat(json, L"time1", 0.0f);
+    pair.info.time2 = JsonGetFloat(json, L"time2", 1.0f);
+    pair.info.value1 = JsonGetFloat(json, L"value1", 0.0f);
+    pair.info.value2 = JsonGetFloat(json, L"value2", 0.0f);
+
+    // Extract easing values
+    pair.info.outSpeed = JsonGetFloat(json, L"outSpeed", 0.0f);
+    pair.info.outInfluence = JsonGetFloat(json, L"outInfluence", 33.33f);
+    pair.info.inSpeed = JsonGetFloat(json, L"inSpeed", 0.0f);
+    pair.info.inInfluence = JsonGetFloat(json, L"inInfluence", 33.33f);
+
+    // Extract keyframe types (1=linear, 2=bezier, 3=hold)
+    int outTypeInt = (int)JsonGetFloat(json, L"outType", 2);
+    int inTypeInt = (int)JsonGetFloat(json, L"inType", 2);
+    pair.info.outType = (KeyframeUI::KeyframeType)outTypeInt;
+    pair.info.inType = (KeyframeUI::KeyframeType)inTypeInt;
+
+    // Get average speed
+    pair.avgSpeed = JsonGetFloat(json, L"avgSpeed", 0.0f);
+
+    // If avgSpeed not provided, calculate it
+    if (pair.avgSpeed == 0.0f) {
+        float duration = pair.info.time2 - pair.info.time1;
+        float valueChange = pair.info.value2 - pair.info.value1;
+        if (fabs(duration) > 0.0001f) {
+            pair.avgSpeed = fabs(valueChange / duration);
+        }
+    }
+
+    // Convert AE easing to bezier control points
+    ConvertAEToBezier(
+        pair.info.outSpeed,
+        pair.info.outInfluence,
+        pair.info.inSpeed,
+        pair.info.inInfluence,
+        pair.avgSpeed,
+        pair.info.outType,
+        pair.info.inType,
+        pair.curve
+    );
+
+    pair.isMiddleKeyframe = false;  // Will be set later based on context
+}
+
 void SetKeyframeInfo(const wchar_t* infoJson) {
     if (!infoJson || wcslen(infoJson) == 0) {
+        g_hasKeyframeInfo = false;
+        g_numKeyframePairs = 0;
+        g_multiViewMode = false;
+        return;
+    }
+
+    // Reset state
+    g_numKeyframePairs = 0;
+    g_currentPairIndex = 0;
+    g_multiViewMode = false;
+
+    // Check if this is a JSON array (starts with '[')
+    const wchar_t* ptr = infoJson;
+    while (*ptr == L' ' || *ptr == L'\t' || *ptr == L'\n' || *ptr == L'\r') ptr++;
+
+    if (*ptr == L'[') {
+        // Parse JSON array - multiple keyframe pairs
+        ptr++;  // Skip '['
+
+        while (*ptr && g_numKeyframePairs < MAX_KEYFRAME_PAIRS) {
+            // Skip whitespace
+            while (*ptr == L' ' || *ptr == L'\t' || *ptr == L'\n' || *ptr == L'\r' || *ptr == L',') ptr++;
+
+            if (*ptr == L']') break;  // End of array
+
+            if (*ptr == L'{') {
+                // Find the matching closing brace
+                const wchar_t* objStart = ptr;
+                int braceCount = 1;
+                ptr++;
+
+                while (*ptr && braceCount > 0) {
+                    if (*ptr == L'{') braceCount++;
+                    else if (*ptr == L'}') braceCount--;
+                    ptr++;
+                }
+
+                if (braceCount == 0) {
+                    // Extract this object as a substring
+                    size_t objLen = ptr - objStart;
+                    wchar_t* objStr = new wchar_t[objLen + 1];
+                    wcsncpy_s(objStr, objLen + 1, objStart, objLen);
+                    objStr[objLen] = L'\0';
+
+                    // Parse this object
+                    ParseSingleKeyframePair(objStr, g_keyframePairs[g_numKeyframePairs]);
+
+                    // Mark middle keyframes (not first, not last will be determined later)
+                    g_numKeyframePairs++;
+
+                    delete[] objStr;
+                }
+            } else {
+                ptr++;  // Skip unknown character
+            }
+        }
+
+        // Mark middle keyframes (keyframes that appear in both pairs)
+        // For pairs: [K1-K2, K2-K3, K3-K4], K2 and K3 are middle keyframes
+        for (int i = 0; i < g_numKeyframePairs; i++) {
+            if (i > 0) {
+                // Check if this pair's first keyframe matches previous pair's second
+                if (g_keyframePairs[i].info.keyIndex1 == g_keyframePairs[i-1].info.keyIndex2) {
+                    g_keyframePairs[i].isMiddleKeyframe = true;
+                }
+            }
+        }
+
+        g_multiViewMode = (g_numKeyframePairs > 1);
+
+    } else if (*ptr == L'{') {
+        // Single object - parse directly
+        ParseSingleKeyframePair(infoJson, g_keyframePairs[0]);
+        g_numKeyframePairs = 1;
+        g_multiViewMode = false;
+    } else {
+        // Invalid JSON
         g_hasKeyframeInfo = false;
         return;
     }
 
-    // Parse JSON from ExtendScript
-    // Expected format:
-    // {
-    //   "propName": "Position",
-    //   "propMatchName": "ADBE Position",
-    //   "keyIndex1": 1, "keyIndex2": 2,
-    //   "time1": 0.0, "time2": 1.0,
-    //   "value1": 0, "value2": 100,
-    //   "outSpeed": 0, "outInfluence": 33.33,
-    //   "inSpeed": 0, "inInfluence": 33.33,
-    //   "avgSpeed": 100
-    // }
-
-    // Extract property name
-    JsonGetString(infoJson, L"propName", g_keyframeInfo.propName, 128);
-    JsonGetString(infoJson, L"propMatchName", g_keyframeInfo.propMatchName, 128);
-
-    // Extract keyframe indices
-    g_keyframeInfo.keyIndex1 = (int)JsonGetFloat(infoJson, L"keyIndex1", 1);
-    g_keyframeInfo.keyIndex2 = (int)JsonGetFloat(infoJson, L"keyIndex2", 2);
-
-    // Extract times and values
-    g_keyframeInfo.time1 = JsonGetFloat(infoJson, L"time1", 0.0f);
-    g_keyframeInfo.time2 = JsonGetFloat(infoJson, L"time2", 1.0f);
-    g_keyframeInfo.value1 = JsonGetFloat(infoJson, L"value1", 0.0f);
-    g_keyframeInfo.value2 = JsonGetFloat(infoJson, L"value2", 0.0f);
-
-    // Extract easing values
-    g_keyframeInfo.outSpeed = JsonGetFloat(infoJson, L"outSpeed", 0.0f);
-    g_keyframeInfo.outInfluence = JsonGetFloat(infoJson, L"outInfluence", 33.33f);
-    g_keyframeInfo.inSpeed = JsonGetFloat(infoJson, L"inSpeed", 0.0f);
-    g_keyframeInfo.inInfluence = JsonGetFloat(infoJson, L"inInfluence", 33.33f);
-
-    // Get average speed (may be calculated in ExtendScript or here)
-    g_avgSpeed = JsonGetFloat(infoJson, L"avgSpeed", 0.0f);
-
-    // If avgSpeed not provided, calculate it
-    if (g_avgSpeed == 0.0f) {
-        float duration = g_keyframeInfo.time2 - g_keyframeInfo.time1;
-        float valueChange = g_keyframeInfo.value2 - g_keyframeInfo.value1;
-        if (fabs(duration) > 0.0001f) {
-            g_avgSpeed = fabs(valueChange / duration);
-        }
+    // Initialize with first pair
+    if (g_numKeyframePairs > 0) {
+        g_keyframeInfo = g_keyframePairs[0].info;
+        g_currentCurve = g_keyframePairs[0].curve;
+        g_avgSpeed = g_keyframePairs[0].avgSpeed;
+        g_hasKeyframeInfo = true;
+        g_currentPreset = PRESET_CUSTOM;
+    } else {
+        g_hasKeyframeInfo = false;
     }
-
-    g_hasKeyframeInfo = true;
-
-    // Convert AE easing to bezier control points
-    ConvertAEToBezier(
-        g_keyframeInfo.outSpeed,
-        g_keyframeInfo.outInfluence,
-        g_keyframeInfo.inSpeed,
-        g_keyframeInfo.inInfluence,
-        g_avgSpeed,
-        g_currentCurve
-    );
-
-    // Set preset to custom since we're using real keyframe data
-    g_currentPreset = PRESET_CUSTOM;
 
     // Redraw if visible
     if (g_hwnd && g_isVisible) {
@@ -785,7 +994,8 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     RectF pinRect((REAL)pinBtnX, (REAL)pinBtnY,
                   (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
 
-    Color pinColor = g_keepPanelOpen ? COLOR_ACCENT : (g_pinButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG);
+    Color pinColor = g_pressedPinButton ? Color(255, 40, 80, 40) :  // Pressed: darker
+                     g_keepPanelOpen ? COLOR_ACCENT : (g_pinButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG);
     SolidBrush pinBgBrush(pinColor);
     graphics.FillRectangle(&pinBgBrush, pinRect);
 
@@ -814,7 +1024,10 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     RectF closeRect((REAL)closeBtnX, (REAL)closeBtnY,
                     (REAL)CLOSE_BUTTON_SIZE, (REAL)CLOSE_BUTTON_SIZE);
 
-    if (g_closeButtonHover) {
+    if (g_pressedCloseButton) {
+        SolidBrush closeBgBrush(Color(255, 150, 40, 40));  // Darker red when pressed
+        graphics.FillRectangle(&closeBgBrush, closeRect);
+    } else if (g_closeButtonHover) {
         SolidBrush closeBgBrush(COLOR_CLOSE_HOVER);
         graphics.FillRectangle(&closeBgBrush, closeRect);
     }
@@ -830,6 +1043,84 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
 
     currentY += HEADER_HEIGHT + PADDING;
 
+    // ===== Multi-View Navigation (if multiple pairs) =====
+    if (g_multiViewMode && g_numKeyframePairs > 1) {
+        int navY = currentY;
+        int navCenterX = width / 2;
+
+        // Previous button [◀]
+        int prevBtnX = navCenterX - 80;
+        RectF prevBtnRect((REAL)prevBtnX, (REAL)navY,
+                          (REAL)NAV_BUTTON_SIZE, (REAL)NAV_BUTTON_SIZE);
+
+        Color prevBtnColor = g_pressedNavPrev ? Color(255, 30, 80, 30) :
+                             g_navPrevHover ? COLOR_PRESET_HOVER :
+                             (g_currentPairIndex > 0) ? COLOR_PRESET_BG : Color(100, 40, 40, 50);
+        SolidBrush prevBtnBrush(prevBtnColor);
+        graphics.FillRectangle(&prevBtnBrush, prevBtnRect);
+        Pen prevBorder(COLOR_BORDER, 1);
+        graphics.DrawRectangle(&prevBorder, prevBtnRect);
+
+        // Draw ◀ arrow
+        if (g_currentPairIndex > 0) {
+            SolidBrush arrowBrush(COLOR_TEXT);
+            PointF leftArrow[3] = {
+                PointF((float)prevBtnX + 18, (float)navY + 8),
+                PointF((float)prevBtnX + 18, (float)navY + NAV_BUTTON_SIZE - 8),
+                PointF((float)prevBtnX + 8, (float)navY + NAV_BUTTON_SIZE / 2)
+            };
+            graphics.FillPolygon(&arrowBrush, leftArrow, 3);
+        } else {
+            SolidBrush dimArrowBrush(COLOR_TEXT_DIM);
+            PointF leftArrow[3] = {
+                PointF((float)prevBtnX + 18, (float)navY + 8),
+                PointF((float)prevBtnX + 18, (float)navY + NAV_BUTTON_SIZE - 8),
+                PointF((float)prevBtnX + 8, (float)navY + NAV_BUTTON_SIZE / 2)
+            };
+            graphics.FillPolygon(&dimArrowBrush, leftArrow, 3);
+        }
+
+        // Indicator text "1/3" in the middle
+        wchar_t navText[16];
+        swprintf_s(navText, L"%d / %d", g_currentPairIndex + 1, g_numKeyframePairs);
+        RectF navTextRect((REAL)(navCenterX - 30), (REAL)navY, 60, (REAL)NAV_BUTTON_SIZE);
+        graphics.DrawString(navText, -1, &labelFont, navTextRect, &sfCenter, &textBrush);
+
+        // Next button [▶]
+        int nextBtnX = navCenterX + 80 - NAV_BUTTON_SIZE;
+        RectF nextBtnRect((REAL)nextBtnX, (REAL)navY,
+                          (REAL)NAV_BUTTON_SIZE, (REAL)NAV_BUTTON_SIZE);
+
+        Color nextBtnColor = g_pressedNavNext ? Color(255, 30, 80, 30) :
+                             g_navNextHover ? COLOR_PRESET_HOVER :
+                             (g_currentPairIndex < g_numKeyframePairs - 1) ? COLOR_PRESET_BG : Color(100, 40, 40, 50);
+        SolidBrush nextBtnBrush(nextBtnColor);
+        graphics.FillRectangle(&nextBtnBrush, nextBtnRect);
+        Pen nextBorder(COLOR_BORDER, 1);
+        graphics.DrawRectangle(&nextBorder, nextBtnRect);
+
+        // Draw ▶ arrow
+        if (g_currentPairIndex < g_numKeyframePairs - 1) {
+            SolidBrush arrowBrush(COLOR_TEXT);
+            PointF rightArrow[3] = {
+                PointF((float)nextBtnX + 10, (float)navY + 8),
+                PointF((float)nextBtnX + 10, (float)navY + NAV_BUTTON_SIZE - 8),
+                PointF((float)nextBtnX + 20, (float)navY + NAV_BUTTON_SIZE / 2)
+            };
+            graphics.FillPolygon(&arrowBrush, rightArrow, 3);
+        } else {
+            SolidBrush dimArrowBrush(COLOR_TEXT_DIM);
+            PointF rightArrow[3] = {
+                PointF((float)nextBtnX + 10, (float)navY + 8),
+                PointF((float)nextBtnX + 10, (float)navY + NAV_BUTTON_SIZE - 8),
+                PointF((float)nextBtnX + 20, (float)navY + NAV_BUTTON_SIZE / 2)
+            };
+            graphics.FillPolygon(&dimArrowBrush, rightArrow, 3);
+        }
+
+        currentY += NAV_BUTTON_SIZE + 4;
+    }
+
     // ===== Velocity Graph =====
     int graphX = PADDING + 50;  // Leave room for Y axis label
     int graphY = currentY;
@@ -838,7 +1129,72 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
 
     DrawVelocityGraph(graphics, graphX, graphY, graphW, graphH);
 
-    currentY += GRAPH_HEIGHT + PADDING + 16;  // Extra space for axis label
+    currentY += GRAPH_HEIGHT + 4;  // Small gap after graph
+
+    // ===== Lock toggle buttons (below graph, left side) =====
+    int lockY = currentY;
+    int lockX = graphX;
+
+    // Lock Length button
+    RectF lockLenRect((REAL)lockX, (REAL)lockY,
+                      (REAL)LOCK_BUTTON_SIZE * 2 + 24, (REAL)LOCK_BUTTON_SIZE);
+    Color lockLenColor = g_pressedLockLength ? Color(255, 30, 80, 30) :
+                         g_lockLength ? COLOR_PRESET_ACTIVE :
+                         g_lockLengthHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
+    SolidBrush lockLenBrush(lockLenColor);
+    graphics.FillRectangle(&lockLenBrush, lockLenRect);
+    Pen lockLenBorder(COLOR_BORDER, 1);
+    graphics.DrawRectangle(&lockLenBorder, lockLenRect);
+
+    // Draw chain/unchain icon + "Len" text
+    float lenIconX = (float)lockX + 4;
+    float lenIconY = (float)lockY + LOCK_BUTTON_SIZE / 2.0f;
+    Color lenIconColor = g_lockLength ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM;
+    Pen lenIconPen(lenIconColor, 1.5f);
+    // Chain link icon (two interlocking ovals)
+    graphics.DrawEllipse(&lenIconPen, lenIconX, lenIconY - 5, 8, 10);
+    graphics.DrawEllipse(&lenIconPen, lenIconX + 6, lenIconY - 5, 8, 10);
+    // "Len" text
+    RectF lenTextRect((REAL)(lockX + 20), (REAL)lockY, 36, (REAL)LOCK_BUTTON_SIZE);
+    SolidBrush lenTextBrush(g_lockLength ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM);
+    graphics.DrawString(L"Len", -1, &presetFont, lenTextRect, &sf, &lenTextBrush);
+
+    // Lock Direction button
+    int lockDirX = lockX + LOCK_BUTTON_SIZE * 2 + 24 + LOCK_BUTTON_SPACING;
+    RectF lockDirRect((REAL)lockDirX, (REAL)lockY,
+                      (REAL)LOCK_BUTTON_SIZE * 2 + 24, (REAL)LOCK_BUTTON_SIZE);
+    Color lockDirColor = g_pressedLockDirection ? Color(255, 30, 80, 30) :
+                         g_lockDirection ? COLOR_PRESET_ACTIVE :
+                         g_lockDirectionHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
+    SolidBrush lockDirBrush(lockDirColor);
+    graphics.FillRectangle(&lockDirBrush, lockDirRect);
+    Pen lockDirBorder(COLOR_BORDER, 1);
+    graphics.DrawRectangle(&lockDirBorder, lockDirRect);
+
+    // Draw arrow icon + "Dir" text
+    float dirIconX = (float)lockDirX + 4;
+    float dirIconY = (float)lockY + LOCK_BUTTON_SIZE / 2.0f;
+    Color dirIconColor = g_lockDirection ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM;
+    Pen dirIconPen(dirIconColor, 1.5f);
+    // Bidirectional arrow icon
+    graphics.DrawLine(&dirIconPen, dirIconX + 2, dirIconY, dirIconX + 14, dirIconY);
+    graphics.DrawLine(&dirIconPen, dirIconX + 2, dirIconY, dirIconX + 5, dirIconY - 3);
+    graphics.DrawLine(&dirIconPen, dirIconX + 2, dirIconY, dirIconX + 5, dirIconY + 3);
+    graphics.DrawLine(&dirIconPen, dirIconX + 14, dirIconY, dirIconX + 11, dirIconY - 3);
+    graphics.DrawLine(&dirIconPen, dirIconX + 14, dirIconY, dirIconX + 11, dirIconY + 3);
+    // "Dir" text
+    RectF dirTextRect((REAL)(lockDirX + 20), (REAL)lockY, 36, (REAL)LOCK_BUTTON_SIZE);
+    SolidBrush dirTextBrush(g_lockDirection ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM);
+    graphics.DrawString(L"Dir", -1, &presetFont, dirTextRect, &sf, &dirTextBrush);
+
+    // Modifier hint (right side, small text)
+    RectF modHintRect((REAL)(graphX + graphW - 140), (REAL)lockY, 140, (REAL)LOCK_BUTTON_SIZE);
+    StringFormat sfRight;
+    sfRight.SetAlignment(StringAlignmentFar);
+    sfRight.SetLineAlignment(StringAlignmentCenter);
+    graphics.DrawString(L"Shift:H/V  Ctrl:Dir  Alt:Len", -1, &valueFont, modHintRect, &sfRight, &dimBrush);
+
+    currentY += LOCK_BUTTON_SIZE + PADDING;  // Space for lock buttons
 
     // ===== Preset buttons =====
     const wchar_t* presetNames[] = {L"Linear", L"Ease In", L"Ease Out", L"In-Out", L"Out-In"};
@@ -854,9 +1210,11 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
         RectF btnRect((REAL)btnX, (REAL)btnY,
                       (REAL)PRESET_BUTTON_WIDTH, (REAL)PRESET_BUTTON_HEIGHT);
 
-        // Button color
+        // Button color (with pressed state)
         Color btnColor;
-        if (i == (int)g_currentPreset) {
+        if (i == g_pressedPresetButton) {
+            btnColor = Color(255, 30, 80, 30);  // Darker when pressed
+        } else if (i == (int)g_currentPreset) {
             btnColor = COLOR_PRESET_ACTIVE;
         } else if (i == g_hoveredPresetButton) {
             btnColor = COLOR_PRESET_HOVER;
@@ -927,9 +1285,11 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
         RectF btnRect((REAL)btnX, (REAL)btnY,
                       (REAL)SLOT_BUTTON_WIDTH, (REAL)SLOT_BUTTON_HEIGHT);
 
-        // Button color - different in save mode
+        // Button color - different in save mode (with pressed state)
         Color btnColor;
-        if (g_saveMode) {
+        if (i == g_pressedSlotButton) {
+            btnColor = Color(255, 30, 80, 30);  // Darker when pressed
+        } else if (g_saveMode) {
             // Save mode - orange glow
             btnColor = (i == g_hoveredSlotButton) ? Color(255, 255, 180, 0) : COLOR_SAVE_MODE;
         } else {
@@ -971,7 +1331,8 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     RectF saveBtnRect((REAL)saveBtnX, (REAL)currentY,
                       (REAL)saveBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
 
-    Color saveBtnColor = g_saveMode ? COLOR_PRESET_ACTIVE :
+    Color saveBtnColor = g_pressedSaveButton ? Color(255, 30, 80, 30) :  // Darker when pressed
+                         g_saveMode ? COLOR_PRESET_ACTIVE :
                          g_saveButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
     SolidBrush saveBtnBrush(saveBtnColor);
     graphics.FillRectangle(&saveBtnBrush, saveBtnRect);
@@ -999,7 +1360,8 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     RectF applyBtnRect((REAL)applyBtnX, (REAL)currentY,
                        (REAL)applyBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
 
-    Color applyBtnColor = g_applyButtonHover ? Color(255, 80, 180, 80) : Color(255, 50, 140, 50);
+    Color applyBtnColor = g_pressedApplyButton ? Color(255, 30, 100, 30) :  // Darker green when pressed
+                          g_applyButtonHover ? Color(255, 80, 180, 80) : Color(255, 50, 140, 50);
     SolidBrush applyBtnBrush(applyBtnColor);
     graphics.FillRectangle(&applyBtnBrush, applyBtnRect);
 
@@ -1064,6 +1426,15 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
             // Handle dragging
             if (g_draggingHandle >= 0) {
+                // Check modifier keys
+                bool shiftHeld = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                bool ctrlHeld = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+                bool altHeld = (GetKeyState(VK_MENU) & 0x8000) != 0;
+
+                // Effective lock states (modifiers can override)
+                bool effectiveLockLen = g_lockLength && !altHeld;
+                bool effectiveLockDir = g_lockDirection && !ctrlHeld;
+
                 // Convert screen pos to curve coordinates
                 // Graph has 20% padding for overshoot visualization
                 float graphPadding = 0.2f;
@@ -1078,13 +1449,74 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 // Y allows overshoot: -0.5 to 1.5 range
                 ny = max(-0.5f, min(1.5f, ny));
 
+                // Shift: constrain to H or V movement
+                if (shiftHeld) {
+                    float oldX = (g_draggingHandle == 0) ? g_currentCurve.p0_x : g_currentCurve.p1_x;
+                    float oldY = (g_draggingHandle == 0) ? g_currentCurve.p0_y : g_currentCurve.p1_y;
+                    float deltaX = fabsf(nx - oldX);
+                    float deltaY = fabsf(ny - oldY);
+                    if (deltaX > deltaY) {
+                        ny = oldY;  // Horizontal constraint
+                    } else {
+                        nx = oldX;  // Vertical constraint
+                    }
+                }
+
+                // Calculate handle lengths for lock length feature
+                // Length is distance from handle to its anchor point
+                // p0 anchors at (0,0), p1 anchors at (1,1)
+                float len0 = sqrtf(g_currentCurve.p0_x * g_currentCurve.p0_x +
+                                   g_currentCurve.p0_y * g_currentCurve.p0_y);
+                float len1 = sqrtf((1.0f - g_currentCurve.p1_x) * (1.0f - g_currentCurve.p1_x) +
+                                   (1.0f - g_currentCurve.p1_y) * (1.0f - g_currentCurve.p1_y));
+
                 if (g_draggingHandle == 0) {
                     g_currentCurve.p0_x = nx;
                     g_currentCurve.p0_y = ny;
+
+                    // Lock Length: sync p1's length to match p0's new length
+                    if (effectiveLockLen) {
+                        float newLen0 = sqrtf(nx * nx + ny * ny);
+                        if (len1 > 0.001f) {
+                            float scale = newLen0 / len1;
+                            float dx1 = 1.0f - g_currentCurve.p1_x;
+                            float dy1 = 1.0f - g_currentCurve.p1_y;
+                            g_currentCurve.p1_x = 1.0f - dx1 * scale;
+                            g_currentCurve.p1_y = 1.0f - dy1 * scale;
+                        }
+                    }
+
+                    // Lock Direction: mirror p1 symmetrically around center (0.5, 0.5)
+                    if (effectiveLockDir) {
+                        g_currentCurve.p1_x = 1.0f - nx;
+                        g_currentCurve.p1_y = 1.0f - ny;
+                    }
                 } else {
                     g_currentCurve.p1_x = nx;
                     g_currentCurve.p1_y = ny;
+
+                    // Lock Length: sync p0's length to match p1's new length
+                    if (effectiveLockLen) {
+                        float newLen1 = sqrtf((1.0f - nx) * (1.0f - nx) + (1.0f - ny) * (1.0f - ny));
+                        if (len0 > 0.001f) {
+                            float scale = newLen1 / len0;
+                            g_currentCurve.p0_x = g_currentCurve.p0_x * scale;
+                            g_currentCurve.p0_y = g_currentCurve.p0_y * scale;
+                        }
+                    }
+
+                    // Lock Direction: mirror p0 symmetrically around center (0.5, 0.5)
+                    if (effectiveLockDir) {
+                        g_currentCurve.p0_x = 1.0f - nx;
+                        g_currentCurve.p0_y = 1.0f - ny;
+                    }
                 }
+
+                // Re-clamp after lock adjustments
+                g_currentCurve.p0_x = max(0.0f, min(1.0f, g_currentCurve.p0_x));
+                g_currentCurve.p0_y = max(-0.5f, min(1.5f, g_currentCurve.p0_y));
+                g_currentCurve.p1_x = max(0.0f, min(1.0f, g_currentCurve.p1_x));
+                g_currentCurve.p1_y = max(-0.5f, min(1.5f, g_currentCurve.p1_y));
 
                 g_currentPreset = KeyframeUI::PRESET_CUSTOM;
                 needRedraw = true;
@@ -1106,8 +1538,45 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                                   y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE);
             if (wasCloseHover != g_closeButtonHover) needRedraw = true;
 
+            // Calculate base Y considering navigation bar
+            int baseY = PADDING + HEADER_HEIGHT + PADDING;
+
+            // Check navigation buttons hover (if multi-view mode)
+            if (g_multiViewMode && g_numKeyframePairs > 1) {
+                int navY = PADDING + HEADER_HEIGHT + PADDING;
+                int navCenterX = rc.right / 2;
+                int prevBtnX = navCenterX - 80;
+                int nextBtnX = navCenterX + 80 - NAV_BUTTON_SIZE;
+
+                bool wasNavPrevHover = g_navPrevHover;
+                bool wasNavNextHover = g_navNextHover;
+                g_navPrevHover = (x >= prevBtnX && x < prevBtnX + NAV_BUTTON_SIZE &&
+                                  y >= navY && y < navY + NAV_BUTTON_SIZE);
+                g_navNextHover = (x >= nextBtnX && x < nextBtnX + NAV_BUTTON_SIZE &&
+                                  y >= navY && y < navY + NAV_BUTTON_SIZE);
+                if (wasNavPrevHover != g_navPrevHover || wasNavNextHover != g_navNextHover)
+                    needRedraw = true;
+
+                baseY += NAV_BUTTON_SIZE + 4;
+            }
+
+            // Check lock buttons hover (below graph)
+            int lockY = baseY + GRAPH_HEIGHT + 4;
+            int lockX = PADDING + 50;  // Same as graphX
+            int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 24;
+
+            bool wasLockLenHover = g_lockLengthHover;
+            bool wasLockDirHover = g_lockDirectionHover;
+            g_lockLengthHover = (x >= lockX && x < lockX + lockBtnWidth &&
+                                 y >= lockY && y < lockY + LOCK_BUTTON_SIZE);
+            int lockDirX = lockX + lockBtnWidth + LOCK_BUTTON_SPACING;
+            g_lockDirectionHover = (x >= lockDirX && x < lockDirX + lockBtnWidth &&
+                                    y >= lockY && y < lockY + LOCK_BUTTON_SIZE);
+            if (wasLockLenHover != g_lockLengthHover || wasLockDirHover != g_lockDirectionHover)
+                needRedraw = true;
+
             // Check preset button hover
-            int currentY = PADDING + HEADER_HEIGHT + PADDING + GRAPH_HEIGHT + PADDING + 16;
+            int currentY = lockY + LOCK_BUTTON_SIZE + PADDING;  // After lock buttons
             int presetCount = 5;
             int btnSpacing = 4;
             int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1200,8 +1669,10 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int pinBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
             if (x >= pinBtnX && x < pinBtnX + CLOSE_BUTTON_SIZE &&
                 y >= pinBtnY && y < pinBtnY + CLOSE_BUTTON_SIZE) {
+                g_pressedPinButton = true;
                 g_keepPanelOpen = !g_keepPanelOpen;
                 InvalidateRect(hwnd, NULL, TRUE);
+                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
                 return 0;
             }
 
@@ -1210,13 +1681,81 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
             if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
                 y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
+                g_pressedCloseButton = true;
+                InvalidateRect(hwnd, NULL, TRUE);
                 g_result.cancelled = true;
                 KeyframeUI::HidePanel();
                 return 0;
             }
 
+            // Calculate base Y considering navigation bar
+            int baseY = PADDING + HEADER_HEIGHT + PADDING;
+            if (g_multiViewMode && g_numKeyframePairs > 1) {
+                baseY += NAV_BUTTON_SIZE + 4;
+
+                // Check navigation buttons click
+                int navY = PADDING + HEADER_HEIGHT + PADDING;
+                int navCenterX = rc.right / 2;
+                int prevBtnX = navCenterX - 80;
+                int nextBtnX = navCenterX + 80 - NAV_BUTTON_SIZE;
+
+                // Previous button
+                if (x >= prevBtnX && x < prevBtnX + NAV_BUTTON_SIZE &&
+                    y >= navY && y < navY + NAV_BUTTON_SIZE) {
+                    if (g_currentPairIndex > 0) {
+                        g_pressedNavPrev = true;
+                        g_currentPairIndex--;
+                        // Update current curve from pair
+                        g_currentCurve = g_keyframePairs[g_currentPairIndex].curve;
+                        g_avgSpeed = g_keyframePairs[g_currentPairIndex].avgSpeed;
+                        InvalidateRect(hwnd, NULL, TRUE);
+                        SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
+                    }
+                    return 0;
+                }
+
+                // Next button
+                if (x >= nextBtnX && x < nextBtnX + NAV_BUTTON_SIZE &&
+                    y >= navY && y < navY + NAV_BUTTON_SIZE) {
+                    if (g_currentPairIndex < g_numKeyframePairs - 1) {
+                        g_pressedNavNext = true;
+                        g_currentPairIndex++;
+                        // Update current curve from pair
+                        g_currentCurve = g_keyframePairs[g_currentPairIndex].curve;
+                        g_avgSpeed = g_keyframePairs[g_currentPairIndex].avgSpeed;
+                        InvalidateRect(hwnd, NULL, TRUE);
+                        SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
+                    }
+                    return 0;
+                }
+            }
+
+            // Check lock buttons click (below graph)
+            int lockY = baseY + GRAPH_HEIGHT + 4;
+            int lockX = PADDING + 50;  // Same as graphX
+            int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 24;
+
+            if (x >= lockX && x < lockX + lockBtnWidth &&
+                y >= lockY && y < lockY + LOCK_BUTTON_SIZE) {
+                g_pressedLockLength = true;
+                g_lockLength = !g_lockLength;
+                InvalidateRect(hwnd, NULL, TRUE);
+                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
+                return 0;
+            }
+
+            int lockDirX = lockX + lockBtnWidth + LOCK_BUTTON_SPACING;
+            if (x >= lockDirX && x < lockDirX + lockBtnWidth &&
+                y >= lockY && y < lockY + LOCK_BUTTON_SIZE) {
+                g_pressedLockDirection = true;
+                g_lockDirection = !g_lockDirection;
+                InvalidateRect(hwnd, NULL, TRUE);
+                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
+                return 0;
+            }
+
             // Check preset button click
-            int currentY = PADDING + HEADER_HEIGHT + PADDING + GRAPH_HEIGHT + PADDING + 16;
+            int currentY = lockY + LOCK_BUTTON_SIZE + PADDING;  // After lock buttons
             int presetCount = 5;
             int btnSpacing = 4;
             int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1226,9 +1765,11 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + btnSpacing);
                 if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
                     y >= currentY && y < currentY + PRESET_BUTTON_HEIGHT) {
+                    g_pressedPresetButton = i;
                     g_currentPreset = (KeyframeUI::VelocityPreset)i;
                     g_currentCurve = g_presetCurves[i];
                     InvalidateRect(hwnd, NULL, TRUE);
+                    SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
                     return 0;
                 }
             }
@@ -1245,6 +1786,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
                 if (x >= btnX && x < btnX + SLOT_BUTTON_WIDTH &&
                     y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                    g_pressedSlotButton = i;
                     if (g_saveMode) {
                         // Save current curve to slot
                         KeyframeUI::SavePresetToSlot(i, g_currentCurve);
@@ -1255,6 +1797,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                         g_currentPreset = KeyframeUI::PRESET_CUSTOM;
                     }
                     InvalidateRect(hwnd, NULL, TRUE);
+                    SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
                     return 0;
                 }
             }
@@ -1263,8 +1806,10 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
             if (x >= saveBtnX && x < saveBtnX + saveBtnWidth &&
                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                g_pressedSaveButton = true;
                 g_saveMode = !g_saveMode;
                 InvalidateRect(hwnd, NULL, TRUE);
+                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
                 return 0;
             }
 
@@ -1273,6 +1818,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
             if (x >= applyBtnX && x < applyBtnX + applyBtnWidth &&
                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                g_pressedApplyButton = true;
+                InvalidateRect(hwnd, NULL, TRUE);
                 // Apply current curve
                 g_result.applied = true;
                 g_result.preset = g_currentPreset;
@@ -1331,6 +1878,25 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // Close panel when focus is lost
             g_result.cancelled = true;
             KeyframeUI::HidePanel();
+            return 0;
+        }
+
+        case WM_TIMER: {
+            if (wParam == CLICK_FEEDBACK_TIMER_ID) {
+                // Reset all pressed states
+                g_pressedPresetButton = -1;
+                g_pressedSlotButton = -1;
+                g_pressedSaveButton = false;
+                g_pressedApplyButton = false;
+                g_pressedPinButton = false;
+                g_pressedCloseButton = false;
+                g_pressedLockLength = false;
+                g_pressedLockDirection = false;
+                g_pressedNavPrev = false;
+                g_pressedNavNext = false;
+                KillTimer(hwnd, CLICK_FEEDBACK_TIMER_ID);
+                InvalidateRect(hwnd, NULL, TRUE);
+            }
             return 0;
         }
 

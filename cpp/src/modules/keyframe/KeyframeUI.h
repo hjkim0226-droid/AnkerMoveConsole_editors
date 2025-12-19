@@ -28,6 +28,13 @@ struct VelocityCurve {
     float p1_x, p1_y;  // Second control point (before end)
 };
 
+// Keyframe interpolation types
+enum KeyframeType {
+    KEYFRAME_LINEAR = 1,    // Linear interpolation
+    KEYFRAME_BEZIER = 2,    // Bezier (eased)
+    KEYFRAME_HOLD = 3       // Hold (step/instant)
+};
+
 // Keyframe info from After Effects
 struct KeyframeInfo {
     wchar_t propName[128];          // Property display name
@@ -39,6 +46,9 @@ struct KeyframeInfo {
     // Current easing
     float outSpeed, outInfluence;   // Out ease at key1
     float inSpeed, inInfluence;     // In ease at key2
+    // Keyframe types
+    KeyframeType outType;           // Interpolation type at key1 (out)
+    KeyframeType inType;            // Interpolation type at key2 (in)
 };
 
 // Result after panel closes
