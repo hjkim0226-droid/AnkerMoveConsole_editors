@@ -1565,23 +1565,21 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
 
+        case WM_ACTIVATE: {
+            // Close when window is deactivated (clicked outside)
+            if (LOWORD(wParam) == WA_INACTIVE && !g_isDragging) {
+                g_result.cancelled = true;
+                ControlUI::HidePanel();
+            }
+            return 0;
+        }
+
         case WM_KILLFOCUS: {
             // Don't close if we're being dragged
             if (g_isDragging) {
                 return 0;
             }
-            // Check where focus went - if it's an AE window, don't close
-            HWND newFocus = (HWND)wParam;
-            if (newFocus) {
-                char className[64] = {0};
-                GetClassNameA(newFocus, className, sizeof(className));
-                // AE windows have class names starting with "AE_"
-                if (_strnicmp(className, "AE_", 3) == 0) {
-                    // Focus went to AE window, don't close
-                    return 0;
-                }
-            }
-            // Focus went elsewhere, close panel
+            // Close panel when focus is lost
             g_result.cancelled = true;
             ControlUI::HidePanel();
             return 0;

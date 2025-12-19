@@ -423,6 +423,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         HandleChar((wchar_t)wParam);
         return 0;
 
+    case WM_ACTIVATE:
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode) {
+            g_result.cancelled = true;
+            ShowWindow(hwnd, SW_HIDE);
+            g_visible = false;
+        }
+        return 0;
+
     case WM_KILLFOCUS:
         if (g_editMode) {
             ExitEditMode(true);

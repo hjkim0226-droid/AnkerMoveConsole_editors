@@ -282,6 +282,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         HandleKeyboard(wParam);
         return 0;
 
+    case WM_ACTIVATE:
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen) {
+            g_result.cancelled = true;
+            ShowWindow(hwnd, SW_HIDE);
+            g_visible = false;
+        }
+        return 0;
+
     case WM_KILLFOCUS:
         if (!g_keepPanelOpen) {
             g_result.cancelled = true;

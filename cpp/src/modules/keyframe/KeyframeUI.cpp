@@ -1314,21 +1314,21 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             return 0;
         }
 
+        case WM_ACTIVATE: {
+            // Close when window is deactivated (clicked outside)
+            if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen) {
+                g_result.cancelled = true;
+                KeyframeUI::HidePanel();
+            }
+            return 0;
+        }
+
         case WM_KILLFOCUS: {
             // If pin mode is active, don't close on focus loss
             if (g_keepPanelOpen) {
                 return 0;
             }
-
-            // Check where focus went
-            HWND newFocus = (HWND)wParam;
-            if (newFocus) {
-                char className[64] = {0};
-                GetClassNameA(newFocus, className, sizeof(className));
-                if (_strnicmp(className, "AE_", 3) == 0) {
-                    return 0;
-                }
-            }
+            // Close panel when focus is lost
             g_result.cancelled = true;
             KeyframeUI::HidePanel();
             return 0;
