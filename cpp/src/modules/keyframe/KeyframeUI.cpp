@@ -1241,8 +1241,7 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
 
     currentY += LOCK_BUTTON_SIZE + PADDING;  // Space for lock buttons
 
-    // ===== Preset buttons =====
-    const wchar_t* presetNames[] = {L"Linear", L"Ease In", L"Ease Out", L"In-Out", L"Out-In"};
+    // ===== Preset buttons (with mini graph) =====
     int presetCount = 5;
     int btnSpacing = 4;
     int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1252,28 +1251,25 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
         int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + btnSpacing);
         int btnY = currentY;
 
-        RectF btnRect((REAL)btnX, (REAL)btnY,
-                      (REAL)PRESET_BUTTON_WIDTH, (REAL)PRESET_BUTTON_HEIGHT);
+        bool isActive = (i == (int)g_currentPreset);
+        bool isHovered = (i == g_hoveredPresetButton);
+        bool isPressed = (i == g_pressedPresetButton);
 
-        // Button color (with pressed state)
-        Color btnColor;
-        if (i == g_pressedPresetButton) {
-            btnColor = Color(255, 30, 80, 30);  // Darker when pressed
-        } else if (i == (int)g_currentPreset) {
-            btnColor = COLOR_PRESET_ACTIVE;
-        } else if (i == g_hoveredPresetButton) {
-            btnColor = COLOR_PRESET_HOVER;
-        } else {
-            btnColor = COLOR_PRESET_BG;
+        // Draw mini bezier graph for this preset
+        DrawMiniBezier(graphics, g_presetCurves[i], btnX, btnY, PRESET_BUTTON_WIDTH, isActive);
+
+        // Overlay for hover/pressed states
+        if (isPressed) {
+            SolidBrush pressedOverlay(Color(100, 0, 0, 0));
+            graphics.FillRectangle(&pressedOverlay, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+        } else if (isHovered && !isActive) {
+            SolidBrush hoverOverlay(Color(60, 255, 255, 255));
+            graphics.FillRectangle(&hoverOverlay, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
         }
 
-        SolidBrush btnBrush(btnColor);
-        graphics.FillRectangle(&btnBrush, btnRect);
-
-        Pen btnBorder(COLOR_BORDER, 1);
-        graphics.DrawRectangle(&btnBorder, btnRect);
-
-        graphics.DrawString(presetNames[i], -1, &presetFont, btnRect, &sfCenter, &textBrush);
+        // Border
+        Pen btnBorder(isActive ? COLOR_PRESET_ACTIVE : COLOR_BORDER, isActive ? 2.0f : 1.0f);
+        graphics.DrawRectangle(&btnBorder, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
     }
 
     currentY += PRESET_BUTTON_HEIGHT + PADDING;
@@ -1327,47 +1323,41 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
         int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
         int btnY = currentY;
 
-        RectF btnRect((REAL)btnX, (REAL)btnY,
-                      (REAL)SLOT_BUTTON_WIDTH, (REAL)SLOT_BUTTON_HEIGHT);
+        bool isFilled = g_slotFilled[i];
+        bool isHovered = (i == g_hoveredSlotButton);
+        bool isPressed = (i == g_pressedSlotButton);
 
-        // Button color - different in save mode (with pressed state)
-        Color btnColor;
-        if (i == g_pressedSlotButton) {
-            btnColor = Color(255, 30, 80, 30);  // Darker when pressed
-        } else if (g_saveMode) {
-            // Save mode - orange glow
-            btnColor = (i == g_hoveredSlotButton) ? Color(255, 255, 180, 0) : COLOR_SAVE_MODE;
+        // Draw mini bezier graph (or empty slot)
+        if (isFilled) {
+            DrawMiniBezier(graphics, g_customSlots[i], btnX, btnY, SLOT_BUTTON_WIDTH, false);
         } else {
-            // Normal mode
-            btnColor = (i == g_hoveredSlotButton) ? COLOR_PRESET_HOVER :
-                       g_slotFilled[i] ? COLOR_PRESET_ACTIVE : COLOR_PRESET_BG;
-        }
+            // Empty slot - dark background with slot number
+            SolidBrush emptyBrush(Color(255, 25, 25, 30));
+            graphics.FillRectangle(&emptyBrush, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
 
-        SolidBrush btnBrush(btnColor);
-        graphics.FillRectangle(&btnBrush, btnRect);
-
-        // Border - thicker in save mode
-        if (g_saveMode) {
-            Pen btnBorder(Color(255, 255, 200, 100), 2);
-            graphics.DrawRectangle(&btnBorder, btnRect);
-        } else {
-            Pen btnBorder(COLOR_BORDER, 1);
-            graphics.DrawRectangle(&btnBorder, btnRect);
-        }
-
-        // Draw icon or number
-        float iconCx = (float)btnX + SLOT_BUTTON_WIDTH / 2.0f;
-        float iconCy = (float)btnY + SLOT_BUTTON_HEIGHT / 2.0f;
-
-        if (g_slotFilled[i] && g_slotIcons[i] > 0) {
-            // Draw icon
-            DrawSlotIcon(graphics, g_slotIcons[i], iconCx, iconCy, 16.0f, COLOR_TEXT);
-        } else {
-            // Draw slot number
             wchar_t slotText[4];
-            swprintf_s(slotText, L"%d", i + 1);
-            graphics.DrawString(slotText, -1, &presetFont, btnRect, &sfCenter,
-                               g_slotFilled[i] ? &textBrush : &dimBrush);
+            swprintf_s(slotText, L"%d", i + 6);  // 6-9 for custom slots
+            RectF textRect((REAL)btnX, (REAL)btnY, (REAL)SLOT_BUTTON_WIDTH, (REAL)SLOT_BUTTON_HEIGHT);
+            graphics.DrawString(slotText, -1, &presetFont, textRect, &sfCenter, &dimBrush);
+        }
+
+        // Overlay for hover/pressed/save mode
+        if (isPressed) {
+            SolidBrush pressedOverlay(Color(100, 0, 0, 0));
+            graphics.FillRectangle(&pressedOverlay, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
+        } else if (g_saveMode) {
+            // Save mode - orange border glow
+            Pen savePen(Color(255, 255, 180, 0), 2);
+            graphics.DrawRectangle(&savePen, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
+        } else if (isHovered) {
+            SolidBrush hoverOverlay(Color(60, 255, 255, 255));
+            graphics.FillRectangle(&hoverOverlay, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
+        }
+
+        // Border
+        if (!g_saveMode) {
+            Pen btnBorder(COLOR_BORDER, 1);
+            graphics.DrawRectangle(&btnBorder, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
         }
     }
 
