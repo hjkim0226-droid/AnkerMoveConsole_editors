@@ -216,10 +216,8 @@ static const int INFO_HEIGHT = 60;
 static const int SLOT_BAR_HEIGHT = 36;
 static const int PADDING = 10;
 static const int CLOSE_BUTTON_SIZE = 20;
-static const int PRESET_BUTTON_WIDTH = 60;
-static const int PRESET_BUTTON_HEIGHT = 28;
-static const int SLOT_BUTTON_WIDTH = 40;
-static const int SLOT_BUTTON_HEIGHT = 28;
+static const int SLOT_BUTTON_SIZE = 40;  // Square buttons for graph preview
+static const int NUM_TOTAL_SLOTS = 10;   // 5 presets + 5 custom slots
 
 // Colors (matching ControlUI style)
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -327,6 +325,10 @@ static bool g_lockDirectionHover = false;
 static bool g_pressedLockLength = false;
 static bool g_pressedLockDirection = false;
 static const int LOCK_BUTTON_SIZE = 24;
+
+// Window dragging
+static bool g_windowDragging = false;
+static POINT g_windowDragOffset = {0, 0};
 static const int LOCK_BUTTON_SPACING = 4;
 
 // Forward declarations
@@ -334,6 +336,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 void DrawKeyframePanel(HDC hdc, int width, int height);
 void DrawVelocityGraph(Graphics& graphics, int x, int y, int width, int height);
 void DrawBezierCurve(Graphics& graphics, const KeyframeUI::VelocityCurve& curve, int x, int y, int w, int h);
+void DrawMiniBezier(Graphics& graphics, const KeyframeUI::VelocityCurve& curve, int x, int y, int size, bool active);
 PointF EvalCubicBezier(float t, float p0, float p1, float p2, float p3);
 float IntegrateVelocityCurve(const KeyframeUI::VelocityCurve& curve, float t);
 
@@ -393,6 +396,51 @@ void DrawSlotIcon(Graphics& graphics, int iconType, float cx, float cy, float si
         default:
             break;  // No icon for 0
     }
+}
+
+// Draw mini bezier curve in a slot button
+void DrawMiniBezier(Graphics& graphics, const KeyframeUI::VelocityCurve& curve, int x, int y, int size, bool active) {
+    int padding = 4;
+    int drawX = x + padding;
+    int drawY = y + padding;
+    int drawSize = size - padding * 2;
+
+    // Background
+    SolidBrush bgBrush(active ? Color(255, 40, 60, 40) : Color(255, 30, 30, 35));
+    graphics.FillRectangle(&bgBrush, x, y, size, size);
+
+    // Draw curve
+    Pen curvePen(active ? COLOR_CURVE : Color(180, 74, 207, 255), 1.5f);
+
+    // Bezier curve points (normalized 0-1 to screen space)
+    std::vector<PointF> points;
+    for (int i = 0; i <= 20; i++) {
+        float t = (float)i / 20.0f;
+
+        // Cubic bezier: P = (1-t)^3*P0 + 3*(1-t)^2*t*P1 + 3*(1-t)*t^2*P2 + t^3*P3
+        float px = (1-t)*(1-t)*(1-t)*0.0f +
+                   3*(1-t)*(1-t)*t*curve.p0_x +
+                   3*(1-t)*t*t*curve.p1_x +
+                   t*t*t*1.0f;
+        float py = (1-t)*(1-t)*(1-t)*0.0f +
+                   3*(1-t)*(1-t)*t*curve.p0_y +
+                   3*(1-t)*t*t*curve.p1_y +
+                   t*t*t*1.0f;
+
+        // Map to screen (Y inverted)
+        float screenX = drawX + px * drawSize;
+        float screenY = drawY + (1.0f - py) * drawSize;
+        points.push_back(PointF(screenX, screenY));
+    }
+
+    // Draw curve segments
+    for (size_t i = 1; i < points.size(); i++) {
+        graphics.DrawLine(&curvePen, points[i-1], points[i]);
+    }
+
+    // Border
+    Pen borderPen(active ? COLOR_PRESET_ACTIVE : COLOR_BORDER, 1);
+    graphics.DrawRectangle(&borderPen, x, y, size, size);
 }
 
 namespace KeyframeUI {
@@ -929,14 +977,7 @@ void DrawVelocityGraph(Graphics& graphics, int x, int y, int width, int height) 
     StringFormat sf;
     sf.SetAlignment(StringAlignmentCenter);
 
-    RectF bottomLabel((REAL)x, (REAL)(y + height + 2), (REAL)width, 14);
-    graphics.DrawString(L"Time", -1, &labelFont, bottomLabel, &sf, &labelBrush);
-
-    // Rotated "Velocity" label would go on left, but keeping it simple
-    RectF leftLabel((REAL)(x - 45), (REAL)(y + height / 2 - 7), 40, 14);
-    StringFormat sfRight;
-    sfRight.SetAlignment(StringAlignmentFar);
-    graphics.DrawString(L"Velocity", -1, &labelFont, leftLabel, &sfRight, &labelBrush);
+    // Labels removed for cleaner look
 }
 
 // Draw the full keyframe panel
@@ -1121,11 +1162,11 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
         currentY += NAV_BUTTON_SIZE + 4;
     }
 
-    // ===== Velocity Graph =====
-    int graphX = PADDING + 50;  // Leave room for Y axis label
-    int graphY = currentY;
-    int graphW = width - PADDING * 2 - 50;
+    // ===== Velocity Graph (square aspect ratio) =====
     int graphH = GRAPH_HEIGHT;
+    int graphW = graphH;  // Square graph
+    int graphX = (width - graphW) / 2;  // Center horizontally
+    int graphY = currentY;
 
     DrawVelocityGraph(graphics, graphX, graphY, graphW, graphH);
 
@@ -1424,6 +1465,16 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             GetClientRect(hwnd, &rc);
             bool needRedraw = false;
 
+            // Window dragging
+            if (g_windowDragging) {
+                POINT pt;
+                GetCursorPos(&pt);
+                int newX = pt.x - g_windowDragOffset.x;
+                int newY = pt.y - g_windowDragOffset.y;
+                SetWindowPos(hwnd, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                return 0;
+            }
+
             // Handle dragging
             if (g_draggingHandle >= 0) {
                 // Check modifier keys
@@ -1688,6 +1739,20 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 return 0;
             }
 
+            // Check header drag (not on buttons)
+            if (y >= PADDING && y < PADDING + HEADER_HEIGHT && x < pinBtnX) {
+                // Start window dragging
+                g_windowDragging = true;
+                SetCapture(hwnd);
+                POINT pt = {x, y};
+                ClientToScreen(hwnd, &pt);
+                RECT windowRect;
+                GetWindowRect(hwnd, &windowRect);
+                g_windowDragOffset.x = pt.x - windowRect.left;
+                g_windowDragOffset.y = pt.y - windowRect.top;
+                return 0;
+            }
+
             // Calculate base Y considering navigation bar
             int baseY = PADDING + HEADER_HEIGHT + PADDING;
             if (g_multiViewMode && g_numKeyframePairs > 1) {
@@ -1832,10 +1897,12 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             }
 
             // Check handle click for dragging
-            float p0_screenX = g_graphRect.left + g_currentCurve.p0_x * (g_graphRect.right - g_graphRect.left);
-            float p0_screenY = g_graphRect.top + (1 - g_currentCurve.p0_y) * (g_graphRect.bottom - g_graphRect.top);
-            float p1_screenX = g_graphRect.left + g_currentCurve.p1_x * (g_graphRect.right - g_graphRect.left);
-            float p1_screenY = g_graphRect.top + (1 - g_currentCurve.p1_y) * (g_graphRect.bottom - g_graphRect.top);
+            int graphW = g_graphRect.right - g_graphRect.left;
+            int graphH = g_graphRect.bottom - g_graphRect.top;
+            float p0_screenX = g_graphRect.left + g_currentCurve.p0_x * graphW;
+            float p0_screenY = CurveYToScreen(g_currentCurve.p0_y, g_graphRect.top, graphH);
+            float p1_screenX = g_graphRect.left + g_currentCurve.p1_x * graphW;
+            float p1_screenY = CurveYToScreen(g_currentCurve.p1_y, g_graphRect.top, graphH);
 
             const float handleRadius = 10.0f;
             float d0 = sqrtf((float)(x - p0_screenX) * (x - p0_screenX) + (y - p0_screenY) * (y - p0_screenY));
@@ -1853,6 +1920,11 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         }
 
         case WM_LBUTTONUP: {
+            if (g_windowDragging) {
+                g_windowDragging = false;
+                ReleaseCapture();
+                return 0;
+            }
             if (g_draggingHandle >= 0) {
                 g_draggingHandle = -1;
                 ReleaseCapture();
