@@ -315,6 +315,7 @@ static bool g_saveMode = false;
 static bool g_pinButtonHover = false;
 static bool g_keepPanelOpen = false;  // Pin mode
 static bool g_applyButtonHover = false;  // Apply button hover state
+static bool g_loadButtonHover = false;   // Load button hover state
 
 // Handle dragging
 static int g_draggingHandle = -1;  // -1=none, 0=first handle (p0), 1=second handle (p1)
@@ -330,6 +331,7 @@ static int g_pressedPresetButton = -1;    // Which preset button is pressed (-1 
 static int g_pressedSlotButton = -1;      // Which slot button is pressed (-1 = none)
 static bool g_pressedSaveButton = false;  // Save button pressed state
 static bool g_pressedApplyButton = false; // Apply button pressed state
+static bool g_pressedLoadButton = false;  // Load button pressed state
 static bool g_pressedPinButton = false;   // Pin button pressed state
 static bool g_pressedCloseButton = false; // Close button pressed state
 
@@ -758,6 +760,9 @@ void SetKeyframeInfo(const wchar_t* infoJson) {
     } else {
         g_hasKeyframeInfo = false;
     }
+
+    // Reset loadRequested flag (load operation complete)
+    g_result.loadRequested = false;
 
     // Redraw if visible
     if (g_hwnd && g_isVisible) {
@@ -1286,7 +1291,8 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     int slotBtnSpacing = 6;
     int saveBtnWidth = 44;
     int applyBtnWidth = 60;  // Apply button width
-    int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 2 + saveBtnWidth + applyBtnWidth;
+    int loadBtnWidth = 50;   // Load button width
+    int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 3 + saveBtnWidth + applyBtnWidth + loadBtnWidth;
     int slotStartX = (width - totalSlotWidth) / 2;
 
     // "Slots:" label
@@ -1364,7 +1370,7 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     SolidBrush diskBrush(diskColor);
     graphics.FillRectangle(&diskBrush, diskCx - diskSize/6, diskCy + diskSize/6, diskSize/3, diskSize/3);
 
-    // Apply button (green, with checkmark icon)
+    // Apply button (green)
     int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
     RectF applyBtnRect((REAL)applyBtnX, (REAL)currentY,
                        (REAL)applyBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
@@ -1380,6 +1386,23 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     // Draw "Apply" text
     SolidBrush applyTextBrush(Color(255, 255, 255, 255));
     graphics.DrawString(L"Apply", -1, &presetFont, applyBtnRect, &sfCenter, &applyTextBrush);
+
+    // Load button (blue - refresh keyframe info)
+    int loadBtnX = applyBtnX + applyBtnWidth + slotBtnSpacing;
+    RectF loadBtnRect((REAL)loadBtnX, (REAL)currentY,
+                      (REAL)loadBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
+
+    Color loadBtnColor = g_pressedLoadButton ? Color(255, 30, 60, 120) :
+                         g_loadButtonHover ? Color(255, 80, 140, 220) : Color(255, 50, 100, 180);
+    SolidBrush loadBtnBrush(loadBtnColor);
+    graphics.FillRectangle(&loadBtnBrush, loadBtnRect);
+
+    Pen loadBorder(Color(255, 100, 150, 255), 1);
+    graphics.DrawRectangle(&loadBorder, loadBtnRect);
+
+    // Draw "Load" text
+    SolidBrush loadTextBrush(Color(255, 255, 255, 255));
+    graphics.DrawString(L"Load", -1, &presetFont, loadBtnRect, &sfCenter, &loadTextBrush);
 }
 
 // Window procedure
@@ -1576,7 +1599,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int slotBtnSpacing = 6;
             int saveBtnWidth = 44;
             int applyBtnWidth = 60;
-            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 2 + saveBtnWidth + applyBtnWidth;
+            int loadBtnWidth = 50;
+            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 3 + saveBtnWidth + applyBtnWidth + loadBtnWidth;
             int slotStartX = (rc.right - totalSlotWidth) / 2;
 
             int oldHoveredSlot = g_hoveredSlotButton;
@@ -1605,6 +1629,13 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             g_applyButtonHover = (x >= applyBtnX && x < applyBtnX + applyBtnWidth &&
                                   y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
             if (wasApplyHover != g_applyButtonHover) needRedraw = true;
+
+            // Check load button hover
+            int loadBtnX = applyBtnX + applyBtnWidth + slotBtnSpacing;
+            bool wasLoadHover = g_loadButtonHover;
+            g_loadButtonHover = (x >= loadBtnX && x < loadBtnX + loadBtnWidth &&
+                                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
+            if (wasLoadHover != g_loadButtonHover) needRedraw = true;
 
             // Check handle hover (when not dragging)
             if (g_draggingHandle < 0) {
@@ -1762,7 +1793,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int slotBtnSpacing = 6;
             int saveBtnWidth = 44;
             int applyBtnWidthLocal = 60;
-            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 2 + saveBtnWidth + applyBtnWidthLocal;
+            int loadBtnWidth = 50;
+            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 3 + saveBtnWidth + applyBtnWidthLocal + loadBtnWidth;
             int slotStartX = (rc.right - totalSlotWidth) / 2;
 
             for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
@@ -1811,6 +1843,17 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                     g_result.outSpeed, g_result.outInfluence,
                     g_result.inSpeed, g_result.inInfluence);
                 KeyframeUI::HidePanel();
+                return 0;
+            }
+
+            // Check load button click
+            int loadBtnX = applyBtnX + applyBtnWidth + slotBtnSpacing;
+            if (x >= loadBtnX && x < loadBtnX + loadBtnWidth &&
+                y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                g_pressedLoadButton = true;
+                g_result.loadRequested = true;
+                InvalidateRect(hwnd, NULL, TRUE);
+                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
                 return 0;
             }
 
@@ -1883,6 +1926,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 g_pressedLockHandles = false;
                 g_pressedNavPrev = false;
                 g_pressedNavNext = false;
+                g_pressedLoadButton = false;
                 KillTimer(hwnd, CLICK_FEEDBACK_TIMER_ID);
                 InvalidateRect(hwnd, NULL, TRUE);
             }

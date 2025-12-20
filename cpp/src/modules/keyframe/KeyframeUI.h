@@ -55,6 +55,7 @@ struct KeyframeInfo {
 struct KeyframeResult {
     bool cancelled = false;         // True if ESC or clicked outside
     bool applied = false;           // True if easing should be applied
+    bool loadRequested = false;     // True if Load button pressed (reload keyframe info)
     VelocityPreset preset = PRESET_LINEAR;
     VelocityCurve customCurve;
 
