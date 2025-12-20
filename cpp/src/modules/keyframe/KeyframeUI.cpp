@@ -195,6 +195,10 @@ static void ConvertBezierToAE(
     // This happens when value change is 0 (no animation)
     float safeAvgSpeed = (fabs(avgSpeed) < 0.0001f) ? 1.0f : avgSpeed;
 
+    // Clamp normalized speeds first (prevent huge values)
+    normalizedOutSpeed = max(-100.0f, min(100.0f, normalizedOutSpeed));
+    normalizedInSpeed = max(-100.0f, min(100.0f, normalizedInSpeed));
+
     // Convert back to actual speeds
     outSpeed = normalizedOutSpeed * safeAvgSpeed;
     inSpeed = normalizedInSpeed * safeAvgSpeed;
@@ -203,9 +207,12 @@ static void ConvertBezierToAE(
     outSpeed = max(0.0f, min(10000.0f, outSpeed));
     inSpeed = max(0.0f, min(10000.0f, inSpeed));
 
-    // Final NaN check (belt and suspenders)
-    if (outSpeed != outSpeed) outSpeed = safeAvgSpeed;  // NaN check
-    if (inSpeed != inSpeed) inSpeed = safeAvgSpeed;
+    // Final NaN and infinity check
+    // Finite numbers satisfy: (x - x == 0) and (x == x)
+    if (outSpeed != outSpeed || (outSpeed - outSpeed) != 0.0f) outSpeed = safeAvgSpeed;
+    if (inSpeed != inSpeed || (inSpeed - inSpeed) != 0.0f) inSpeed = safeAvgSpeed;
+    if (outInfluence != outInfluence || (outInfluence - outInfluence) != 0.0f) outInfluence = 33.33f;
+    if (inInfluence != inInfluence || (inInfluence - inInfluence) != 0.0f) inInfluence = 33.33f;
 }
 
 // GDI+ token
@@ -634,6 +641,16 @@ static void ParseSingleKeyframePair(const wchar_t* json, KeyframePairInfo& pair)
     pair.info.inSpeed = JsonGetFloat(json, L"inSpeed", 0.0f);
     pair.info.inInfluence = JsonGetFloat(json, L"inInfluence", 33.33f);
 
+    // Sanitize parsed values (prevent NaN/inf)
+    auto sanitizeFloat = [](float& val, float defaultVal, float minVal, float maxVal) {
+        if (val != val || (val - val) != 0.0f) val = defaultVal;  // NaN/inf check
+        val = max(minVal, min(maxVal, val));
+    };
+    sanitizeFloat(pair.info.outSpeed, 0.0f, 0.0f, 10000.0f);
+    sanitizeFloat(pair.info.outInfluence, 33.33f, 0.1f, 100.0f);
+    sanitizeFloat(pair.info.inSpeed, 0.0f, 0.0f, 10000.0f);
+    sanitizeFloat(pair.info.inInfluence, 33.33f, 0.1f, 100.0f);
+
     // Extract keyframe types (1=linear, 2=bezier, 3=hold)
     int outTypeInt = (int)JsonGetFloat(json, L"outType", 2);
     int inTypeInt = (int)JsonGetFloat(json, L"inType", 2);
@@ -651,6 +668,12 @@ static void ParseSingleKeyframePair(const wchar_t* json, KeyframePairInfo& pair)
             pair.avgSpeed = fabs(valueChange / duration);
         }
     }
+
+    // Sanitize avgSpeed (prevent NaN/inf from breaking script)
+    if (pair.avgSpeed != pair.avgSpeed || (pair.avgSpeed - pair.avgSpeed) != 0.0f) {
+        pair.avgSpeed = 1.0f;  // Default to 1.0 for invalid values
+    }
+    pair.avgSpeed = max(0.0f, min(10000.0f, pair.avgSpeed));
 
     // Convert AE easing to bezier control points
     ConvertAEToBezier(

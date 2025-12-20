@@ -1633,19 +1633,20 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
     if (result.applied) {
       // Validate and sanitize values before script generation
-      // NaN/inf would break ExtendScript parsing
+      // NaN/inf would break ExtendScript parsing (produces "nan", "inf" strings)
       float outSpd = result.outSpeed;
       float outInf = result.outInfluence;
       float inSpd = result.inSpeed;
       float inInf = result.inInfluence;
 
-      // Check for NaN (x != x is true for NaN)
-      if (outSpd != outSpd) outSpd = 1.0f;
-      if (outInf != outInf) outInf = 33.33f;
-      if (inSpd != inSpd) inSpd = 1.0f;
-      if (inInf != inInf) inInf = 33.33f;
+      // Check for NaN (x != x is true for NaN) and infinity
+      // Using inline check: finite numbers satisfy (x - x == 0)
+      if (outSpd != outSpd || (outSpd - outSpd) != 0.0f) outSpd = 1.0f;
+      if (outInf != outInf || (outInf - outInf) != 0.0f) outInf = 33.33f;
+      if (inSpd != inSpd || (inSpd - inSpd) != 0.0f) inSpd = 1.0f;
+      if (inInf != inInf || (inInf - inInf) != 0.0f) inInf = 33.33f;
 
-      // Clamp to valid ranges
+      // Clamp to valid ranges (also catches any remaining edge cases)
       outSpd = (outSpd < 0.0f) ? 0.0f : ((outSpd > 10000.0f) ? 10000.0f : outSpd);
       outInf = (outInf < 0.1f) ? 0.1f : ((outInf > 100.0f) ? 100.0f : outInf);
       inSpd = (inSpd < 0.0f) ? 0.0f : ((inSpd > 10000.0f) ? 10000.0f : inSpd);
