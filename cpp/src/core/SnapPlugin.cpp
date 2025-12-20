@@ -1556,6 +1556,25 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     g_keyframeVisible = false;
 
     if (result.applied) {
+      // Validate and sanitize values before script generation
+      // NaN/inf would break ExtendScript parsing
+      float outSpd = result.outSpeed;
+      float outInf = result.outInfluence;
+      float inSpd = result.inSpeed;
+      float inInf = result.inInfluence;
+
+      // Check for NaN (x != x is true for NaN)
+      if (outSpd != outSpd) outSpd = 1.0f;
+      if (outInf != outInf) outInf = 33.33f;
+      if (inSpd != inSpd) inSpd = 1.0f;
+      if (inInf != inInf) inInf = 33.33f;
+
+      // Clamp to valid ranges
+      outSpd = (outSpd < 0.0f) ? 0.0f : ((outSpd > 10000.0f) ? 10000.0f : outSpd);
+      outInf = (outInf < 0.1f) ? 0.1f : ((outInf > 100.0f) ? 100.0f : outInf);
+      inSpd = (inSpd < 0.0f) ? 0.0f : ((inSpd > 10000.0f) ? 10000.0f : inSpd);
+      inInf = (inInf < 0.1f) ? 0.1f : ((inInf > 100.0f) ? 100.0f : inInf);
+
       // Apply keyframe easing using inline ExtendScript
       char script[4096];
       snprintf(script, sizeof(script),
@@ -1595,8 +1614,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                "app.endUndoGroup();"
                "}catch(e){}"
                "})();",
-               result.outSpeed, result.outInfluence,
-               result.inSpeed, result.inInfluence);
+               outSpd, outInf, inSpd, inInf);
       ExecuteScript(script);
     }
   }

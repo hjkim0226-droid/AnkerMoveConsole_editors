@@ -174,7 +174,7 @@ static void ConvertBezierToAE(
     outInfluence = curve.p0_x * 100.0f;
     inInfluence = (1.0f - curve.p1_x) * 100.0f;
 
-    // Clamp influence to valid range
+    // Clamp influence to valid range (AE requires 0.1-100)
     outInfluence = max(0.1f, min(100.0f, outInfluence));
     inInfluence = max(0.1f, min(100.0f, inInfluence));
 
@@ -191,9 +191,21 @@ static void ConvertBezierToAE(
         normalizedInSpeed = (1.0f - curve.p1_y) / (1.0f - curve.p1_x);
     }
 
+    // If avgSpeed is 0 or very small, use default speed of 1.0
+    // This happens when value change is 0 (no animation)
+    float safeAvgSpeed = (fabs(avgSpeed) < 0.0001f) ? 1.0f : avgSpeed;
+
     // Convert back to actual speeds
-    outSpeed = normalizedOutSpeed * avgSpeed;
-    inSpeed = normalizedInSpeed * avgSpeed;
+    outSpeed = normalizedOutSpeed * safeAvgSpeed;
+    inSpeed = normalizedInSpeed * safeAvgSpeed;
+
+    // Clamp speeds to prevent NaN/inf in script (reasonable range: 0-10000)
+    outSpeed = max(0.0f, min(10000.0f, outSpeed));
+    inSpeed = max(0.0f, min(10000.0f, inSpeed));
+
+    // Final NaN check (belt and suspenders)
+    if (outSpeed != outSpeed) outSpeed = safeAvgSpeed;  // NaN check
+    if (inSpeed != inSpeed) inSpeed = safeAvgSpeed;
 }
 
 // GDI+ token
@@ -321,9 +333,9 @@ static bool g_pressedApplyButton = false; // Apply button pressed state
 static bool g_pressedPinButton = false;   // Pin button pressed state
 static bool g_pressedCloseButton = false; // Close button pressed state
 
-// Lock toggles for handle constraints
-static bool g_lockLength = true;      // Lock handle lengths (sync between both handles)
-static bool g_lockDirection = true;   // Lock handle directions (aligned opposite directions)
+// Lock toggles for handle constraints (default OFF for independent control)
+static bool g_lockLength = false;      // Lock handle lengths (sync between both handles)
+static bool g_lockDirection = false;   // Lock handle directions (aligned opposite directions)
 static bool g_lockLengthHover = false;
 static bool g_lockDirectionHover = false;
 static bool g_pressedLockLength = false;
