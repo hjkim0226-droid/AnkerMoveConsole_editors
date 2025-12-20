@@ -220,7 +220,7 @@ static bool g_isVisible = false;
 
 // UI Constants
 static const int WINDOW_WIDTH = 480;   // Widened for Multi-View mode
-static const int WINDOW_HEIGHT = 450;  // Increased for lock buttons + navigation
+static const int WINDOW_HEIGHT = 416;  // Compact layout (lock buttons removed)
 static const int HEADER_HEIGHT = 32;
 static const int GRAPH_HEIGHT = 180;
 static const int PRESET_BAR_HEIGHT = 40;
@@ -333,19 +333,10 @@ static bool g_pressedApplyButton = false; // Apply button pressed state
 static bool g_pressedPinButton = false;   // Pin button pressed state
 static bool g_pressedCloseButton = false; // Close button pressed state
 
-// Lock toggles for handle constraints (default OFF for independent control)
-static bool g_lockLength = false;      // Lock handle lengths (sync between both handles)
-static bool g_lockDirection = false;   // Lock handle directions (aligned opposite directions)
-static bool g_lockLengthHover = false;
-static bool g_lockDirectionHover = false;
-static bool g_pressedLockLength = false;
-static bool g_pressedLockDirection = false;
-static const int LOCK_BUTTON_SIZE = 24;
 
 // Window dragging
 static bool g_windowDragging = false;
 static POINT g_windowDragOffset = {0, 0};
-static const int LOCK_BUTTON_SPACING = 4;
 
 // Forward declarations
 LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -516,11 +507,6 @@ void ShowPanel(int screenX, int screenY) {
     g_pressedApplyButton = false;
     g_pressedPinButton = false;
     g_pressedCloseButton = false;
-    g_pressedLockLength = false;
-    g_pressedLockDirection = false;
-    g_lockLengthHover = false;
-    g_lockDirectionHover = false;
-    // Don't reset g_lockLength/g_lockDirection - preserve across sessions
 
     // Reset navigation states
     g_navPrevHover = false;
@@ -593,10 +579,6 @@ KeyframeResult HidePanel() {
     g_pressedApplyButton = false;
     g_pressedPinButton = false;
     g_pressedCloseButton = false;
-    g_pressedLockLength = false;
-    g_pressedLockDirection = false;
-    g_lockLengthHover = false;
-    g_lockDirectionHover = false;
 
     // Reset navigation states
     g_navPrevHover = false;
@@ -1186,72 +1168,7 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
 
     DrawVelocityGraph(graphics, graphX, graphY, graphW, graphH);
 
-    currentY += GRAPH_HEIGHT + 4;  // Small gap after graph
-
-    // ===== Lock toggle buttons (below graph, left side) =====
-    int lockY = currentY;
-    int lockX = graphX;
-
-    // Lock Length button
-    RectF lockLenRect((REAL)lockX, (REAL)lockY,
-                      (REAL)LOCK_BUTTON_SIZE * 2 + 24, (REAL)LOCK_BUTTON_SIZE);
-    Color lockLenColor = g_pressedLockLength ? Color(255, 30, 80, 30) :
-                         g_lockLength ? COLOR_PRESET_ACTIVE :
-                         g_lockLengthHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
-    SolidBrush lockLenBrush(lockLenColor);
-    graphics.FillRectangle(&lockLenBrush, lockLenRect);
-    Pen lockLenBorder(COLOR_BORDER, 1);
-    graphics.DrawRectangle(&lockLenBorder, lockLenRect);
-
-    // Draw chain/unchain icon + "Len" text
-    float lenIconX = (float)lockX + 4;
-    float lenIconY = (float)lockY + LOCK_BUTTON_SIZE / 2.0f;
-    Color lenIconColor = g_lockLength ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM;
-    Pen lenIconPen(lenIconColor, 1.5f);
-    // Chain link icon (two interlocking ovals)
-    graphics.DrawEllipse(&lenIconPen, lenIconX, lenIconY - 5.0f, 8.0f, 10.0f);
-    graphics.DrawEllipse(&lenIconPen, lenIconX + 6.0f, lenIconY - 5.0f, 8.0f, 10.0f);
-    // "Len" text
-    RectF lenTextRect((REAL)(lockX + 20), (REAL)lockY, 36, (REAL)LOCK_BUTTON_SIZE);
-    SolidBrush lenTextBrush(g_lockLength ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM);
-    graphics.DrawString(L"Len", -1, &presetFont, lenTextRect, &sf, &lenTextBrush);
-
-    // Lock Direction button
-    int lockDirX = lockX + LOCK_BUTTON_SIZE * 2 + 24 + LOCK_BUTTON_SPACING;
-    RectF lockDirRect((REAL)lockDirX, (REAL)lockY,
-                      (REAL)LOCK_BUTTON_SIZE * 2 + 24, (REAL)LOCK_BUTTON_SIZE);
-    Color lockDirColor = g_pressedLockDirection ? Color(255, 30, 80, 30) :
-                         g_lockDirection ? COLOR_PRESET_ACTIVE :
-                         g_lockDirectionHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
-    SolidBrush lockDirBrush(lockDirColor);
-    graphics.FillRectangle(&lockDirBrush, lockDirRect);
-    Pen lockDirBorder(COLOR_BORDER, 1);
-    graphics.DrawRectangle(&lockDirBorder, lockDirRect);
-
-    // Draw arrow icon + "Dir" text
-    float dirIconX = (float)lockDirX + 4;
-    float dirIconY = (float)lockY + LOCK_BUTTON_SIZE / 2.0f;
-    Color dirIconColor = g_lockDirection ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM;
-    Pen dirIconPen(dirIconColor, 1.5f);
-    // Bidirectional arrow icon
-    graphics.DrawLine(&dirIconPen, dirIconX + 2, dirIconY, dirIconX + 14, dirIconY);
-    graphics.DrawLine(&dirIconPen, dirIconX + 2, dirIconY, dirIconX + 5, dirIconY - 3);
-    graphics.DrawLine(&dirIconPen, dirIconX + 2, dirIconY, dirIconX + 5, dirIconY + 3);
-    graphics.DrawLine(&dirIconPen, dirIconX + 14, dirIconY, dirIconX + 11, dirIconY - 3);
-    graphics.DrawLine(&dirIconPen, dirIconX + 14, dirIconY, dirIconX + 11, dirIconY + 3);
-    // "Dir" text
-    RectF dirTextRect((REAL)(lockDirX + 20), (REAL)lockY, 36, (REAL)LOCK_BUTTON_SIZE);
-    SolidBrush dirTextBrush(g_lockDirection ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM);
-    graphics.DrawString(L"Dir", -1, &presetFont, dirTextRect, &sf, &dirTextBrush);
-
-    // Modifier hint (right side, small text)
-    RectF modHintRect((REAL)(graphX + graphW - 140), (REAL)lockY, 140, (REAL)LOCK_BUTTON_SIZE);
-    StringFormat sfRight;
-    sfRight.SetAlignment(StringAlignmentFar);
-    sfRight.SetLineAlignment(StringAlignmentCenter);
-    graphics.DrawString(L"Shift:H/V  Ctrl:Dir  Alt:Len", -1, &valueFont, modHintRect, &sfRight, &dimBrush);
-
-    currentY += LOCK_BUTTON_SIZE + PADDING;  // Space for lock buttons
+    currentY += GRAPH_HEIGHT + PADDING;  // Gap after graph
 
     // ===== Preset buttons (with mini graph) =====
     int presetCount = 5;
@@ -1481,16 +1398,10 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 return 0;
             }
 
-            // Handle dragging
+            // Handle dragging (independent control - no lock sync)
             if (g_draggingHandle >= 0) {
-                // Check modifier keys
+                // Shift modifier for H/V constraint
                 bool shiftHeld = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-                bool ctrlHeld = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-                bool altHeld = (GetKeyState(VK_MENU) & 0x8000) != 0;
-
-                // Effective lock states (modifiers can override)
-                bool effectiveLockLen = g_lockLength && !altHeld;
-                bool effectiveLockDir = g_lockDirection && !ctrlHeld;
 
                 // Convert screen pos to curve coordinates
                 // Graph has 20% padding for overshoot visualization
@@ -1519,61 +1430,14 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                     }
                 }
 
-                // Calculate handle lengths for lock length feature
-                // Length is distance from handle to its anchor point
-                // p0 anchors at (0,0), p1 anchors at (1,1)
-                float len0 = sqrtf(g_currentCurve.p0_x * g_currentCurve.p0_x +
-                                   g_currentCurve.p0_y * g_currentCurve.p0_y);
-                float len1 = sqrtf((1.0f - g_currentCurve.p1_x) * (1.0f - g_currentCurve.p1_x) +
-                                   (1.0f - g_currentCurve.p1_y) * (1.0f - g_currentCurve.p1_y));
-
+                // Update the dragged handle independently
                 if (g_draggingHandle == 0) {
                     g_currentCurve.p0_x = nx;
                     g_currentCurve.p0_y = ny;
-
-                    // Lock Length: sync p1's length to match p0's new length
-                    if (effectiveLockLen) {
-                        float newLen0 = sqrtf(nx * nx + ny * ny);
-                        if (len1 > 0.001f) {
-                            float scale = newLen0 / len1;
-                            float dx1 = 1.0f - g_currentCurve.p1_x;
-                            float dy1 = 1.0f - g_currentCurve.p1_y;
-                            g_currentCurve.p1_x = 1.0f - dx1 * scale;
-                            g_currentCurve.p1_y = 1.0f - dy1 * scale;
-                        }
-                    }
-
-                    // Lock Direction: mirror p1 symmetrically around center (0.5, 0.5)
-                    if (effectiveLockDir) {
-                        g_currentCurve.p1_x = 1.0f - nx;
-                        g_currentCurve.p1_y = 1.0f - ny;
-                    }
                 } else {
                     g_currentCurve.p1_x = nx;
                     g_currentCurve.p1_y = ny;
-
-                    // Lock Length: sync p0's length to match p1's new length
-                    if (effectiveLockLen) {
-                        float newLen1 = sqrtf((1.0f - nx) * (1.0f - nx) + (1.0f - ny) * (1.0f - ny));
-                        if (len0 > 0.001f) {
-                            float scale = newLen1 / len0;
-                            g_currentCurve.p0_x = g_currentCurve.p0_x * scale;
-                            g_currentCurve.p0_y = g_currentCurve.p0_y * scale;
-                        }
-                    }
-
-                    // Lock Direction: mirror p0 symmetrically around center (0.5, 0.5)
-                    if (effectiveLockDir) {
-                        g_currentCurve.p0_x = 1.0f - nx;
-                        g_currentCurve.p0_y = 1.0f - ny;
-                    }
                 }
-
-                // Re-clamp after lock adjustments
-                g_currentCurve.p0_x = max(0.0f, min(1.0f, g_currentCurve.p0_x));
-                g_currentCurve.p0_y = max(-0.5f, min(1.5f, g_currentCurve.p0_y));
-                g_currentCurve.p1_x = max(0.0f, min(1.0f, g_currentCurve.p1_x));
-                g_currentCurve.p1_y = max(-0.5f, min(1.5f, g_currentCurve.p1_y));
 
                 g_currentPreset = KeyframeUI::PRESET_CUSTOM;
                 needRedraw = true;
@@ -1617,23 +1481,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 baseY += NAV_BUTTON_SIZE + 4;
             }
 
-            // Check lock buttons hover (below graph)
-            int lockY = baseY + GRAPH_HEIGHT + 4;
-            int lockX = PADDING + 50;  // Same as graphX
-            int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 24;
-
-            bool wasLockLenHover = g_lockLengthHover;
-            bool wasLockDirHover = g_lockDirectionHover;
-            g_lockLengthHover = (x >= lockX && x < lockX + lockBtnWidth &&
-                                 y >= lockY && y < lockY + LOCK_BUTTON_SIZE);
-            int lockDirX = lockX + lockBtnWidth + LOCK_BUTTON_SPACING;
-            g_lockDirectionHover = (x >= lockDirX && x < lockDirX + lockBtnWidth &&
-                                    y >= lockY && y < lockY + LOCK_BUTTON_SIZE);
-            if (wasLockLenHover != g_lockLengthHover || wasLockDirHover != g_lockDirectionHover)
-                needRedraw = true;
-
-            // Check preset button hover
-            int currentY = lockY + LOCK_BUTTON_SIZE + PADDING;  // After lock buttons
+            // Check preset button hover (directly after graph)
+            int currentY = baseY + GRAPH_HEIGHT + PADDING;
             int presetCount = 5;
             int btnSpacing = 4;
             int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1801,32 +1650,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 }
             }
 
-            // Check lock buttons click (below graph)
-            int lockY = baseY + GRAPH_HEIGHT + 4;
-            int lockX = PADDING + 50;  // Same as graphX
-            int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 24;
-
-            if (x >= lockX && x < lockX + lockBtnWidth &&
-                y >= lockY && y < lockY + LOCK_BUTTON_SIZE) {
-                g_pressedLockLength = true;
-                g_lockLength = !g_lockLength;
-                InvalidateRect(hwnd, NULL, TRUE);
-                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
-                return 0;
-            }
-
-            int lockDirX = lockX + lockBtnWidth + LOCK_BUTTON_SPACING;
-            if (x >= lockDirX && x < lockDirX + lockBtnWidth &&
-                y >= lockY && y < lockY + LOCK_BUTTON_SIZE) {
-                g_pressedLockDirection = true;
-                g_lockDirection = !g_lockDirection;
-                InvalidateRect(hwnd, NULL, TRUE);
-                SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
-                return 0;
-            }
-
-            // Check preset button click
-            int currentY = lockY + LOCK_BUTTON_SIZE + PADDING;  // After lock buttons
+            // Check preset button click (directly after graph)
+            int currentY = baseY + GRAPH_HEIGHT + PADDING;
             int presetCount = 5;
             int btnSpacing = 4;
             int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1968,8 +1793,6 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 g_pressedApplyButton = false;
                 g_pressedPinButton = false;
                 g_pressedCloseButton = false;
-                g_pressedLockLength = false;
-                g_pressedLockDirection = false;
                 g_pressedNavPrev = false;
                 g_pressedNavNext = false;
                 KillTimer(hwnd, CLICK_FEEDBACK_TIMER_ID);
