@@ -338,6 +338,12 @@ static bool g_pressedCloseButton = false; // Close button pressed state
 static bool g_windowDragging = false;
 static POINT g_windowDragOffset = {0, 0};
 
+// Lock toggle for multi-view mode only (middle keyframe In/Out sync)
+static bool g_lockHandles = false;      // Sync In/Out handles for middle keyframes
+static bool g_lockHandlesHover = false;
+static bool g_pressedLockHandles = false;
+static const int LOCK_BUTTON_SIZE = 24;
+
 // Forward declarations
 LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 void DrawKeyframePanel(HDC hdc, int width, int height);
@@ -507,6 +513,9 @@ void ShowPanel(int screenX, int screenY) {
     g_pressedApplyButton = false;
     g_pressedPinButton = false;
     g_pressedCloseButton = false;
+    g_pressedLockHandles = false;
+    g_lockHandlesHover = false;
+    // Don't reset g_lockHandles - preserve across sessions
 
     // Reset navigation states
     g_navPrevHover = false;
@@ -579,6 +588,8 @@ KeyframeResult HidePanel() {
     g_pressedApplyButton = false;
     g_pressedPinButton = false;
     g_pressedCloseButton = false;
+    g_pressedLockHandles = false;
+    g_lockHandlesHover = false;
 
     // Reset navigation states
     g_navPrevHover = false;
@@ -1168,7 +1179,41 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
 
     DrawVelocityGraph(graphics, graphX, graphY, graphW, graphH);
 
-    currentY += GRAPH_HEIGHT + PADDING;  // Gap after graph
+    currentY += GRAPH_HEIGHT + 4;  // Small gap after graph
+
+    // ===== Lock toggle (multi-view only) =====
+    if (g_multiViewMode) {
+        int lockX = graphX;
+        int lockY = currentY;
+        int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 30;
+
+        // Lock Handles button
+        RectF lockRect((REAL)lockX, (REAL)lockY, (REAL)lockBtnWidth, (REAL)LOCK_BUTTON_SIZE);
+        Color lockColor = g_pressedLockHandles ? Color(255, 30, 80, 30) :
+                          g_lockHandles ? COLOR_PRESET_ACTIVE :
+                          g_lockHandlesHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
+        SolidBrush lockBrush(lockColor);
+        graphics.FillRectangle(&lockBrush, lockRect);
+        Pen lockBorder(COLOR_BORDER, 1);
+        graphics.DrawRectangle(&lockBorder, lockRect);
+
+        // Chain icon
+        float iconX = (float)lockX + 6;
+        float iconY = (float)lockY + LOCK_BUTTON_SIZE / 2.0f;
+        Color iconColor = g_lockHandles ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM;
+        Pen iconPen(iconColor, 1.5f);
+        graphics.DrawEllipse(&iconPen, iconX, iconY - 5.0f, 8.0f, 10.0f);
+        graphics.DrawEllipse(&iconPen, iconX + 6.0f, iconY - 5.0f, 8.0f, 10.0f);
+
+        // "Sync" text
+        RectF lockTextRect((REAL)(lockX + 22), (REAL)lockY, 40, (REAL)LOCK_BUTTON_SIZE);
+        SolidBrush lockTextBrush(g_lockHandles ? Color(255, 255, 255, 255) : COLOR_TEXT_DIM);
+        graphics.DrawString(L"Sync", -1, &presetFont, lockTextRect, &sf, &lockTextBrush);
+
+        currentY += LOCK_BUTTON_SIZE + PADDING;
+    } else {
+        currentY += PADDING;  // Just padding for solo view
+    }
 
     // ===== Preset buttons (with mini graph) =====
     int presetCount = 5;
@@ -1430,13 +1475,25 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                     }
                 }
 
-                // Update the dragged handle independently
+                // Update the dragged handle
                 if (g_draggingHandle == 0) {
                     g_currentCurve.p0_x = nx;
                     g_currentCurve.p0_y = ny;
+
+                    // Multi-view Sync: mirror to other handle
+                    if (g_multiViewMode && g_lockHandles) {
+                        g_currentCurve.p1_x = 1.0f - nx;
+                        g_currentCurve.p1_y = 1.0f - ny;
+                    }
                 } else {
                     g_currentCurve.p1_x = nx;
                     g_currentCurve.p1_y = ny;
+
+                    // Multi-view Sync: mirror to other handle
+                    if (g_multiViewMode && g_lockHandles) {
+                        g_currentCurve.p0_x = 1.0f - nx;
+                        g_currentCurve.p0_y = 1.0f - ny;
+                    }
                 }
 
                 g_currentPreset = KeyframeUI::PRESET_CUSTOM;
@@ -1481,8 +1538,21 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 baseY += NAV_BUTTON_SIZE + 4;
             }
 
-            // Check preset button hover (directly after graph)
-            int currentY = baseY + GRAPH_HEIGHT + PADDING;
+            // Check lock button hover (multi-view only)
+            int lockY = baseY + GRAPH_HEIGHT + 4;
+            if (g_multiViewMode) {
+                int graphW = GRAPH_HEIGHT;  // Square
+                int lockX = (rc.right - graphW) / 2;
+                int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 30;
+
+                bool wasLockHover = g_lockHandlesHover;
+                g_lockHandlesHover = (x >= lockX && x < lockX + lockBtnWidth &&
+                                      y >= lockY && y < lockY + LOCK_BUTTON_SIZE);
+                if (wasLockHover != g_lockHandlesHover) needRedraw = true;
+            }
+
+            // Check preset button hover
+            int currentY = g_multiViewMode ? (lockY + LOCK_BUTTON_SIZE + PADDING) : (baseY + GRAPH_HEIGHT + PADDING);
             int presetCount = 5;
             int btnSpacing = 4;
             int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1650,8 +1720,25 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 }
             }
 
-            // Check preset button click (directly after graph)
-            int currentY = baseY + GRAPH_HEIGHT + PADDING;
+            // Check lock button click (multi-view only)
+            int lockY = baseY + GRAPH_HEIGHT + 4;
+            if (g_multiViewMode) {
+                int graphW = GRAPH_HEIGHT;  // Square
+                int lockX = (rc.right - graphW) / 2;
+                int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 30;
+
+                if (x >= lockX && x < lockX + lockBtnWidth &&
+                    y >= lockY && y < lockY + LOCK_BUTTON_SIZE) {
+                    g_pressedLockHandles = true;
+                    g_lockHandles = !g_lockHandles;
+                    InvalidateRect(hwnd, NULL, TRUE);
+                    SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
+                    return 0;
+                }
+            }
+
+            // Check preset button click
+            int currentY = g_multiViewMode ? (lockY + LOCK_BUTTON_SIZE + PADDING) : (baseY + GRAPH_HEIGHT + PADDING);
             int presetCount = 5;
             int btnSpacing = 4;
             int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
@@ -1793,6 +1880,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 g_pressedApplyButton = false;
                 g_pressedPinButton = false;
                 g_pressedCloseButton = false;
+                g_pressedLockHandles = false;
                 g_pressedNavPrev = false;
                 g_pressedNavNext = false;
                 KillTimer(hwnd, CLICK_FEEDBACK_TIMER_ID);
