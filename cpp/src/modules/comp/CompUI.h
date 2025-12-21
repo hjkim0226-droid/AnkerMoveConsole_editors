@@ -22,8 +22,7 @@ enum CompAction {
     ACTION_NONE = -1,
     ACTION_AUTO_CROP = 0,
     ACTION_DUPLICATE,
-    ACTION_FIT_DURATION,  // Fit to layer duration (extend/shrink)
-    ACTION_PRERENDER
+    ACTION_FIT_DURATION  // Fit to layer duration (extend/shrink)
 };
 
 // Current composition info (read from AE)

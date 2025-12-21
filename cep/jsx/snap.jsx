@@ -1257,34 +1257,3 @@ function extendCompDuration() {
     }
 }
 
-/**
- * Pre-render composition
- * Creates a new comp with pre-rendered footage
- * @returns {string} "OK" or error message
- */
-function preRenderComp() {
-    try {
-        var comp = app.project.activeItem;
-        if (!comp || !(comp instanceof CompItem)) {
-            return "Error: No active composition";
-        }
-
-        // Add to render queue
-        var rqItem = app.project.renderQueue.items.add(comp);
-
-        // Set output module to lossless
-        var outputModule = rqItem.outputModule(1);
-
-        // Try to use ProRes or lossless format
-        try {
-            outputModule.applyTemplate("Lossless");
-        } catch (e) {
-            // Template might not exist, use default
-        }
-
-        return "OK: Added to render queue";
-
-    } catch (e) {
-        return "Error: " + e.toString();
-    }
-}
