@@ -2104,11 +2104,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       case CompUI::ACTION_DUPLICATE:
         script = "duplicateCompFull()";
         break;
-      case CompUI::ACTION_EXTEND:
+      case CompUI::ACTION_FIT_DURATION:
         script = "extendCompDuration()";
-        break;
-      case CompUI::ACTION_TRIM:
-        script = "trimCompToWorkArea()";
         break;
       default:
         break;

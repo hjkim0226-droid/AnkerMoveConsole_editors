@@ -19,7 +19,7 @@ namespace CompUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 280;
-static const int WINDOW_HEIGHT = 200;
+static const int WINDOW_HEIGHT = 160;
 static const int HEADER_HEIGHT = 32;
 static const int BUTTON_HEIGHT = 36;
 static const int BUTTON_MARGIN = 8;
@@ -47,9 +47,7 @@ struct ButtonInfo {
 static const ButtonInfo BUTTONS[] = {
     {L"Auto Crop", L"1", L"Fit comp to layer bounds", ACTION_AUTO_CROP},
     {L"Duplicate", L"2", L"Full comp duplication", ACTION_DUPLICATE},
-    {L"Extend", L"3", L"Extend to layer duration", ACTION_EXTEND},
-    {L"Trim", L"4", L"Trim to work area", ACTION_TRIM},
-    // {L"Pre-render", L"5", L"Pre-render composition", ACTION_PRERENDER},
+    {L"Fit Duration", L"3", L"Fit to layer duration", ACTION_FIT_DURATION},
 };
 static const int NUM_BUTTONS = sizeof(BUTTONS) / sizeof(BUTTONS[0]);
 

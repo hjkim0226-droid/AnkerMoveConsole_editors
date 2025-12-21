@@ -1258,51 +1258,6 @@ function extendCompDuration() {
 }
 
 /**
- * Trim composition duration to work area
- * @returns {string} "OK" or error message
- */
-function trimCompToWorkArea() {
-    try {
-        var comp = app.project.activeItem;
-        if (!comp || !(comp instanceof CompItem)) {
-            return "Error: No active composition";
-        }
-
-        var workStart = comp.workAreaStart;
-        var workDuration = comp.workAreaDuration;
-        var workEnd = workStart + workDuration;
-
-        if (workStart === 0 && workEnd >= comp.duration) {
-            return "OK: Work area covers entire composition";
-        }
-
-        app.beginUndoGroup("Trim Composition to Work Area");
-
-        // Offset all layers by work area start
-        if (workStart > 0) {
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                layer.startTime = layer.startTime - workStart;
-            }
-        }
-
-        // Trim duration
-        comp.duration = workDuration;
-
-        // Reset work area
-        comp.workAreaStart = 0;
-        comp.workAreaDuration = workDuration;
-
-        app.endUndoGroup();
-
-        return "OK: Trimmed to " + workDuration.toFixed(2) + "s";
-
-    } catch (e) {
-        return "Error: " + e.toString();
-    }
-}
-
-/**
  * Pre-render composition
  * Creates a new comp with pre-rendered footage
  * @returns {string} "OK" or error message

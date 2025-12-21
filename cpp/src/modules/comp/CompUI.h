@@ -22,15 +22,8 @@ enum CompAction {
     ACTION_NONE = -1,
     ACTION_AUTO_CROP = 0,
     ACTION_DUPLICATE,
-    ACTION_EXTEND,
-    ACTION_TRIM,
+    ACTION_FIT_DURATION,  // Fit to layer duration (extend/shrink)
     ACTION_PRERENDER
-};
-
-// Duration mode
-enum DurationMode {
-    MODE_EXTEND = 0,  // Extend to layer duration
-    MODE_TRIM         // Trim to work area
 };
 
 // Current composition info (read from AE)
