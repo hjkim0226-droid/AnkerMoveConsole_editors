@@ -21,7 +21,8 @@ enum MenuAction {
     ACTION_CANCELLED,
     ACTION_ALIGN,
     ACTION_TEXT,
-    ACTION_KEYFRAME
+    ACTION_KEYFRAME,
+    ACTION_COMP
 };
 
 // Initialize the D Menu UI system

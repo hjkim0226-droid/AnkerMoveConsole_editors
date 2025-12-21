@@ -55,6 +55,8 @@ set(PLUGIN_SOURCES
     src/modules/align/AlignUI.cpp
     # Text module
     src/modules/text/TextUI.cpp
+    # Comp module
+    src/modules/comp/CompUI.cpp
     # D Menu module
     src/modules/dmenu/DMenuUI.cpp
     # SDK
@@ -77,6 +79,8 @@ set(PLUGIN_HEADERS
     src/modules/align/AlignUI.h
     # Text module
     src/modules/text/TextUI.h
+    # Comp module
+    src/modules/comp/CompUI.h
     # D Menu module
     src/modules/dmenu/DMenuUI.h
 )
@@ -95,6 +99,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src/modules/keyframe
     ${CMAKE_SOURCE_DIR}/src/modules/align
     ${CMAKE_SOURCE_DIR}/src/modules/text
+    ${CMAKE_SOURCE_DIR}/src/modules/comp
     ${CMAKE_SOURCE_DIR}/src/modules/dmenu
     ${AE_SDK_PATH}
     ${AE_SDK_PATH}/SP

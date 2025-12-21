@@ -1029,3 +1029,231 @@ function applyEasingPreset(presetName) {
         return "Error: " + e.toString();
     }
 }
+
+// =========================================================================
+// Comp Editor Module - Composition Editing Functions
+// =========================================================================
+
+/**
+ * Get current composition info
+ * @returns {string} JSON with comp info
+ */
+function getCompInfo() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return JSON.stringify({error: "No active composition"});
+        }
+
+        return JSON.stringify({
+            name: comp.name,
+            width: comp.width,
+            height: comp.height,
+            duration: comp.duration,
+            frameRate: comp.frameRate,
+            workAreaStart: comp.workAreaStart,
+            workAreaEnd: comp.workAreaStart + comp.workAreaDuration
+        });
+    } catch (e) {
+        return JSON.stringify({error: e.toString()});
+    }
+}
+
+/**
+ * Auto Crop - Fit composition to layer bounds
+ * Resizes comp to fit all visible layers at current time
+ * @returns {string} "OK" or error message
+ */
+function autoCropComp() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+
+        var time = comp.time;
+        var minX = Infinity, minY = Infinity;
+        var maxX = -Infinity, maxY = -Infinity;
+        var foundLayers = false;
+
+        // Calculate bounds of all visible layers
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var layer = comp.layer(i);
+
+            // Skip invisible layers
+            if (!layer.enabled) continue;
+            if (layer.inPoint > time || layer.outPoint < time) continue;
+
+            // Get layer bounds
+            var rect = layer.sourceRectAtTime(time, false);
+            if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+
+            // Transform to comp space
+            var transform = layer.property("ADBE Transform Group");
+            var anchor = transform.property("ADBE Anchor Point").value;
+            var pos = transform.property("ADBE Position").value;
+            var scale = transform.property("ADBE Scale").value;
+
+            var sx = scale[0] / 100;
+            var sy = scale[1] / 100;
+
+            // Calculate layer corners in comp space (simplified, ignores rotation)
+            var left = pos[0] - (anchor[0] - rect.left) * sx;
+            var top = pos[1] - (anchor[1] - rect.top) * sy;
+            var right = left + rect.width * sx;
+            var bottom = top + rect.height * sy;
+
+            if (left < minX) minX = left;
+            if (top < minY) minY = top;
+            if (right > maxX) maxX = right;
+            if (bottom > maxY) maxY = bottom;
+            foundLayers = true;
+        }
+
+        if (!foundLayers) {
+            return "Error: No visible layers found";
+        }
+
+        // Add small padding
+        var padding = 0;
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+
+        var newWidth = Math.round(maxX - minX);
+        var newHeight = Math.round(maxY - minY);
+
+        if (newWidth <= 0 || newHeight <= 0) {
+            return "Error: Invalid calculated dimensions";
+        }
+
+        app.beginUndoGroup("Auto Crop Composition");
+
+        // Offset all layers by the crop amount
+        var offsetX = -minX;
+        var offsetY = -minY;
+
+        for (var j = 1; j <= comp.numLayers; j++) {
+            var lyr = comp.layer(j);
+            var posP = lyr.property("ADBE Transform Group").property("ADBE Position");
+            var oldPos = posP.value;
+
+            if (oldPos.length === 3) {
+                posP.setValue([oldPos[0] + offsetX, oldPos[1] + offsetY, oldPos[2]]);
+            } else {
+                posP.setValue([oldPos[0] + offsetX, oldPos[1] + offsetY]);
+            }
+        }
+
+        // Resize composition
+        comp.width = newWidth;
+        comp.height = newHeight;
+
+        app.endUndoGroup();
+        return "OK: " + newWidth + "x" + newHeight;
+
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Duplicate Composition (Full)
+ * Duplicates comp with all nested comps
+ * @returns {string} "OK" or error message
+ */
+function duplicateCompFull() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+
+        app.beginUndoGroup("Duplicate Composition (Full)");
+
+        // Map to track duplicated comps
+        var compMap = {};
+
+        // Recursive function to duplicate nested comps
+        function duplicateNestedComp(originalComp) {
+            // Check if already duplicated
+            if (compMap[originalComp.id]) {
+                return compMap[originalComp.id];
+            }
+
+            // Duplicate this comp
+            var newComp = originalComp.duplicate();
+            newComp.name = originalComp.name + " (Copy)";
+            compMap[originalComp.id] = newComp;
+
+            // Find and replace nested comps
+            for (var i = 1; i <= newComp.numLayers; i++) {
+                var layer = newComp.layer(i);
+
+                // Check if layer source is a comp
+                if (layer.source && layer.source instanceof CompItem) {
+                    var nestedComp = layer.source;
+
+                    // Recursively duplicate nested comp
+                    var newNestedComp = duplicateNestedComp(nestedComp);
+
+                    // Replace the layer's source with the duplicated comp
+                    layer.replaceSource(newNestedComp, false);
+                }
+            }
+
+            return newComp;
+        }
+
+        var result = duplicateNestedComp(comp);
+
+        app.endUndoGroup();
+        return "OK: Created '" + result.name + "'";
+
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Extend/Shrink composition duration to fit all layers
+ * @returns {string} "OK" or error message
+ */
+function extendCompDuration() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "Error: No active composition";
+        }
+
+        var maxOutPoint = 0;
+
+        // Find the latest layer out point
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var layer = comp.layer(i);
+            if (layer.outPoint > maxOutPoint) {
+                maxOutPoint = layer.outPoint;
+            }
+        }
+
+        if (maxOutPoint === comp.duration) {
+            return "OK: Duration already matches layers (" + maxOutPoint.toFixed(2) + "s)";
+        }
+
+        app.beginUndoGroup("Fit Duration to Layers");
+        var oldDuration = comp.duration;
+        comp.duration = maxOutPoint;
+        app.endUndoGroup();
+
+        if (maxOutPoint > oldDuration) {
+            return "OK: Extended to " + maxOutPoint.toFixed(2) + "s";
+        } else {
+            return "OK: Trimmed to " + maxOutPoint.toFixed(2) + "s";
+        }
+
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
