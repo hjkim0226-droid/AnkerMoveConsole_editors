@@ -162,6 +162,25 @@ bool IsEffectControlsFocused() {
 }
 
 /*****************************************************************************
+ * IsTextToolActive
+ * Check if text tool (horizontal or vertical) is currently active
+ * When text tool is active, user is likely editing text and D menu should not appear
+ *****************************************************************************/
+bool IsTextToolActive() {
+  char result[32] = {0};
+  ExecuteScript(
+      "(function(){"
+      "try{"
+      "var t=app.project.toolType;"
+      "if(t===ToolType.Tool_TextH||t===ToolType.Tool_TextV)return '1';"
+      "}catch(e){}"
+      "return '0';"
+      "})();",
+      result, sizeof(result));
+  return result[0] == '1';
+}
+
+/*****************************************************************************
  * OpenEffectControls
  * Opens Effect Controls panel for selected layer (locked to that layer)
  * Uses app.executeCommand(2163) or findMenuCommandId
@@ -293,6 +312,7 @@ void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) {
 bool IsTextInputFocused() { return false; }
 bool IsAfterEffectsForeground() { return true; }
 bool IsEffectControlsFocused() { return false; }
+bool IsTextToolActive() { return false; }
 static bool g_effectsLoaded = false;
 void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
 void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
@@ -1760,10 +1780,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  // Skip if: modifier keys held (Ctrl/Shift/Alt) or text input focused
+  // Skip if: modifier keys held (Ctrl/Shift/Alt), text input focused, or text tool active
   bool ctrl_held = KeyboardMonitor::IsCtrlHeld();
   if (d_key_held && !g_dKeyWasHeld && !alt_held && !shift_held && !ctrl_held &&
-      !IsTextInputFocused() && IsAfterEffectsForeground() &&
+      !IsTextInputFocused() && !IsTextToolActive() && IsAfterEffectsForeground() &&
       !g_globals.menu_visible && !g_controlVisible && !g_keyframeVisible &&
       !g_alignVisible && !g_textVisible && !g_dMenuVisible) {
     int mouseX = 0, mouseY = 0;
