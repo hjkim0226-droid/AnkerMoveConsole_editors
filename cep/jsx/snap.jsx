@@ -1217,7 +1217,7 @@ function duplicateCompFull() {
 }
 
 /**
- * Extend composition duration to fit all layers
+ * Extend/Shrink composition duration to fit all layers
  * @returns {string} "OK" or error message
  */
 function extendCompDuration() {
@@ -1237,15 +1237,20 @@ function extendCompDuration() {
             }
         }
 
-        if (maxOutPoint <= comp.duration) {
-            return "OK: No extension needed (max layer end: " + maxOutPoint.toFixed(2) + "s)";
+        if (maxOutPoint === comp.duration) {
+            return "OK: Duration already matches layers (" + maxOutPoint.toFixed(2) + "s)";
         }
 
-        app.beginUndoGroup("Extend Composition Duration");
+        app.beginUndoGroup("Fit Duration to Layers");
+        var oldDuration = comp.duration;
         comp.duration = maxOutPoint;
         app.endUndoGroup();
 
-        return "OK: Extended to " + maxOutPoint.toFixed(2) + "s";
+        if (maxOutPoint > oldDuration) {
+            return "OK: Extended to " + maxOutPoint.toFixed(2) + "s";
+        } else {
+            return "OK: Trimmed to " + maxOutPoint.toFixed(2) + "s";
+        }
 
     } catch (e) {
         return "Error: " + e.toString();
