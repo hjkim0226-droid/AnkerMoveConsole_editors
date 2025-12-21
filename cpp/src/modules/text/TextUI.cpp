@@ -11,7 +11,9 @@
 #ifdef MSWindows
 #include <windowsx.h>  // GET_X_LPARAM, GET_Y_LPARAM
 #include <string>
+#include <vector>
 #include <cmath>
+#include <algorithm>
 
 using namespace Gdiplus;
 
@@ -107,10 +109,33 @@ static ValueTarget g_lastClickTarget = TARGET_NONE;
 static bool g_colorPickerForStroke = false;
 static float g_pickerColor[3] = {1, 1, 1};
 static int g_pickerHue = 0;
+static bool g_colorPickerVisible = false;
+static int g_colorPickerDragMode = 0; // 0=none, 1=hue bar, 2=SV square
+static float g_pickerSaturation = 1.0f;
+static float g_pickerValue = 1.0f;
+
+// Color picker dimensions
+static const int COLOR_PICKER_WIDTH = 220;
+static const int COLOR_PICKER_HEIGHT = 200;
+static const int HUE_BAR_WIDTH = 20;
+static const int SV_SIZE = 180;
+static RECT g_svRect;
+static RECT g_hueRect;
+
+// Font selector state
+static bool g_fontDropdownVisible = false;
+static HWND g_fontDropdownHwnd = NULL;
+static std::vector<std::wstring> g_fontList;
+static int g_fontScrollOffset = 0;
+static int g_fontHoverIndex = -1;
+static const int FONT_ITEM_HEIGHT = 24;
+static const int FONT_DROPDOWN_MAX_ITEMS = 10;
+static RECT g_fontBoxRect;
 
 // Forward declarations
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK FontDropdownWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 static void Draw(HDC hdc);
 static void DrawHeader(Graphics& g);
 static void DrawFontSection(Graphics& g, int& y);
@@ -136,6 +161,19 @@ static void ApplyTextProperty(const char* propName, float value);
 static void ApplyTextColor(bool stroke, float r, float g, float b);
 static void ApplyJustification(Justification just);
 static std::wstring FormatValue(ValueTarget target, float value);
+
+// Color picker helpers
+static void HSVtoRGB(float h, float s, float v, float& r, float& g, float& b);
+static void RGBtoHSV(float r, float g, float b, float& h, float& s, float& v);
+static void DrawColorPicker(HDC hdc);
+static void UpdatePickerFromColor(float* color);
+
+// Font dropdown helpers
+static void PopulateFontList();
+static void ShowFontDropdown();
+static void HideFontDropdown();
+static void DrawFontDropdown(HDC hdc);
+static void ApplyFont(const wchar_t* fontName);
 
 /*****************************************************************************
  * Initialize
@@ -187,22 +225,50 @@ void Initialize() {
 
     SetLayeredWindowAttributes(g_hwnd, 0, 255, LWA_ALPHA);
 
-    // Register color picker window class (non-critical, ignore failure)
+    // Register color picker window class
     WNDCLASSEXW wcPicker = {0};
     wcPicker.cbSize = sizeof(WNDCLASSEXW);
     wcPicker.style = CS_HREDRAW | CS_VREDRAW;
     wcPicker.lpfnWndProc = ColorPickerWndProc;
     wcPicker.hInstance = GetModuleHandle(NULL);
-    wcPicker.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcPicker.hCursor = LoadCursor(NULL, IDC_CROSS);
     wcPicker.hbrBackground = NULL;
     wcPicker.lpszClassName = L"TextUIColorPicker";
     RegisterClassExW(&wcPicker);
+
+    // Create color picker window (initially hidden)
+    g_colorPickerHwnd = CreateWindowExW(
+        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+        L"TextUIColorPicker",
+        L"Color Picker",
+        WS_POPUP,
+        0, 0, COLOR_PICKER_WIDTH, COLOR_PICKER_HEIGHT,
+        NULL, NULL, GetModuleHandle(NULL), NULL
+    );
+
+    // Register font dropdown window class
+    WNDCLASSEXW wcFont = {0};
+    wcFont.cbSize = sizeof(WNDCLASSEXW);
+    wcFont.style = CS_HREDRAW | CS_VREDRAW;
+    wcFont.lpfnWndProc = FontDropdownWndProc;
+    wcFont.hInstance = GetModuleHandle(NULL);
+    wcFont.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcFont.hbrBackground = NULL;
+    wcFont.lpszClassName = L"TextUIFontDropdown";
+    RegisterClassExW(&wcFont);
+
+    // Populate font list
+    PopulateFontList();
 }
 
 /*****************************************************************************
  * Shutdown
  *****************************************************************************/
 void Shutdown() {
+    if (g_fontDropdownHwnd) {
+        DestroyWindow(g_fontDropdownHwnd);
+        g_fontDropdownHwnd = NULL;
+    }
     if (g_colorPickerHwnd) {
         DestroyWindow(g_colorPickerHwnd);
         g_colorPickerHwnd = NULL;
@@ -215,6 +281,7 @@ void Shutdown() {
         GdiplusShutdown(g_gdiplusToken);
         g_gdiplusToken = 0;
     }
+    g_fontList.clear();
 }
 
 /*****************************************************************************
@@ -545,11 +612,29 @@ static void DrawFontSection(Graphics& g, int& y) {
     g.DrawString(L"Font", -1, &labelFont, PointF(10, (REAL)y), &labelBrush);
     y += 16;
 
-    // Font family display (simplified - no dropdown in v1)
-    SolidBrush valueBgBrush(COLOR_VALUE_BG);
+    // Font family display (clickable dropdown)
+    g_fontBoxRect = {10, y, 210, y + VALUE_BOX_HEIGHT};
+    POINT pt;
+    GetCursorPos(&pt);
+    ScreenToClient(g_hwnd, &pt);
+    bool fontHover = PtInRect(&g_fontBoxRect, pt);
+
+    Color fontBgColor = fontHover ? COLOR_VALUE_HOVER : COLOR_VALUE_BG;
+    SolidBrush valueBgBrush(fontBgColor);
     g.FillRectangle(&valueBgBrush, 10, y, 200, VALUE_BOX_HEIGHT);
+
+    // Font name
     g.DrawString(g_textInfo.font[0] ? g_textInfo.font : L"(Select text layer)",
                  -1, &valueFont, PointF(14, (REAL)(y + 4)), &textBrush);
+
+    // Dropdown arrow
+    if (g_textInfo.font[0]) {
+        Pen arrowPen(COLOR_TEXT_DIM, 1.5f);
+        int ax = 200;
+        int ay = y + VALUE_BOX_HEIGHT / 2;
+        g.DrawLine(&arrowPen, ax - 4, ay - 2, ax, ay + 2);
+        g.DrawLine(&arrowPen, ax, ay + 2, ax + 4, ay - 2);
+    }
 
     y += SECTION_HEIGHT + 4;
 }
@@ -816,8 +901,21 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
+    // Font box
+    if (PtInRect(&g_fontBoxRect, pt) && g_textInfo.font[0]) {
+        if (g_fontDropdownVisible) {
+            HideFontDropdown();
+        } else {
+            RECT wndRect;
+            GetWindowRect(g_hwnd, &wndRect);
+            ShowFontDropdown();
+        }
+        return;
+    }
+
     // Color boxes
     if (PtInRect(&g_fillColorRect, pt)) {
+        HideFontDropdown();  // Close font dropdown if open
         RECT wndRect;
         GetWindowRect(g_hwnd, &wndRect);
         ShowColorPicker(false, wndRect.left + g_fillColorRect.left,
@@ -825,6 +923,7 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
     if (PtInRect(&g_strokeColorRect, pt)) {
+        HideFontDropdown();  // Close font dropdown if open
         RECT wndRect;
         GetWindowRect(g_hwnd, &wndRect);
         ShowColorPicker(true, wndRect.left + g_strokeColorRect.left,
@@ -1072,29 +1171,442 @@ static void ApplyJustification(Justification just) {
 }
 
 /*****************************************************************************
+ * HSV <-> RGB Conversion
+ *****************************************************************************/
+static void HSVtoRGB(float h, float s, float v, float& r, float& g, float& b) {
+    if (s == 0) {
+        r = g = b = v;
+        return;
+    }
+    h = fmodf(h, 360.0f);
+    if (h < 0) h += 360.0f;
+    h /= 60.0f;
+    int i = (int)h;
+    float f = h - i;
+    float p = v * (1 - s);
+    float q = v * (1 - s * f);
+    float t = v * (1 - s * (1 - f));
+    switch (i) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        default: r = v; g = p; b = q; break;
+    }
+}
+
+static void RGBtoHSV(float r, float g, float b, float& h, float& s, float& v) {
+    float maxC = (std::max)({r, g, b});
+    float minC = (std::min)({r, g, b});
+    v = maxC;
+    float delta = maxC - minC;
+    if (maxC > 0) {
+        s = delta / maxC;
+    } else {
+        s = 0;
+        h = 0;
+        return;
+    }
+    if (delta < 0.00001f) {
+        h = 0;
+        return;
+    }
+    if (r >= maxC) {
+        h = (g - b) / delta;
+    } else if (g >= maxC) {
+        h = 2.0f + (b - r) / delta;
+    } else {
+        h = 4.0f + (r - g) / delta;
+    }
+    h *= 60.0f;
+    if (h < 0) h += 360.0f;
+}
+
+static void UpdatePickerFromColor(float* color) {
+    float h, s, v;
+    RGBtoHSV(color[0], color[1], color[2], h, s, v);
+    g_pickerHue = (int)h;
+    g_pickerSaturation = s;
+    g_pickerValue = v;
+}
+
+/*****************************************************************************
  * Color Picker
  *****************************************************************************/
 void ShowColorPicker(bool forStroke, int x, int y) {
-    // TODO: Implement full color picker
-    // For now, just toggle stroke/fill
-    g_colorPickerForStroke = forStroke;
+    if (!g_colorPickerHwnd) return;
 
-    // Simple color presets popup could go here
-    // For v1, clicking color box could cycle through presets
+    g_colorPickerForStroke = forStroke;
+    g_colorPickerVisible = true;
+    g_colorPickerDragMode = 0;
+
+    // Initialize from current color
+    float* color = forStroke ? g_textInfo.strokeColor : g_textInfo.fillColor;
+    UpdatePickerFromColor(color);
+
+    // Position picker
+    SetWindowPos(g_colorPickerHwnd, HWND_TOPMOST, x, y,
+                 COLOR_PICKER_WIDTH, COLOR_PICKER_HEIGHT, SWP_SHOWWINDOW);
+    InvalidateRect(g_colorPickerHwnd, NULL, TRUE);
 }
 
 void HideColorPicker() {
     if (g_colorPickerHwnd) {
         ShowWindow(g_colorPickerHwnd, SW_HIDE);
+        g_colorPickerVisible = false;
     }
 }
 
 bool IsColorPickerVisible() {
-    return g_colorPickerHwnd && IsWindowVisible(g_colorPickerHwnd);
+    return g_colorPickerVisible && g_colorPickerHwnd && IsWindowVisible(g_colorPickerHwnd);
+}
+
+static void DrawColorPicker(HDC hdc) {
+    Graphics g(hdc);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+
+    // Background
+    SolidBrush bgBrush(COLOR_BG);
+    g.FillRectangle(&bgBrush, 0, 0, COLOR_PICKER_WIDTH, COLOR_PICKER_HEIGHT);
+
+    // Border
+    Pen borderPen(Color(255, 60, 60, 70), 1);
+    g.DrawRectangle(&borderPen, 0, 0, COLOR_PICKER_WIDTH - 1, COLOR_PICKER_HEIGHT - 1);
+
+    int padding = 10;
+
+    // SV Square (Saturation-Value)
+    g_svRect = {padding, padding, padding + SV_SIZE, padding + SV_SIZE};
+
+    // Draw SV gradient
+    for (int y = 0; y < SV_SIZE; y++) {
+        for (int x = 0; x < SV_SIZE; x++) {
+            float s = (float)x / SV_SIZE;
+            float v = 1.0f - (float)y / SV_SIZE;
+            float r, gVal, b;
+            HSVtoRGB((float)g_pickerHue, s, v, r, gVal, b);
+            SolidBrush pixelBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
+            g.FillRectangle(&pixelBrush, padding + x, padding + y, 1, 1);
+        }
+    }
+
+    // SV cursor
+    int svCursorX = padding + (int)(g_pickerSaturation * SV_SIZE);
+    int svCursorY = padding + (int)((1.0f - g_pickerValue) * SV_SIZE);
+    Pen cursorPenW(Color(255, 255, 255, 255), 2);
+    Pen cursorPenB(Color(255, 0, 0, 0), 1);
+    g.DrawEllipse(&cursorPenW, svCursorX - 5, svCursorY - 5, 10, 10);
+    g.DrawEllipse(&cursorPenB, svCursorX - 6, svCursorY - 6, 12, 12);
+
+    // Hue Bar
+    int hueX = padding + SV_SIZE + 10;
+    g_hueRect = {hueX, padding, hueX + HUE_BAR_WIDTH, padding + SV_SIZE};
+
+    for (int y = 0; y < SV_SIZE; y++) {
+        float hue = (float)y / SV_SIZE * 360.0f;
+        float r, gVal, b;
+        HSVtoRGB(hue, 1.0f, 1.0f, r, gVal, b);
+        SolidBrush hueBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
+        g.FillRectangle(&hueBrush, hueX, padding + y, HUE_BAR_WIDTH, 1);
+    }
+
+    // Hue cursor
+    int hueCursorY = padding + (int)((float)g_pickerHue / 360.0f * SV_SIZE);
+    g.DrawRectangle(&cursorPenW, hueX - 2, hueCursorY - 2, HUE_BAR_WIDTH + 3, 4);
 }
 
 static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // TODO: Implement color picker window
+    switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        DrawColorPicker(hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN: {
+        int x = GET_X_LPARAM(lParam);
+        int y = GET_Y_LPARAM(lParam);
+        POINT pt = {x, y};
+
+        if (PtInRect(&g_svRect, pt)) {
+            g_colorPickerDragMode = 2;
+            SetCapture(hwnd);
+        } else if (PtInRect(&g_hueRect, pt)) {
+            g_colorPickerDragMode = 1;
+            SetCapture(hwnd);
+        }
+        // Fall through to update
+    }
+
+    case WM_MOUSEMOVE: {
+        if (g_colorPickerDragMode == 0) return 0;
+
+        int x = GET_X_LPARAM(lParam);
+        int y = GET_Y_LPARAM(lParam);
+
+        if (g_colorPickerDragMode == 1) {
+            // Hue bar
+            int relY = y - g_hueRect.top;
+            relY = (std::max)(0, (std::min)(relY, SV_SIZE - 1));
+            g_pickerHue = (int)((float)relY / SV_SIZE * 360.0f);
+        } else if (g_colorPickerDragMode == 2) {
+            // SV square
+            int relX = x - g_svRect.left;
+            int relY = y - g_svRect.top;
+            relX = (std::max)(0, (std::min)(relX, SV_SIZE - 1));
+            relY = (std::max)(0, (std::min)(relY, SV_SIZE - 1));
+            g_pickerSaturation = (float)relX / SV_SIZE;
+            g_pickerValue = 1.0f - (float)relY / SV_SIZE;
+        }
+
+        // Update color
+        float r, gVal, b;
+        HSVtoRGB((float)g_pickerHue, g_pickerSaturation, g_pickerValue, r, gVal, b);
+        ApplyTextColor(g_colorPickerForStroke, r, gVal, b);
+
+        InvalidateRect(hwnd, NULL, FALSE);
+        return 0;
+    }
+
+    case WM_LBUTTONUP:
+        if (g_colorPickerDragMode != 0) {
+            g_colorPickerDragMode = 0;
+            ReleaseCapture();
+        }
+        return 0;
+
+    case WM_ACTIVATE:
+        if (LOWORD(wParam) == WA_INACTIVE) {
+            HideColorPicker();
+        }
+        return 0;
+
+    case WM_KEYDOWN:
+        if (wParam == VK_ESCAPE) {
+            HideColorPicker();
+        }
+        return 0;
+    }
+
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+/*****************************************************************************
+ * Font Dropdown Helpers
+ *****************************************************************************/
+static int CALLBACK EnumFontFamProc(const LOGFONTW* lpelf, const TEXTMETRICW* lpntm,
+                                     DWORD FontType, LPARAM lParam) {
+    (void)lpntm;
+    (void)FontType;
+    (void)lParam;
+    // Add font if not already in list
+    std::wstring fontName(lpelf->lfFaceName);
+    if (fontName[0] != L'@') {  // Skip vertical fonts
+        auto it = std::find(g_fontList.begin(), g_fontList.end(), fontName);
+        if (it == g_fontList.end()) {
+            g_fontList.push_back(fontName);
+        }
+    }
+    return 1;
+}
+
+static void PopulateFontList() {
+    g_fontList.clear();
+    HDC hdc = GetDC(NULL);
+    LOGFONTW lf = {0};
+    lf.lfCharSet = DEFAULT_CHARSET;
+    lf.lfFaceName[0] = L'\0';
+    EnumFontFamiliesExW(hdc, &lf, (FONTENUMPROCW)EnumFontFamProc, 0, 0);
+    ReleaseDC(NULL, hdc);
+
+    // Sort alphabetically
+    std::sort(g_fontList.begin(), g_fontList.end());
+}
+
+static void ShowFontDropdown() {
+    if (!g_hwnd) return;
+
+    // Create dropdown window if needed
+    if (!g_fontDropdownHwnd) {
+        g_fontDropdownHwnd = CreateWindowExW(
+            WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+            L"TextUIFontDropdown",
+            L"Font Selector",
+            WS_POPUP | WS_VSCROLL,
+            0, 0, 200, FONT_ITEM_HEIGHT * FONT_DROPDOWN_MAX_ITEMS,
+            NULL, NULL, GetModuleHandle(NULL), NULL
+        );
+    }
+
+    // Position below font box
+    RECT wndRect;
+    GetWindowRect(g_hwnd, &wndRect);
+    int dropX = wndRect.left + g_fontBoxRect.left;
+    int dropY = wndRect.top + g_fontBoxRect.bottom;
+    int dropH = FONT_ITEM_HEIGHT * (std::min)((int)g_fontList.size(), FONT_DROPDOWN_MAX_ITEMS);
+
+    SetWindowPos(g_fontDropdownHwnd, HWND_TOPMOST, dropX, dropY, 200, dropH, SWP_SHOWWINDOW);
+
+    // Find current font in list for scroll position
+    g_fontScrollOffset = 0;
+    for (size_t i = 0; i < g_fontList.size(); i++) {
+        if (g_fontList[i] == g_textInfo.font) {
+            g_fontScrollOffset = (std::max)(0, (int)i - FONT_DROPDOWN_MAX_ITEMS / 2);
+            break;
+        }
+    }
+
+    // Update scrollbar
+    SCROLLINFO si = {0};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+    si.nMin = 0;
+    si.nMax = (int)g_fontList.size() - 1;
+    si.nPage = FONT_DROPDOWN_MAX_ITEMS;
+    si.nPos = g_fontScrollOffset;
+    SetScrollInfo(g_fontDropdownHwnd, SB_VERT, &si, TRUE);
+
+    g_fontDropdownVisible = true;
+    g_fontHoverIndex = -1;
+    InvalidateRect(g_fontDropdownHwnd, NULL, TRUE);
+}
+
+static void HideFontDropdown() {
+    if (g_fontDropdownHwnd) {
+        ShowWindow(g_fontDropdownHwnd, SW_HIDE);
+    }
+    g_fontDropdownVisible = false;
+}
+
+static void DrawFontDropdown(HDC hdc) {
+    RECT clientRect;
+    GetClientRect(g_fontDropdownHwnd, &clientRect);
+
+    Graphics g(hdc);
+    g.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+
+    // Background
+    SolidBrush bgBrush(COLOR_BG);
+    g.FillRectangle(&bgBrush, 0, 0, clientRect.right, clientRect.bottom);
+
+    // Border
+    Pen borderPen(Color(255, 60, 60, 70), 1);
+    g.DrawRectangle(&borderPen, 0, 0, clientRect.right - 1, clientRect.bottom - 1);
+
+    FontFamily fontFamily(L"Segoe UI");
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush hoverBrush(COLOR_VALUE_HOVER);
+    SolidBrush selectedBrush(COLOR_ALIGN_ACTIVE);
+
+    int visibleItems = (std::min)((int)g_fontList.size() - g_fontScrollOffset, FONT_DROPDOWN_MAX_ITEMS);
+
+    for (int i = 0; i < visibleItems; i++) {
+        int fontIndex = g_fontScrollOffset + i;
+        if (fontIndex >= (int)g_fontList.size()) break;
+
+        const std::wstring& fontName = g_fontList[fontIndex];
+        int itemY = i * FONT_ITEM_HEIGHT;
+
+        // Highlight current font or hover
+        bool isCurrent = (fontName == g_textInfo.font);
+        bool isHover = (fontIndex == g_fontHoverIndex);
+
+        if (isCurrent) {
+            g.FillRectangle(&selectedBrush, 1, itemY, clientRect.right - 2, FONT_ITEM_HEIGHT);
+        } else if (isHover) {
+            g.FillRectangle(&hoverBrush, 1, itemY, clientRect.right - 2, FONT_ITEM_HEIGHT);
+        }
+
+        // Draw font name in its own font
+        Font itemFont(&fontFamily, 11, FontStyleRegular, UnitPixel);
+        g.DrawString(fontName.c_str(), -1, &itemFont,
+                     PointF(8, (REAL)(itemY + 4)), &textBrush);
+    }
+}
+
+static void ApplyFont(const wchar_t* fontName) {
+    wcscpy_s(g_textInfo.font, 128, fontName);
+    g_result.applied = true;
+    InvalidateRect(g_hwnd, NULL, FALSE);
+}
+
+static LRESULT CALLBACK FontDropdownWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        DrawFontDropdown(hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_MOUSEMOVE: {
+        int y = GET_Y_LPARAM(lParam);
+        int newHover = g_fontScrollOffset + y / FONT_ITEM_HEIGHT;
+        if (newHover != g_fontHoverIndex && newHover < (int)g_fontList.size()) {
+            g_fontHoverIndex = newHover;
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN: {
+        int y = GET_Y_LPARAM(lParam);
+        int clickIndex = g_fontScrollOffset + y / FONT_ITEM_HEIGHT;
+        if (clickIndex >= 0 && clickIndex < (int)g_fontList.size()) {
+            ApplyFont(g_fontList[clickIndex].c_str());
+            HideFontDropdown();
+        }
+        return 0;
+    }
+
+    case WM_MOUSEWHEEL: {
+        int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+        int scroll = (delta > 0) ? -3 : 3;
+        g_fontScrollOffset = (std::max)(0, (std::min)(g_fontScrollOffset + scroll,
+                                         (int)g_fontList.size() - FONT_DROPDOWN_MAX_ITEMS));
+        SetScrollPos(hwnd, SB_VERT, g_fontScrollOffset, TRUE);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return 0;
+    }
+
+    case WM_VSCROLL: {
+        int action = LOWORD(wParam);
+        int newPos = g_fontScrollOffset;
+
+        switch (action) {
+        case SB_LINEUP: newPos--; break;
+        case SB_LINEDOWN: newPos++; break;
+        case SB_PAGEUP: newPos -= FONT_DROPDOWN_MAX_ITEMS; break;
+        case SB_PAGEDOWN: newPos += FONT_DROPDOWN_MAX_ITEMS; break;
+        case SB_THUMBTRACK: newPos = HIWORD(wParam); break;
+        }
+
+        newPos = (std::max)(0, (std::min)(newPos, (int)g_fontList.size() - FONT_DROPDOWN_MAX_ITEMS));
+        if (newPos != g_fontScrollOffset) {
+            g_fontScrollOffset = newPos;
+            SetScrollPos(hwnd, SB_VERT, g_fontScrollOffset, TRUE);
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+    }
+
+    case WM_ACTIVATE:
+        if (LOWORD(wParam) == WA_INACTIVE) {
+            HideFontDropdown();
+        }
+        return 0;
+
+    case WM_KEYDOWN:
+        if (wParam == VK_ESCAPE) {
+            HideFontDropdown();
+        }
+        return 0;
+    }
+
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
