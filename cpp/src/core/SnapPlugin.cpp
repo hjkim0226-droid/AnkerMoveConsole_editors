@@ -71,44 +71,39 @@ A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
  *****************************************************************************/
 #ifdef MSWindows
 bool IsTextInputFocused() {
-  HWND focused = GetFocus();
-  if (!focused) {
-    // GetFocus only works for current thread, try GetForegroundWindow +
-    // GetGUIThreadInfo
-    HWND fg = GetForegroundWindow();
-    if (fg) {
-      DWORD threadId = GetWindowThreadProcessId(fg, NULL);
-      GUITHREADINFO gti = {0};
-      gti.cbSize = sizeof(GUITHREADINFO);
-      if (GetGUIThreadInfo(threadId, &gti)) {
-        focused = gti.hwndFocus;
-      }
-    }
+  HWND fg = GetForegroundWindow();
+  if (!fg) return false;
+
+  DWORD threadId = GetWindowThreadProcessId(fg, NULL);
+  GUITHREADINFO gti = {0};
+  gti.cbSize = sizeof(GUITHREADINFO);
+
+  if (!GetGUIThreadInfo(threadId, &gti)) return false;
+
+  // Method 1: Check if caret is visible (most reliable for text input)
+  // hwndCaret is set when a text caret (cursor) is visible in any window
+  if (gti.hwndCaret != NULL) {
+    return true;
   }
 
-  if (!focused)
-    return false;
+  // Method 2: Check if caret is blinking (alternative detection)
+  if (gti.flags & GUI_CARETBLINKING) {
+    return true;
+  }
+
+  // Method 3: Check focused window class name (fallback)
+  HWND focused = gti.hwndFocus;
+  if (!focused) return false;
 
   char className[64] = {0};
   GetClassNameA(focused, className, sizeof(className));
 
   // Common text input class names
-  // "Edit" - standard Win32 edit control
-  // "RichEdit" - rich text edit variants
-  // "Scintilla" - code editors
-  // AE internal text fields may use these
   if (_strnicmp(className, "Edit", 4) == 0 ||
       _strnicmp(className, "RichEdit", 8) == 0 ||
       _strnicmp(className, "RICHEDIT", 8) == 0 ||
       _strnicmp(className, "Scintilla", 9) == 0) {
     return true;
-  }
-
-  // Check window style for ES_MULTILINE or similar edit styles
-  LONG style = GetWindowLong(focused, GWL_STYLE);
-  if (style & ES_MULTILINE || style & ES_AUTOHSCROLL) {
-    // Likely an edit control even if class name differs
-    // But be careful - many controls have these styles
   }
 
   return false;
