@@ -12,6 +12,7 @@
 #include "KeyframeUI.h"
 #include "AlignUI.h"
 #include "TextUI.h"
+#include "CompUI.h"
 #include "DMenuUI.h"
 #include "CEPBridge.h"
 #include <chrono>
@@ -56,6 +57,9 @@ static bool g_alignVisible = false;
 
 // Text module state
 static bool g_textVisible = false;
+
+// Comp module state
+static bool g_compVisible = false;
 
 // Forward declaration for ExecuteScript (defined later)
 A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
@@ -1910,6 +1914,17 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       }
       break;
 
+    case DMenuUI::ACTION_COMP:
+      // Show comp editor panel
+      if (g_compVisible) {
+        CompUI::HidePanel();
+        g_compVisible = false;
+      } else {
+        CompUI::ShowPanel(mouseX, mouseY);
+        g_compVisible = true;
+      }
+      break;
+
     default:
       // ACTION_NONE or ACTION_CANCELLED - do nothing
       break;
@@ -2073,6 +2088,45 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     TextUI::UpdateHover(mouseX, mouseY);
   }
 
+  // Check if Comp panel closed and process result
+  if (g_compVisible && !CompUI::IsVisible()) {
+    g_compVisible = false;
+    CompUI::CompResult result = CompUI::GetResult();
+
+    if (result.applied) {
+      char resultBuf[512];
+      const char* script = nullptr;
+
+      switch (result.action) {
+      case CompUI::ACTION_AUTO_CROP:
+        script = "autoCropComp()";
+        break;
+      case CompUI::ACTION_DUPLICATE:
+        script = "duplicateCompFull()";
+        break;
+      case CompUI::ACTION_EXTEND:
+        script = "extendCompDuration()";
+        break;
+      case CompUI::ACTION_TRIM:
+        script = "trimCompToWorkArea()";
+        break;
+      default:
+        break;
+      }
+
+      if (script) {
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+      }
+    }
+  }
+
+  // Update hover while comp panel is visible
+  if (g_compVisible && CompUI::IsVisible()) {
+    int mouseX = 0, mouseY = 0;
+    KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
+    CompUI::UpdateHover(mouseX, mouseY);
+  }
+
   *max_sleepPL = 33; // ~30fps for hover updates
 
   return err;
@@ -2103,6 +2157,7 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     KeyframeUI::Initialize();
     AlignUI::Initialize();
     TextUI::Initialize();
+    CompUI::Initialize();
     DMenuUI::Initialize();
 
     *global_refconP = (AEGP_GlobalRefcon)&g_globals;

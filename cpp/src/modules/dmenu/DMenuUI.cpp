@@ -19,7 +19,7 @@ namespace DMenuUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 140;
-static const int WINDOW_HEIGHT = 98;
+static const int WINDOW_HEIGHT = 126;  // 4 items now
 static const int ITEM_HEIGHT = 28;
 static const int PADDING = 8;
 
@@ -45,9 +45,10 @@ struct MenuItem {
 static const MenuItem MENU_ITEMS[] = {
     { L'A', L"Align", ACTION_ALIGN },
     { L'T', L"Text", ACTION_TEXT },
-    { L'K', L"Keyframe", ACTION_KEYFRAME }
+    { L'K', L"Keyframe", ACTION_KEYFRAME },
+    { L'C', L"Comp", ACTION_COMP }
 };
-static const int MENU_ITEM_COUNT = 3;
+static const int MENU_ITEM_COUNT = 4;
 
 // Global state
 static HWND g_hwnd = NULL;
@@ -300,6 +301,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case 'K':
         case 'k':
             g_action = ACTION_KEYFRAME;
+            HideMenu();
+            break;
+        case 'C':
+        case 'c':
+            g_action = ACTION_COMP;
             HideMenu();
             break;
         case VK_ESCAPE:
