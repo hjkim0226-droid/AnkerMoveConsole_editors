@@ -172,7 +172,13 @@ struct TextPreset {
 static std::vector<TextPreset> g_textPresets;
 static bool g_presetDropdownOpen = false;
 static int g_presetHoverIndex = -1;
+static int g_presetScrollOffset = 0;
 static RECT g_presetButtonRect;
+static RECT g_presetDropdownRect;
+static const int PRESET_ITEM_HEIGHT = 28;
+static const int PRESET_DROPDOWN_MAX_ITEMS = 6;
+static bool g_presetSaveMode = false;  // True when showing save dialog
+static std::wstring g_presetSaveName;
 
 // Forward declarations
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -205,7 +211,9 @@ static std::wstring FormatValue(ValueTarget target, float value);
 static void LoadFonts();
 static void FilterFonts(const std::wstring& search);
 static void DrawFontDropdown(Graphics& g);
+static void DrawPresetDropdown(Graphics& g);
 static void DrawPresetSection(Graphics& g, int& y);
+static void DeletePreset(int index);
 static void SavePreset(const std::wstring& name);
 static void ApplyPreset(int index);
 static void LoadPresets();
@@ -335,6 +343,12 @@ TextResult HidePanel() {
     if (g_editMode) ExitEditMode(false);
     HideColorPicker();
 
+    // Reset dropdown states
+    g_fontDropdownOpen = false;
+    g_fontSearchText.clear();
+    g_presetDropdownOpen = false;
+    g_presetScrollOffset = 0;
+
     if (g_hwnd && g_visible) {
         ShowWindow(g_hwnd, SW_HIDE);
         g_visible = false;
@@ -418,10 +432,31 @@ void UpdateHover(int mouseX, int mouseY) {
         needsRepaint = true;
     }
 
-    // Check preset button hover
-    int newPresetHover = -1;
+    // Check preset button and dropdown hover
+    int newPresetHover = -10;  // -10 = nothing
     if (PtInRect(&g_presetButtonRect, pt)) {
-        newPresetHover = -2;
+        newPresetHover = -2;  // -2 = button hover
+    } else if (g_presetDropdownOpen && PtInRect(&g_presetDropdownRect, pt)) {
+        // Calculate which item is being hovered
+        int listY = g_presetDropdownRect.top + 4;
+
+        // "Save Current" item
+        if (g_presetScrollOffset == 0 && localY >= listY && localY < listY + PRESET_ITEM_HEIGHT) {
+            newPresetHover = -1;  // -1 = "Save Current"
+        } else {
+            // Preset items
+            int itemY = listY + (g_presetScrollOffset == 0 ? PRESET_ITEM_HEIGHT : 0);
+            int startIdx = max(0, g_presetScrollOffset - 1);
+
+            for (int i = startIdx; i < (int)g_textPresets.size(); i++) {
+                if (localY >= itemY && localY < itemY + PRESET_ITEM_HEIGHT) {
+                    newPresetHover = i;
+                    break;
+                }
+                itemY += PRESET_ITEM_HEIGHT;
+                if (itemY > g_presetDropdownRect.bottom) break;
+            }
+        }
     }
     if (newPresetHover != g_presetHoverIndex) {
         g_presetHoverIndex = newPresetHover;
@@ -545,10 +580,19 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             InvalidateRect(g_hwnd, NULL, FALSE);
             return 0;
         }
+        if (g_presetDropdownOpen) {
+            int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            int scrollAmount = (delta > 0) ? -1 : 1;
+            int totalItems = 1 + (int)g_textPresets.size();
+            int maxScroll = max(0, totalItems - PRESET_DROPDOWN_MAX_ITEMS);
+            g_presetScrollOffset = max(0, min(maxScroll, g_presetScrollOffset + scrollAmount));
+            InvalidateRect(g_hwnd, NULL, FALSE);
+            return 0;
+        }
         break;
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen && !g_presetDropdownOpen) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -608,8 +652,9 @@ static void Draw(HDC hdc) {
     DrawValueSection(g, y);
     DrawAlignSection(g, y);
 
-    // Draw font dropdown if open (on top of everything)
+    // Draw dropdowns if open (on top of everything)
     DrawFontDropdown(g);
+    DrawPresetDropdown(g);
 }
 
 /*****************************************************************************
@@ -991,6 +1036,53 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
+    // Preset dropdown handling
+    if (g_presetDropdownOpen) {
+        if (PtInRect(&g_presetDropdownRect, pt)) {
+            // Calculate which item was clicked
+            int dropX = g_presetDropdownRect.left;
+            int dropW = g_presetDropdownRect.right - g_presetDropdownRect.left;
+            int listY = g_presetDropdownRect.top + 4;
+
+            // "Save Current" item (when scroll is at top)
+            if (g_presetScrollOffset == 0 && y >= listY && y < listY + PRESET_ITEM_HEIGHT) {
+                // Save current style
+                SavePreset(L"Preset " + std::to_wstring(g_textPresets.size() + 1));
+                g_presetDropdownOpen = false;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                return;
+            }
+
+            // Preset items
+            int itemY = listY + (g_presetScrollOffset == 0 ? PRESET_ITEM_HEIGHT : 0);
+            int startIdx = max(0, g_presetScrollOffset - 1);
+
+            for (int i = startIdx; i < (int)g_textPresets.size(); i++) {
+                if (y >= itemY && y < itemY + PRESET_ITEM_HEIGHT) {
+                    // Check if delete button was clicked (right side)
+                    int delX = dropX + dropW - 28;
+                    if (x >= delX) {
+                        // Delete preset
+                        DeletePreset(i);
+                    } else {
+                        // Apply preset
+                        ApplyPreset(i);
+                        g_presetDropdownOpen = false;
+                    }
+                    InvalidateRect(g_hwnd, NULL, FALSE);
+                    return;
+                }
+                itemY += PRESET_ITEM_HEIGHT;
+                if (itemY > g_presetDropdownRect.bottom) break;
+            }
+            return;
+        } else {
+            // Click outside - close dropdown
+            g_presetDropdownOpen = false;
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        }
+    }
+
     // Font dropdown handling
     if (g_fontDropdownOpen) {
         // Check if clicking inside dropdown
@@ -1029,14 +1121,24 @@ static void HandleMouseDown(int x, int y) {
         g_fontDropdownOpen = !g_fontDropdownOpen;
         g_fontSearchText.clear();
         FilterFonts(L"");
+        // Close preset dropdown if open
+        if (g_fontDropdownOpen && g_presetDropdownOpen) {
+            g_presetDropdownOpen = false;
+        }
         InvalidateRect(g_hwnd, NULL, FALSE);
         return;
     }
 
-    // Preset button (TODO: implement preset dropdown)
+    // Preset button - toggle dropdown
     if (PtInRect(&g_presetButtonRect, pt)) {
-        // For now, save current as preset
-        SavePreset(L"Preset " + std::to_wstring(g_textPresets.size() + 1));
+        g_presetDropdownOpen = !g_presetDropdownOpen;
+        g_presetScrollOffset = 0;
+        g_presetHoverIndex = -1;
+        // Close font dropdown if open
+        if (g_presetDropdownOpen && g_fontDropdownOpen) {
+            g_fontDropdownOpen = false;
+            g_fontSearchText.clear();
+        }
         InvalidateRect(g_hwnd, NULL, FALSE);
         return;
     }
@@ -1231,6 +1333,48 @@ static void HandleKeyDown(WPARAM key) {
         case VK_ESCAPE:
             g_fontDropdownOpen = false;
             g_fontSearchText.clear();
+            InvalidateRect(g_hwnd, NULL, FALSE);
+            return;
+        }
+    }
+
+    // Preset dropdown navigation
+    if (g_presetDropdownOpen) {
+        switch (key) {
+        case VK_UP:
+            if (g_presetHoverIndex > -1) {
+                g_presetHoverIndex--;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+            return;
+        case VK_DOWN:
+            if (g_presetHoverIndex < (int)g_textPresets.size() - 1) {
+                g_presetHoverIndex++;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+            return;
+        case VK_RETURN:
+            if (g_presetHoverIndex == -1) {
+                // "Save Current"
+                SavePreset(L"Preset " + std::to_wstring(g_textPresets.size() + 1));
+                g_presetDropdownOpen = false;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            } else if (g_presetHoverIndex >= 0 && g_presetHoverIndex < (int)g_textPresets.size()) {
+                ApplyPreset(g_presetHoverIndex);
+                g_presetDropdownOpen = false;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+            return;
+        case VK_DELETE:
+            if (g_presetHoverIndex >= 0 && g_presetHoverIndex < (int)g_textPresets.size()) {
+                DeletePreset(g_presetHoverIndex);
+                if (g_presetHoverIndex >= (int)g_textPresets.size()) {
+                    g_presetHoverIndex = (int)g_textPresets.size() - 1;
+                }
+            }
+            return;
+        case VK_ESCAPE:
+            g_presetDropdownOpen = false;
             InvalidateRect(g_hwnd, NULL, FALSE);
             return;
         }
@@ -1521,8 +1665,138 @@ static void DrawFontDropdown(Graphics& g) {
 }
 
 /*****************************************************************************
+ * DrawPresetDropdown
+ *****************************************************************************/
+static void DrawPresetDropdown(Graphics& g) {
+    if (!g_presetDropdownOpen) return;
+
+    FontFamily fontFamily(L"Segoe UI");
+    Font itemFont(&fontFamily, 11, FontStyleRegular, UnitPixel);
+    Font labelFont(&fontFamily, 9, FontStyleRegular, UnitPixel);
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush dimBrush(Color(255, 140, 140, 140));
+
+    // Dropdown position (below preset button)
+    int dropX = g_presetButtonRect.left - 150;  // Wider dropdown, positioned left
+    int dropY = g_presetButtonRect.bottom + 2;
+    int dropW = 180;
+
+    // Calculate total items: "Save Current" + presets
+    int totalItems = 1 + (int)g_textPresets.size();
+    int visibleItems = min(totalItems, PRESET_DROPDOWN_MAX_ITEMS);
+    int dropH = visibleItems * PRESET_ITEM_HEIGHT + 8;
+
+    // Store dropdown rect for hit testing
+    g_presetDropdownRect = {dropX, dropY, dropX + dropW, dropY + dropH};
+
+    // Background with shadow
+    SolidBrush shadowBrush(Color(80, 0, 0, 0));
+    g.FillRectangle(&shadowBrush, dropX + 3, dropY + 3, dropW, dropH);
+
+    SolidBrush bgBrush(Color(255, 40, 42, 48));
+    g.FillRectangle(&bgBrush, dropX, dropY, dropW, dropH);
+
+    // Border
+    Pen borderPen(Color(255, 60, 60, 70), 1.0f);
+    g.DrawRectangle(&borderPen, dropX, dropY, dropW - 1, dropH - 1);
+
+    // Draw items
+    int listY = dropY + 4;
+    int itemIndex = -g_presetScrollOffset;  // -1 for "Save Current"
+
+    // "Save Current" item (always at top when scrollOffset is 0)
+    if (g_presetScrollOffset == 0) {
+        RECT itemRect = {dropX + 4, listY, dropX + dropW - 4, listY + PRESET_ITEM_HEIGHT};
+
+        // Hover highlight
+        if (g_presetHoverIndex == -1) {
+            SolidBrush hoverBrush(COLOR_HOVER);
+            g.FillRectangle(&hoverBrush, itemRect.left, itemRect.top,
+                           itemRect.right - itemRect.left, PRESET_ITEM_HEIGHT);
+        }
+
+        // Star icon (small)
+        Pen starPen(Color(255, 255, 200, 0), 1.0f);
+        int starCx = dropX + 18;
+        int starCy = listY + PRESET_ITEM_HEIGHT / 2;
+        g.DrawLine(&starPen, starCx, starCy - 4, starCx, starCy + 4);
+        g.DrawLine(&starPen, starCx - 4, starCy, starCx + 4, starCy);
+        g.DrawLine(&starPen, starCx - 3, starCy - 3, starCx + 3, starCy + 3);
+        g.DrawLine(&starPen, starCx + 3, starCy - 3, starCx - 3, starCy + 3);
+
+        // Text
+        SolidBrush saveBrush(Color(255, 255, 200, 0));
+        g.DrawString(L"Save Current Style", -1, &itemFont,
+                    PointF((REAL)dropX + 32, (REAL)listY + 5), &saveBrush);
+
+        listY += PRESET_ITEM_HEIGHT;
+        itemIndex++;
+    }
+
+    // Preset items
+    for (int i = max(0, g_presetScrollOffset - 1);
+         i < (int)g_textPresets.size() && itemIndex < PRESET_DROPDOWN_MAX_ITEMS;
+         i++, itemIndex++) {
+
+        if (itemIndex < 0) continue;
+
+        TextPreset& p = g_textPresets[i];
+        RECT itemRect = {dropX + 4, listY, dropX + dropW - 4, listY + PRESET_ITEM_HEIGHT};
+
+        // Hover highlight
+        if (g_presetHoverIndex == i) {
+            SolidBrush hoverBrush(COLOR_HOVER);
+            g.FillRectangle(&hoverBrush, itemRect.left, itemRect.top,
+                           itemRect.right - itemRect.left, PRESET_ITEM_HEIGHT);
+        }
+
+        // Preset name
+        StringFormat sf;
+        sf.SetTrimming(StringTrimmingEllipsisCharacter);
+        RectF textRect((REAL)dropX + 12, (REAL)listY + 2, (REAL)dropW - 50, (REAL)PRESET_ITEM_HEIGHT - 4);
+        g.DrawString(p.name.c_str(), -1, &itemFont, textRect, &sf, &textBrush);
+
+        // Font info (smaller, dim)
+        std::wstring fontInfo = p.font.substr(0, 15);
+        if (p.font.length() > 15) fontInfo += L"...";
+        g.DrawString(fontInfo.c_str(), -1, &labelFont,
+                    PointF((REAL)dropX + 12, (REAL)listY + 14), &dimBrush);
+
+        // Delete button (X) on hover
+        if (g_presetHoverIndex == i) {
+            int delX = dropX + dropW - 24;
+            int delY = listY + PRESET_ITEM_HEIGHT / 2;
+            Pen delPen(Color(255, 200, 80, 80), 1.5f);
+            g.DrawLine(&delPen, delX - 4, delY - 4, delX + 4, delY + 4);
+            g.DrawLine(&delPen, delX + 4, delY - 4, delX - 4, delY + 4);
+        }
+
+        listY += PRESET_ITEM_HEIGHT;
+    }
+
+    // Scrollbar if needed
+    if (totalItems > PRESET_DROPDOWN_MAX_ITEMS) {
+        int scrollMax = totalItems - PRESET_DROPDOWN_MAX_ITEMS;
+        int listH = PRESET_DROPDOWN_MAX_ITEMS * PRESET_ITEM_HEIGHT;
+        float scrollRatio = (float)g_presetScrollOffset / scrollMax;
+        int scrollBarH = listH * PRESET_DROPDOWN_MAX_ITEMS / totalItems;
+        int scrollBarY = dropY + 4 + (int)((listH - scrollBarH) * scrollRatio);
+
+        SolidBrush scrollBrush(Color(128, 100, 100, 120));
+        g.FillRectangle(&scrollBrush, dropX + dropW - 6, scrollBarY, 4, scrollBarH);
+    }
+}
+
+/*****************************************************************************
  * Text Preset Functions
  *****************************************************************************/
+static void DeletePreset(int index) {
+    if (index < 0 || index >= (int)g_textPresets.size()) return;
+    g_textPresets.erase(g_textPresets.begin() + index);
+    SavePresetsToFile();
+    InvalidateRect(g_hwnd, NULL, FALSE);
+}
+
 static void LoadPresets() {
     // TODO: Load from file ~/.ae-anchor/text-presets.json
     g_textPresets.clear();
