@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AE Anchor Radial Menu - 흐름도</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 40px;
+            margin: 0;
+        }
+        h1 { color: #4fc3f7; text-align: center; }
+        h2 { color: #81c784; margin-top: 40px; border-bottom: 2px solid #81c784; padding-bottom: 10px; }
+        .mermaid {
+            background: #252542;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .legend {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .legend-item { margin: 8px 0; }
+        .code { color: #4fc3f7; font-family: monospace; }
+        .file { color: #ffb74d; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🎯 AE Anchor Radial Menu - 프로젝트 흐름도</h1>
+
+    <div class="legend">
+        <strong>범례:</strong>
+        <div class="legend-item">🟦 파란색 = 입력 (Input)</div>
+        <div class="legend-item">🟩 초록색 = 처리 (Process)</div>
+        <div class="legend-item">🟧 주황색 = 출력 (Output)</div>
+        <div class="legend-item">📁 파일명 = 해당 코드 위치</div>
+    </div>
+
+    <h2>1. 플러그인 초기화</h2>
+    <div class="mermaid">
+flowchart LR
+    subgraph INPUT["입력"]
+        A["After Effects 시작"]
+    end
+
+    subgraph PROCESS["처리"]
+        B["EntryPointFunc()"]
+        C["KeyboardMonitor::Start()"]
+        D["NativeUI::Initialize()"]
+        E["CEPBridge::Initialize()"]
+    end
+
+    subgraph OUTPUT["출력"]
+        F["플러그인 등록 완료"]
+        G["키보드 훅 활성화"]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    B --> E
+    C --> G
+    D --> F
+    E --> F
+
+    style A fill:#2196f3
+    style F fill:#ff9800
+    style G fill:#ff9800
+    </div>
+    <p>📁 <span class="file">SnapPlugin.cpp</span> → <span class="code">EntryPointFunc()</span></p>
+
+    <h2>2. Y키 → 앵커 그리드 (Grid 모듈)</h2>
+    <div class="mermaid">
+flowchart TD
+    subgraph INPUT["입력"]
+        A["Y키 누름"]
+    end
+
+    subgraph PROCESS["처리 - SnapPlugin.cpp"]
+        B{"IsTextInputFocused()?"}
+        C["0.4초 대기"]
+        D{"아직 누르고 있나?"}
+        E["ShowAnchorGrid()"]
+    end
+
+    subgraph UI["UI - GridUI.cpp"]
+        F["NativeUI::ShowGrid()"]
+        G["3x3 그리드 표시"]
+        H{"마우스 클릭?"}
+    end
+
+    subgraph OUTPUT["출력"]
+        I["HideAndApplyAnchor()"]
+        J["ExecuteScript()"]
+        K["레이어 앵커 변경됨"]
+    end
+
+    A --> B
+    B -->|No| C
+    B -->|Yes| Z["무시"]
+    C --> D
+    D -->|Yes| E
+    D -->|No| Z
+    E --> F
+    F --> G
+    G --> H
+    H -->|Yes| I
+    I --> J
+    J --> K
+
+    style A fill:#2196f3
+    style K fill:#ff9800
+    style Z fill:#666
+    </div>
+
+    <h2>2-1. Y~Y 더블탭 → 토글 모드</h2>
+    <div class="mermaid">
+flowchart TD
+    subgraph INPUT["입력"]
+        A["Y키 누름"]
+        A2["Y키 뗌"]
+        A3["Y키 다시 누름\n250ms 내"]
+    end
+
+    subgraph PROCESS["처리 - SnapPlugin.cpp:1217"]
+        B["g_lastYRelease 기록"]
+        C{"timeSinceLastRelease\n< DOUBLE_TAP_MS?"}
+        D["g_toggleClickMode = true"]
+        E["ShowAnchorGrid()"]
+    end
+
+    subgraph UI["UI - GridUI.cpp"]
+        F["그리드 고정 표시\n키 떼도 안 닫힘"]
+        G{"마우스 클릭?"}
+    end
+
+    subgraph OUTPUT["출력"]
+        H["HideAndApplyAnchor()"]
+        I["g_toggleClickMode = false"]
+        J["레이어 앵커 변경됨"]
+    end
+
+    A --> A2 --> B
+    A3 --> C
+    C -->|Yes 더블탭| D --> E --> F
+    C -->|No| Z["일반 홀드 모드"]
+    F --> G
+    G -->|Yes| H --> I --> J
+
+    style A fill:#2196f3
+    style A2 fill:#2196f3
+    style A3 fill:#2196f3
+    style J fill:#ff9800
+    style Z fill:#666
+    </div>
+    <p>📁 <span class="file">SnapPlugin.cpp:1217-1230</span> → 더블탭 감지 로직</p>
+    <p>⏱️ <span class="code">DOUBLE_TAP_MS = 250</span> (250ms 내 Y~Y)</p>
+
+    <h2>3. Shift+E → 이펙트 검색 (Control 모듈)</h2>
+    <div class="mermaid">
+flowchart TD
+    subgraph INPUT["입력"]
+        A["Shift + E 누름"]
+    end
+
+    subgraph CHECK["체크 - SnapPlugin.cpp"]
+        B{"Effect Controls\n포커스?"}
+    end
+
+    subgraph MODE1["Mode 1: 검색 모드"]
+        C["GetAllEffectsList()"]
+        D["ControlUI::SetMode(SEARCH)"]
+        E["검색창 표시"]
+        F["이펙트 검색/선택"]
+    end
+
+    subgraph MODE2["Mode 2: 목록 모드"]
+        G["GetLayerEffectsList()"]
+        H["ControlUI::SetMode(LIST)"]
+        I["레이어 이펙트 목록"]
+        J["이펙트 삭제 가능"]
+    end
+
+    subgraph OUTPUT["출력"]
+        K["ExecuteScript()"]
+        L["이펙트 추가/삭제됨"]
+    end
+
+    A --> B
+    B -->|No| C
+    B -->|Yes| G
+    C --> D --> E --> F --> K
+    G --> H --> I --> J --> K
+    K --> L
+
+    style A fill:#2196f3
+    style L fill:#ff9800
+    </div>
+
+    <h2>4. D키 → 메뉴 (DMenu 모듈)</h2>
+    <div class="mermaid">
+flowchart TD
+    subgraph INPUT["입력"]
+        A["D키 홀드"]
+    end
+
+    subgraph MENU["DMenuUI.cpp"]
+        B["DMenuUI::ShowMenu()"]
+        C["A/T/K 옵션 표시"]
+        D{"선택?"}
+    end
+
+    subgraph MODULES["모듈 실행"]
+        E["A → AlignUI"]
+        F["T → TextUI"]
+        G["K → KeyframeUI"]
+    end
+
+    subgraph OUTPUT["출력"]
+        H["해당 패널 표시"]
+    end
+
+    A --> B --> C --> D
+    D -->|A| E --> H
+    D -->|T| F --> H
+    D -->|K| G --> H
+
+    style A fill:#2196f3
+    style H fill:#ff9800
+    </div>
+
+    <h2>5. 전체 아키텍처</h2>
+    <div class="mermaid">
+flowchart TB
+    subgraph CORE["Core Layer"]
+        A["SnapPlugin.cpp\n메인 로직"]
+        B["KeyboardMonitor.cpp\n키보드 감지"]
+        C["CEPBridge.cpp\nAE 통신"]
+    end
+
+    subgraph MODULES["Module Layer"]
+        D["GridUI.cpp\nY키 - 앵커"]
+        E["ControlUI.cpp\nShift+E - 이펙트"]
+        F["KeyframeUI.cpp\nK - 키프레임"]
+        G["AlignUI.cpp\nA - 정렬"]
+        H["TextUI.cpp\nT - 텍스트"]
+        I["DMenuUI.cpp\nD - 메뉴"]
+        J["CompUI.cpp\n컴포지션"]
+    end
+
+    subgraph AE["After Effects"]
+        K["ExtendScript\n실제 작업 수행"]
+    end
+
+    B --> A
+    A --> D & E & F & G & H & I & J
+    D & E & F & G & H & J --> C
+    C --> K
+
+    style CORE fill:#1e3a5f
+    style MODULES fill:#2e4a3f
+    style AE fill:#4a3a2e
+    </div>
+
+    <h2>6. 데이터 흐름 요약</h2>
+    <div class="mermaid">
+flowchart LR
+    A["⌨️ 키보드 입력"] --> B["🔍 키 감지\nKeyboardMonitor"]
+    B --> C["⚙️ 로직 처리\nSnapPlugin"]
+    C --> D["🖼️ UI 표시\n*UI.cpp"]
+    D --> E["👆 사용자 선택"]
+    E --> F["📜 스크립트 실행\nCEPBridge"]
+    F --> G["🎬 After Effects\n실제 적용"]
+
+    style A fill:#2196f3
+    style G fill:#ff9800
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>

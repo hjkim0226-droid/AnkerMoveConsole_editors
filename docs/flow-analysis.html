@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Code Flow - AE Anchor Radial Menu</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 { color: #4fc3f7; text-align: center; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 15px; font-size: 14px; }
+        .instructions {
+            text-align: center;
+            background: rgba(74, 158, 255, 0.15);
+            border: 1px solid rgba(74, 158, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin: 0 auto 20px auto;
+            max-width: 500px;
+            font-size: 13px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .legend-color { width: 14px; height: 14px; border-radius: 3px; }
+        .flowchart {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            overflow: auto;
+        }
+        .mermaid { background: transparent; cursor: default; }
+        .mermaid .node { cursor: pointer !important; }
+        .mermaid .node:hover { filter: brightness(1.2); }
+        .filters {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .filter-item:hover { background: rgba(255,255,255,0.15); }
+        .filter-item input { cursor: pointer; width: 16px; height: 16px; }
+        .filter-item label { cursor: pointer; font-size: 14px; }
+        .node-hidden { opacity: 0.15 !important; }
+        .edge-hidden { opacity: 0.1 !important; }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #4caf50;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            transition: transform 0.3s;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <h1>🔍 알고리즘 흐름도</h1>
+    <p class="subtitle">AE Anchor Radial Menu - 노드를 클릭하면 파일:라인이 복사됩니다</p>
+    <div class="instructions">
+        💡 <strong>노드 클릭</strong> → 클립보드에 복사 → 터미널에 붙여넣기
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background:#0d47a1"></div><span>입력</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#0a3d62"></div><span>C++</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#1b5e20"></div><span>ExtendScript</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#b8860b"></div><span>CEP</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#bf360c"></div><span>결과</span></div>
+    </div>
+    <div class="filters">
+        <div class="filter-item">
+            <input type="checkbox" id="filter-y" checked onchange="updateFilter()">
+            <label for="filter-y">Y키 (앵커)</label>
+        </div>
+        <div class="filter-item">
+            <input type="checkbox" id="filter-yy" checked onchange="updateFilter()">
+            <label for="filter-yy">Y~Y 더블탭</label>
+        </div>
+        <div class="filter-item">
+            <input type="checkbox" id="filter-e" checked onchange="updateFilter()">
+            <label for="filter-e">Shift+E (이펙트)</label>
+        </div>
+        <div class="filter-item">
+            <input type="checkbox" id="filter-d" checked onchange="updateFilter()">
+            <label for="filter-d">D키 (메뉴)</label>
+        </div>
+    </div>
+    <div class="flowchart">
+        <div class="mermaid">
+flowchart TD
+    subgraph INPUT["⌨️ 입력"]
+        I1(["Y키 누름"])
+        I2(["Y키 더블탭"])
+        I3(["Shift+E"])
+        I4(["D키"])
+    end
+    subgraph CPP["🔵 C++ - 키보드 감지 & UI"]
+        C1(["메인 루프\n키 입력 감지"])
+        C2{"텍스트 입력 중?"}
+        C3(["0.4초 대기"])
+        C4{"더블탭?\n250ms 내"}
+        C5(["앵커 그리드 표시"])
+        C6(["토글 모드 ON"])
+        C7(["이펙트 패널"])
+        C8{"D 메뉴\nA/T/K 선택"}
+        C9(["앵커 적용"])
+    end
+    subgraph ES["🟢 ExtendScript - AE 작업"]
+        E1(["앵커 포인트 설정"])
+        E2(["이펙트 추가"])
+        E3(["이펙트 삭제"])
+        E4(["키프레임 설정"])
+        E5(["레이어 정렬"])
+        E6(["텍스트 속성 변경"])
+    end
+    subgraph CEP["🟡 CEP - 패널 & 설정"]
+        P1(["설정 로드"])
+        P2(["설정 저장"])
+        P3(["정렬 패널"])
+        P4(["텍스트 패널"])
+        P5(["키프레임 패널"])
+    end
+    subgraph OUTPUT["🟠 결과"]
+        O1(["앵커 이동됨"])
+        O2(["이펙트 적용됨"])
+        O3(["키프레임 생성됨"])
+        O4(["레이어 정렬됨"])
+        O5(["텍스트 변경됨"])
+    end
+
+    I1 -->|"Y키 신호"| C1
+    I2 -->|"더블탭 신호"| C1
+    I3 -->|"Shift+E 신호"| C7
+    I4 -->|"D키 신호"| C8
+    C1 -->|"현재 포커스 창"| C2
+    C2 -->|"아니오"| C3
+    C2 -->|"예"| X1["무시"]
+    C3 -->|"0.4초 후"| C4
+    C4 -->|"홀드 중"| C5
+    C4 -->|"더블탭 감지"| C6
+    C6 -->|"고정 모드"| C5
+    C5 -->|"선택한 셀 위치"| C9
+    C9 -->|"스크립트 코드"| E1
+    E1 -->|"x, y 좌표"| O1
+    C7 -->|"이펙트 이름"| E2
+    E2 -->|"이펙트 객체"| O2
+    C7 -->|"이펙트 번호"| E3
+    E3 -->|"삭제 완료"| O2
+    C8 -->|"A 선택"| P3
+    C8 -->|"T 선택"| P4
+    C8 -->|"K 선택"| P5
+    P3 -->|"정렬 방향"| E5
+    P4 -->|"텍스트 설정"| E6
+    P5 -->|"키프레임 설정값"| E4
+    E4 -->|"시간, 값"| O3
+    E5 -->|"위치 값"| O4
+    E6 -->|"속성 값"| O5
+    C5 -.->|"그리드 설정"| P1
+    P2 -.->|"저장된 설정"| C5
+
+    style INPUT fill:#0d47a1,color:#fff,stroke:#1565c0,stroke-width:2px
+    style CPP fill:#0a3d62,color:#fff,stroke:#1565c0,stroke-width:2px
+    style ES fill:#1b5e20,color:#fff,stroke:#2e7d32,stroke-width:2px
+    style CEP fill:#b8860b,color:#fff,stroke:#f9a825,stroke-width:2px
+    style OUTPUT fill:#bf360c,color:#fff,stroke:#e65100,stroke-width:2px
+    style X1 fill:#666,color:#fff
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        const nodeLocations = {"I1": "input:Y키", "I2": "input:Y키 더블탭", "I3": "input:Shift+E", "I4": "input:D키", "C1": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:1200", "C2": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:65", "C3": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:1210", "C4": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:1217", "C5": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:1100", "C6": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:1225", "C7": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/modules/control/ControlUI.cpp:1", "C8": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/modules/dmenu/DMenuUI.cpp:1", "C9": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cpp/src/core/SnapPlugin.cpp:1050", "E1": "ExtendScript:layer.anchorPoint", "E2": "ExtendScript:addProperty", "E3": "ExtendScript:remove", "E4": "ExtendScript:setValueAtTime", "E5": "ExtendScript:layer.position", "E6": "ExtendScript:textDocument", "P1": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cep/js/core/settings.js:1", "P2": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cep/js/core/settings.js:50", "P3": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cep/js/modules/align.js:1", "P4": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cep/js/modules/text.js:1", "P5": "/Users/kimhyunjoong/projects/ae-anchor-radial-menu/cep/js/modules/keyframe.js:1", "O1": "output:앵커 이동", "O2": "output:이펙트 적용", "O3": "output:키프레임 생성", "O4": "output:레이어 정렬", "O5": "output:텍스트 변경"};
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(function() { toast.classList.remove('show'); }, 2500);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('📋 복사됨: ' + text);
+            });
+        }
+
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: { useMaxWidth: true, curve: 'basis', nodeSpacing: 50, rankSpacing: 80 },
+            securityLevel: 'loose'
+        });
+
+        // 각 입력별 관련 노드 정의
+        const flowNodes = {
+            'y': ['I1', 'C1', 'C2', 'C3', 'C4', 'C5', 'C9', 'E1', 'O1', 'P1', 'P2', 'X1'],
+            'yy': ['I2', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C9', 'E1', 'O1', 'P1', 'P2'],
+            'e': ['I3', 'C7', 'E2', 'E3', 'O2'],
+            'd': ['I4', 'C8', 'P3', 'P4', 'P5', 'E4', 'E5', 'E6', 'O3', 'O4', 'O5']
+        };
+
+        function updateFilter() {
+            const yChecked = document.getElementById('filter-y').checked;
+            const yyChecked = document.getElementById('filter-yy').checked;
+            const eChecked = document.getElementById('filter-e').checked;
+            const dChecked = document.getElementById('filter-d').checked;
+
+            // 활성화된 노드 수집
+            const activeNodes = new Set();
+            if (yChecked) flowNodes['y'].forEach(n => activeNodes.add(n));
+            if (yyChecked) flowNodes['yy'].forEach(n => activeNodes.add(n));
+            if (eChecked) flowNodes['e'].forEach(n => activeNodes.add(n));
+            if (dChecked) flowNodes['d'].forEach(n => activeNodes.add(n));
+
+            // 노드 표시/숨김
+            document.querySelectorAll('.node').forEach(function(node) {
+                const nodeId = node.id.replace('flowchart-', '').split('-')[0];
+                if (activeNodes.size === 0 || activeNodes.has(nodeId)) {
+                    node.classList.remove('node-hidden');
+                } else {
+                    node.classList.add('node-hidden');
+                }
+            });
+
+            // 엣지(화살표) 표시/숨김
+            document.querySelectorAll('.edgePath, .edgeLabel').forEach(function(edge) {
+                const edgeId = edge.id || '';
+                let shouldShow = false;
+                activeNodes.forEach(function(n) {
+                    if (edgeId.includes(n)) shouldShow = true;
+                });
+                if (activeNodes.size === 0 || shouldShow) {
+                    edge.classList.remove('edge-hidden');
+                } else {
+                    edge.classList.add('edge-hidden');
+                }
+            });
+        }
+
+        // 노드 클릭 이벤트 연결
+        setTimeout(function() {
+            document.querySelectorAll('.node').forEach(function(node) {
+                const nodeId = node.id.replace('flowchart-', '').split('-')[0];
+                if (nodeLocations[nodeId]) {
+                    node.style.cursor = 'pointer';
+                    node.addEventListener('click', function() {
+                        copyToClipboard(nodeLocations[nodeId]);
+                    });
+                }
+            });
+        }, 500);
+    </script>
+</body>
+</html>
