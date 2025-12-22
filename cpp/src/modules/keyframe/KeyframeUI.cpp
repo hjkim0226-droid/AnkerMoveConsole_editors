@@ -19,6 +19,22 @@
 
 using namespace Gdiplus;
 
+// External function from SnapPlugin.cpp to get module scale factor
+extern float GetModuleScaleFactor(const char* moduleName);
+
+// Current scale factor for this module (1.0 = 100%, 0.8 = 80%, 1.7 = 170%)
+static float g_scaleFactor = 1.0f;
+
+// Helper: scale an integer value by the current scale factor
+inline int Scaled(int baseValue) {
+    return (int)(baseValue * g_scaleFactor);
+}
+
+// Helper: inverse scale for mouse coordinates
+inline int InverseScaled(int screenValue) {
+    return (int)(screenValue / g_scaleFactor);
+}
+
 // =========================================================
 // JSON Helper Functions (Simple Manual Parser)
 // =========================================================
@@ -226,21 +242,20 @@ static HWND g_hwnd = NULL;
 static bool g_isVisible = false;
 
 // UI Constants
-static const int WINDOW_WIDTH = 480;   // Widened for Multi-View mode
-static const int WINDOW_HEIGHT = 416;  // Compact layout (lock buttons removed)
+static const int WINDOW_WIDTH = 400;   // Compact width
+static const int WINDOW_HEIGHT = 460;  // Adjusted for 2-row presets
 static const int HEADER_HEIGHT = 32;
-static const int GRAPH_HEIGHT = 180;
-static const int PRESET_BAR_HEIGHT = 40;
-static const int INFO_HEIGHT = 60;
+static const int GRAPH_HEIGHT = 207;   // +15% (was 180)
+static const int PRESET_BAR_HEIGHT = 100; // 2 rows of presets
+static const int INFO_HEIGHT = 50;
 static const int SLOT_BAR_HEIGHT = 36;
 static const int PADDING = 10;
 static const int CLOSE_BUTTON_SIZE = 20;
-static const int PRESET_BUTTON_WIDTH = 40;   // Square for graph preview
-static const int PRESET_BUTTON_HEIGHT = 40;
-static const int SLOT_BUTTON_WIDTH = 40;
-static const int SLOT_BUTTON_HEIGHT = 40;
-static const int SLOT_BUTTON_SIZE = 40;  // Alias for square buttons
-static const int NUM_TOTAL_SLOTS = 10;   // 5 presets + 5 custom slots
+static const int PRESET_BUTTON_WIDTH = 44;   // +10% (was 40)
+static const int PRESET_BUTTON_HEIGHT = 44;
+static const int PRESET_COLS = 6;            // 6 presets per row
+static const int PRESET_ROWS = 2;            // 2 rows
+static const int NUM_PRESETS = 12;           // Total 12 presets (editable)
 
 // Colors (matching ControlUI style)
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -292,37 +307,36 @@ static bool g_pressedNavPrev = false;
 static bool g_pressedNavNext = false;
 static const int NAV_BUTTON_SIZE = 28;
 
-// Preset curves (control points for cubic bezier)
-static KeyframeUI::VelocityCurve g_presetCurves[] = {
-    {0.25f, 0.25f, 0.75f, 0.75f},   // LINEAR: constant velocity
-    {0.42f, 0.0f, 1.0f, 1.0f},      // EASE_IN: accelerating
-    {0.0f, 0.0f, 0.58f, 1.0f},      // EASE_OUT: decelerating
-    {0.42f, 0.0f, 0.58f, 1.0f},     // EASE_IN_OUT: slow-fast-slow
-    {0.0f, 1.0f, 1.0f, 0.0f},       // EASE_OUT_IN: fast-slow-fast
+// Preset curves (12 presets: 6 built-in + 6 editable)
+// Layout: 2 rows x 6 columns
+static KeyframeUI::VelocityCurve g_presetCurves[NUM_PRESETS] = {
+    // Row 1: Built-in presets (0-5)
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 0: LINEAR - constant velocity
+    {0.42f, 0.0f, 1.0f, 1.0f},      // 1: EASE_IN - accelerating
+    {0.0f, 0.0f, 0.58f, 1.0f},      // 2: EASE_OUT - decelerating
+    {0.42f, 0.0f, 0.58f, 1.0f},     // 3: EASE_IN_OUT - slow-fast-slow
+    {0.0f, 1.0f, 1.0f, 0.0f},       // 4: EASE_OUT_IN - fast-slow-fast
+    {0.17f, 0.67f, 0.83f, 0.33f},   // 5: BOUNCE-like
+    // Row 2: Editable presets (6-11)
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 6: Custom slot 1
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 7: Custom slot 2
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 8: Custom slot 3
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 9: Custom slot 4
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 10: Custom slot 5
+    {0.25f, 0.25f, 0.75f, 0.75f},   // 11: Custom slot 6
 };
-
-// Custom curve slots (4 slots)
-static const int NUM_CUSTOM_SLOTS = 4;
-static KeyframeUI::VelocityCurve g_customSlots[NUM_CUSTOM_SLOTS] = {
-    {0.25f, 0.25f, 0.75f, 0.75f},
-    {0.25f, 0.25f, 0.75f, 0.75f},
-    {0.25f, 0.25f, 0.75f, 0.75f},
-    {0.25f, 0.25f, 0.75f, 0.75f}
-};
-static bool g_slotFilled[NUM_CUSTOM_SLOTS] = {false, false, false, false};
-// Slot icons: 0=Empty, 1=Star, 2=Circle, 3=Wave, 4=Diamond
-static int g_slotIcons[NUM_CUSTOM_SLOTS] = {0, 0, 0, 0};
+// Which presets have been saved (custom slots 6-11)
+static bool g_presetFilled[NUM_PRESETS] = {true, true, true, true, true, true, false, false, false, false, false, false};
 
 // UI interaction state
 static bool g_closeButtonHover = false;
-static int g_hoveredPresetButton = -1;  // 0-4 for presets, -1 for none
-static int g_hoveredSlotButton = -1;    // 0-3 for slots, -1 for none
+static int g_hoveredPresetButton = -1;  // 0-11 for presets (2x6 grid), -1 for none
 static bool g_saveButtonHover = false;
-static bool g_saveMode = false;
+static bool g_saveMode = false;         // When true, clicking preset 6-11 saves current curve
 static bool g_pinButtonHover = false;
-static bool g_keepPanelOpen = false;  // Pin mode
-static bool g_applyButtonHover = false;  // Apply button hover state
-static bool g_loadButtonHover = false;   // Load button hover state
+static bool g_keepPanelOpen = false;    // Pin mode
+static bool g_applyButtonHover = false; // Apply button hover state
+static bool g_loadButtonHover = false;  // Load button hover state
 
 // Handle dragging
 static int g_draggingHandle = -1;  // -1=none, 0=first handle (p0), 1=second handle (p1)
@@ -335,7 +349,6 @@ static RECT g_graphRect = {0};
 static const UINT_PTR CLICK_FEEDBACK_TIMER_ID = 1001;
 static const int CLICK_FEEDBACK_DURATION_MS = 100;  // 100ms feedback duration
 static int g_pressedPresetButton = -1;    // Which preset button is pressed (-1 = none)
-static int g_pressedSlotButton = -1;      // Which slot button is pressed (-1 = none)
 static bool g_pressedSaveButton = false;  // Save button pressed state
 static bool g_pressedApplyButton = false; // Apply button pressed state
 static bool g_pressedLoadButton = false;  // Load button pressed state
@@ -500,6 +513,13 @@ void Shutdown() {
 void ShowPanel(int screenX, int screenY) {
     if (g_isVisible) return;
 
+    // Get module scale factor from settings
+    g_scaleFactor = GetModuleScaleFactor("keyframe");
+
+    // Calculate scaled window dimensions
+    int scaledWidth = Scaled(WINDOW_WIDTH);
+    int scaledHeight = Scaled(WINDOW_HEIGHT);
+
     // Reset state
     g_result = KeyframeResult();
     // Only reset to linear preset if no keyframe info was provided
@@ -508,7 +528,6 @@ void ShowPanel(int screenX, int screenY) {
         g_currentCurve = g_presetCurves[PRESET_LINEAR];
     }
     g_hoveredPresetButton = -1;
-    g_hoveredSlotButton = -1;
     g_saveMode = false;
     g_draggingHandle = -1;
     g_pinButtonHover = false;
@@ -517,7 +536,6 @@ void ShowPanel(int screenX, int screenY) {
 
     // Reset all pressed states
     g_pressedPresetButton = -1;
-    g_pressedSlotButton = -1;
     g_pressedSaveButton = false;
     g_pressedApplyButton = false;
     g_pressedPinButton = false;
@@ -533,17 +551,17 @@ void ShowPanel(int screenX, int screenY) {
     g_pressedNavNext = false;
     g_currentPairIndex = 0;  // Start from first pair
 
-    // Create or reposition window
+    // Create or reposition window with scaled dimensions
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
             WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
             KEYFRAME_CLASS_NAME,
             L"Keyframe Easing",
             WS_POPUP,
-            screenX - WINDOW_WIDTH / 2,
-            screenY - WINDOW_HEIGHT / 2,
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
+            screenX - scaledWidth / 2,
+            screenY - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight,
             NULL, NULL,
             GetModuleHandle(NULL),
             NULL
@@ -551,9 +569,9 @@ void ShowPanel(int screenX, int screenY) {
         SetLayeredWindowAttributes(g_hwnd, 0, 245, LWA_ALPHA);
     } else {
         SetWindowPos(g_hwnd, HWND_TOPMOST,
-                     screenX - WINDOW_WIDTH / 2,
-                     screenY - WINDOW_HEIGHT / 2,
-                     WINDOW_WIDTH, WINDOW_HEIGHT,
+                     screenX - scaledWidth / 2,
+                     screenY - scaledHeight / 2,
+                     scaledWidth, scaledHeight,
                      SWP_SHOWWINDOW);
     }
 
@@ -592,7 +610,6 @@ KeyframeResult HidePanel() {
 
     // Reset all pressed states
     g_pressedPresetButton = -1;
-    g_pressedSlotButton = -1;
     g_pressedSaveButton = false;
     g_pressedApplyButton = false;
     g_pressedPinButton = false;
@@ -806,35 +823,33 @@ void CalculateAEEase(const VelocityCurve& curve,
 }
 
 void SavePresetToSlot(int slot, const VelocityCurve& curve) {
-    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return;
-    g_customSlots[slot] = curve;
-    g_slotFilled[slot] = true;
-    // Auto-assign icon based on slot index + 1 (1=Star, 2=Circle, etc.)
-    if (g_slotIcons[slot] == 0) {
-        g_slotIcons[slot] = slot + 1;
-    }
+    // Editable presets are at indices 6-11 (second row)
+    int presetIdx = slot + 6;
+    if (presetIdx < 6 || presetIdx >= NUM_PRESETS) return;
+    g_presetCurves[presetIdx] = curve;
+    g_presetFilled[presetIdx] = true;
 }
 
 bool LoadPresetFromSlot(int slot, VelocityCurve& curve) {
-    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return false;
-    if (!g_slotFilled[slot]) return false;
-    curve = g_customSlots[slot];
+    int presetIdx = slot + 6;
+    if (presetIdx < 6 || presetIdx >= NUM_PRESETS) return false;
+    if (!g_presetFilled[presetIdx]) return false;
+    curve = g_presetCurves[presetIdx];
     return true;
 }
 
 bool PresetSlotExists(int slot) {
-    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return false;
-    return g_slotFilled[slot];
+    int presetIdx = slot + 6;
+    if (presetIdx < 6 || presetIdx >= NUM_PRESETS) return false;
+    return g_presetFilled[presetIdx];
 }
 
-void SetSlotIcon(int slot, int iconType) {
-    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return;
-    g_slotIcons[slot] = iconType;
+// Deprecated - icons no longer used
+void SetSlotIcon(int, int) {
 }
 
-int GetSlotIcon(int slot) {
-    if (slot < 0 || slot >= NUM_CUSTOM_SLOTS) return 0;
-    return g_slotIcons[slot];
+int GetSlotIcon(int) {
+    return 0;  // Icons no longer used in 2x6 layout
 }
 
 KeyframeSettings& GetSettings() {
@@ -1023,13 +1038,20 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     graphics.SetSmoothingMode(SmoothingModeAntiAlias);
     graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
+    // Apply scale transform - all subsequent drawing will be scaled
+    graphics.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
+    // Use base dimensions for drawing (transform handles scaling)
+    int baseWidth = WINDOW_WIDTH;
+    int baseHeight = WINDOW_HEIGHT;
+
     // Background
     SolidBrush bgBrush(COLOR_BG);
-    graphics.FillRectangle(&bgBrush, 0, 0, width, height);
+    graphics.FillRectangle(&bgBrush, 0, 0, baseWidth, baseHeight);
 
     // Border
     Pen borderPen(COLOR_BORDER, 1);
-    graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
+    graphics.DrawRectangle(&borderPen, 0, 0, baseWidth - 1, baseHeight - 1);
 
     // Fonts
     FontFamily fontFamily(L"Segoe UI");
@@ -1054,11 +1076,11 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
     // ===== Header bar =====
     SolidBrush headerBgBrush(COLOR_HEADER_BG);
     RectF headerRect((REAL)PADDING, (REAL)currentY,
-                     (REAL)(width - PADDING * 2 - CLOSE_BUTTON_SIZE - 4), (REAL)HEADER_HEIGHT);
+                     (REAL)(baseWidth - PADDING * 2 - CLOSE_BUTTON_SIZE - 4), (REAL)HEADER_HEIGHT);
     graphics.FillRectangle(&headerBgBrush, headerRect);
 
     // Title - show property name if available
-    RectF titleRect((REAL)(PADDING + 8), (REAL)currentY, (REAL)(width - PADDING * 2 - CLOSE_BUTTON_SIZE - 20), (REAL)HEADER_HEIGHT);
+    RectF titleRect((REAL)(PADDING + 8), (REAL)currentY, (REAL)(baseWidth - PADDING * 2 - CLOSE_BUTTON_SIZE - 20), (REAL)HEADER_HEIGHT);
     if (g_hasKeyframeInfo && wcslen(g_keyframeInfo.propName) > 0) {
         // Show property name with accent color
         graphics.DrawString(g_keyframeInfo.propName, -1, &headerFont, titleRect, &sf, &accentBrush);
@@ -1243,187 +1265,135 @@ void DrawKeyframePanel(HDC hdc, int width, int height) {
         currentY += PADDING;  // Just padding for solo view
     }
 
-    // ===== Preset buttons (with mini graph) =====
-    int presetCount = 5;
+    // ===== Preset buttons (2x6 grid with mini graphs) =====
     int btnSpacing = 4;
-    int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
-    int presetStartX = (width - totalBtnWidth) / 2;
+    int totalRowWidth = PRESET_COLS * PRESET_BUTTON_WIDTH + (PRESET_COLS - 1) * btnSpacing;
+    int presetStartX = (width - totalRowWidth) / 2;
 
-    for (int i = 0; i < presetCount; i++) {
-        int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + btnSpacing);
-        int btnY = currentY;
+    for (int row = 0; row < PRESET_ROWS; row++) {
+        for (int col = 0; col < PRESET_COLS; col++) {
+            int presetIdx = row * PRESET_COLS + col;
+            int btnX = presetStartX + col * (PRESET_BUTTON_WIDTH + btnSpacing);
+            int btnY = currentY;
 
-        bool isActive = (i == (int)g_currentPreset);
-        bool isHovered = (i == g_hoveredPresetButton);
-        bool isPressed = (i == g_pressedPresetButton);
+            bool isActive = (presetIdx == (int)g_currentPreset);
+            bool isHovered = (presetIdx == g_hoveredPresetButton);
+            bool isPressed = (presetIdx == g_pressedPresetButton);
+            bool isEditable = (presetIdx >= 6);  // Slots 6-11 are editable
+            bool isFilled = g_presetFilled[presetIdx];
 
-        // Draw mini bezier graph for this preset
-        DrawMiniBezier(graphics, g_presetCurves[i], btnX, btnY, PRESET_BUTTON_WIDTH, isActive);
+            // Draw mini bezier graph (or empty slot for unfilled editable presets)
+            if (isFilled) {
+                DrawMiniBezier(graphics, g_presetCurves[presetIdx], btnX, btnY, PRESET_BUTTON_WIDTH, isActive);
+            } else {
+                // Empty slot - dark background with slot number
+                SolidBrush emptyBrush(Color(255, 25, 25, 30));
+                graphics.FillRectangle(&emptyBrush, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
 
-        // Overlay for hover/pressed states
-        if (isPressed) {
-            SolidBrush pressedOverlay(Color(100, 0, 0, 0));
-            graphics.FillRectangle(&pressedOverlay, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
-        } else if (isHovered && !isActive) {
-            SolidBrush hoverOverlay(Color(60, 255, 255, 255));
-            graphics.FillRectangle(&hoverOverlay, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+                wchar_t slotText[4];
+                swprintf_s(slotText, L"%d", presetIdx - 5);  // 1-6 for custom slots
+                RectF textRect((REAL)btnX, (REAL)btnY, (REAL)PRESET_BUTTON_WIDTH, (REAL)PRESET_BUTTON_HEIGHT);
+                graphics.DrawString(slotText, -1, &presetFont, textRect, &sfCenter, &dimBrush);
+            }
+
+            // Overlay for hover/pressed/save mode
+            if (isPressed) {
+                SolidBrush pressedOverlay(Color(100, 0, 0, 0));
+                graphics.FillRectangle(&pressedOverlay, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+            } else if (g_saveMode && isEditable) {
+                // Save mode - orange border glow for editable slots
+                Pen savePen(Color(255, 255, 180, 0), 2);
+                graphics.DrawRectangle(&savePen, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+            } else if (isHovered && !isActive) {
+                SolidBrush hoverOverlay(Color(60, 255, 255, 255));
+                graphics.FillRectangle(&hoverOverlay, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+            }
+
+            // Border
+            if (!(g_saveMode && isEditable)) {
+                Pen btnBorder(isActive ? COLOR_PRESET_ACTIVE : COLOR_BORDER, isActive ? 2.0f : 1.0f);
+                graphics.DrawRectangle(&btnBorder, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+            }
         }
-
-        // Border
-        Pen btnBorder(isActive ? COLOR_PRESET_ACTIVE : COLOR_BORDER, isActive ? 2.0f : 1.0f);
-        graphics.DrawRectangle(&btnBorder, btnX, btnY, PRESET_BUTTON_WIDTH, PRESET_BUTTON_HEIGHT);
+        currentY += PRESET_BUTTON_HEIGHT + btnSpacing;
     }
+    currentY += PADDING - btnSpacing;  // Adjust spacing after grid
 
-    currentY += PRESET_BUTTON_HEIGHT + PADDING;
-
-    // ===== Info display =====
-    // Calculate current ease values
+    // ===== Info display (Out/In Ease) =====
     float outSpeed, outInfluence, inSpeed, inInfluence;
     KeyframeUI::CalculateAEEase(g_currentCurve, outSpeed, outInfluence, inSpeed, inInfluence);
 
     // Left column: Out ease
-    RectF outLabelRect((REAL)PADDING, (REAL)currentY, 80, 20);
-    graphics.DrawString(L"Out Ease:", -1, &labelFont, outLabelRect, &sf, &dimBrush);
-
     wchar_t outText[64];
-    swprintf_s(outText, L"Speed: %.1f  Infl: %.1f%%", outSpeed, outInfluence);
-    RectF outValueRect((REAL)(PADDING + 70), (REAL)currentY, 120, 20);
+    swprintf_s(outText, L"Out: Spd %.1f / Infl %.0f%%", outSpeed, outInfluence);
+    RectF outValueRect((REAL)PADDING, (REAL)currentY, (REAL)(baseWidth/2 - PADDING), 18);
     graphics.DrawString(outText, -1, &valueFont, outValueRect, &sf, &textBrush);
 
     // Right column: In ease
-    RectF inLabelRect((REAL)(width / 2), (REAL)currentY, 80, 20);
-    graphics.DrawString(L"In Ease:", -1, &labelFont, inLabelRect, &sf, &dimBrush);
-
     wchar_t inText[64];
-    swprintf_s(inText, L"Speed: %.1f  Infl: %.1f%%", inSpeed, inInfluence);
-    RectF inValueRect((REAL)(width / 2 + 60), (REAL)currentY, 120, 20);
-    graphics.DrawString(inText, -1, &valueFont, inValueRect, &sf, &textBrush);
+    swprintf_s(inText, L"In: Spd %.1f / Infl %.0f%%", inSpeed, inInfluence);
+    RectF inValueRect((REAL)(baseWidth/2), (REAL)currentY, (REAL)(baseWidth/2 - PADDING), 18);
+    StringFormat sfRight;
+    sfRight.SetAlignment(StringAlignmentFar);
+    graphics.DrawString(inText, -1, &valueFont, inValueRect, &sfRight, &textBrush);
 
-    currentY += 24;
+    currentY += 22;
 
-    // Integral check (position = integral of velocity)
-    float integralValue = IntegrateVelocityCurve(g_currentCurve, 1.0f);
-    wchar_t integralText[64];
-    swprintf_s(integralText, L"Integral check: %.3f (should be ~0.5)", integralValue);
-    RectF integralRect((REAL)PADDING, (REAL)currentY, (REAL)(width - PADDING * 2), 20);
-    graphics.DrawString(integralText, -1, &valueFont, integralRect, &sf, &dimBrush);
-
-    currentY += 30;
-
-    // ===== Custom preset slots (4 slots with icons) =====
-    int slotBtnSpacing = 6;
+    // ===== Save / Apply / Load buttons =====
+    int actionBtnSpacing = 8;
     int saveBtnWidth = 44;
-    int applyBtnWidth = 60;  // Apply button width
-    int loadBtnWidth = 50;   // Load button width
-    int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 3 + saveBtnWidth + applyBtnWidth + loadBtnWidth;
-    int slotStartX = (width - totalSlotWidth) / 2;
+    int applyBtnWidth = 70;
+    int loadBtnWidth = 50;
+    int totalActionWidth = saveBtnWidth + applyBtnWidth + loadBtnWidth + actionBtnSpacing * 2;
+    int actionStartX = (width - totalActionWidth) / 2;
+    int actionBtnHeight = 28;
 
-    // "Slots:" label
-    RectF presetsLabelRect((REAL)(slotStartX - 50), (REAL)currentY, 45, (REAL)SLOT_BUTTON_HEIGHT);
-    graphics.DrawString(L"Slots:", -1, &labelFont, presetsLabelRect, &sf, &dimBrush);
+    // Save button (floppy disk icon)
+    int saveBtnX = actionStartX;
+    RectF saveBtnRect((REAL)saveBtnX, (REAL)currentY, (REAL)saveBtnWidth, (REAL)actionBtnHeight);
 
-    for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
-        int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
-        int btnY = currentY;
-
-        bool isFilled = g_slotFilled[i];
-        bool isHovered = (i == g_hoveredSlotButton);
-        bool isPressed = (i == g_pressedSlotButton);
-
-        // Draw mini bezier graph (or empty slot)
-        if (isFilled) {
-            DrawMiniBezier(graphics, g_customSlots[i], btnX, btnY, SLOT_BUTTON_WIDTH, false);
-        } else {
-            // Empty slot - dark background with slot number
-            SolidBrush emptyBrush(Color(255, 25, 25, 30));
-            graphics.FillRectangle(&emptyBrush, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
-
-            wchar_t slotText[4];
-            swprintf_s(slotText, L"%d", i + 6);  // 6-9 for custom slots
-            RectF textRect((REAL)btnX, (REAL)btnY, (REAL)SLOT_BUTTON_WIDTH, (REAL)SLOT_BUTTON_HEIGHT);
-            graphics.DrawString(slotText, -1, &presetFont, textRect, &sfCenter, &dimBrush);
-        }
-
-        // Overlay for hover/pressed/save mode
-        if (isPressed) {
-            SolidBrush pressedOverlay(Color(100, 0, 0, 0));
-            graphics.FillRectangle(&pressedOverlay, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
-        } else if (g_saveMode) {
-            // Save mode - orange border glow
-            Pen savePen(Color(255, 255, 180, 0), 2);
-            graphics.DrawRectangle(&savePen, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
-        } else if (isHovered) {
-            SolidBrush hoverOverlay(Color(60, 255, 255, 255));
-            graphics.FillRectangle(&hoverOverlay, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
-        }
-
-        // Border
-        if (!g_saveMode) {
-            Pen btnBorder(COLOR_BORDER, 1);
-            graphics.DrawRectangle(&btnBorder, btnX, btnY, SLOT_BUTTON_WIDTH, SLOT_BUTTON_HEIGHT);
-        }
-    }
-
-    // Save button (floppy disk icon area)
-    int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
-    RectF saveBtnRect((REAL)saveBtnX, (REAL)currentY,
-                      (REAL)saveBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
-
-    Color saveBtnColor = g_pressedSaveButton ? Color(255, 30, 80, 30) :  // Darker when pressed
+    Color saveBtnColor = g_pressedSaveButton ? Color(255, 30, 80, 30) :
                          g_saveMode ? COLOR_PRESET_ACTIVE :
                          g_saveButtonHover ? COLOR_PRESET_HOVER : COLOR_PRESET_BG;
     SolidBrush saveBtnBrush(saveBtnColor);
     graphics.FillRectangle(&saveBtnBrush, saveBtnRect);
-
     Pen saveBorder(COLOR_BORDER, 1);
     graphics.DrawRectangle(&saveBorder, saveBtnRect);
 
-    // Draw floppy disk icon
+    // Floppy disk icon
     float diskCx = (float)saveBtnX + saveBtnWidth / 2.0f;
-    float diskCy = (float)currentY + SLOT_BUTTON_HEIGHT / 2.0f;
+    float diskCy = (float)currentY + actionBtnHeight / 2.0f;
     float diskSize = 14.0f;
     Color diskColor = g_saveMode ? Color(255, 255, 255, 255) : COLOR_TEXT;
-
-    // Floppy disk outline
     Pen diskPen(diskColor, 1.5f);
     graphics.DrawRectangle(&diskPen, diskCx - diskSize/2, diskCy - diskSize/2, diskSize, diskSize);
-    // Label area (top)
     graphics.DrawRectangle(&diskPen, diskCx - diskSize/3, diskCy - diskSize/2, diskSize*2/3, diskSize/3);
-    // Metal slide (bottom-right)
     SolidBrush diskBrush(diskColor);
     graphics.FillRectangle(&diskBrush, diskCx - diskSize/6, diskCy + diskSize/6, diskSize/3, diskSize/3);
 
     // Apply button (green)
-    int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
-    RectF applyBtnRect((REAL)applyBtnX, (REAL)currentY,
-                       (REAL)applyBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
+    int applyBtnX = saveBtnX + saveBtnWidth + actionBtnSpacing;
+    RectF applyBtnRect((REAL)applyBtnX, (REAL)currentY, (REAL)applyBtnWidth, (REAL)actionBtnHeight);
 
-    Color applyBtnColor = g_pressedApplyButton ? Color(255, 30, 100, 30) :  // Darker green when pressed
+    Color applyBtnColor = g_pressedApplyButton ? Color(255, 30, 100, 30) :
                           g_applyButtonHover ? Color(255, 80, 180, 80) : Color(255, 50, 140, 50);
     SolidBrush applyBtnBrush(applyBtnColor);
     graphics.FillRectangle(&applyBtnBrush, applyBtnRect);
-
     Pen applyBorder(Color(255, 100, 200, 100), 1);
     graphics.DrawRectangle(&applyBorder, applyBtnRect);
-
-    // Draw "Apply" text
     SolidBrush applyTextBrush(Color(255, 255, 255, 255));
     graphics.DrawString(L"Apply", -1, &presetFont, applyBtnRect, &sfCenter, &applyTextBrush);
 
-    // Load button (blue - refresh keyframe info)
-    int loadBtnX = applyBtnX + applyBtnWidth + slotBtnSpacing;
-    RectF loadBtnRect((REAL)loadBtnX, (REAL)currentY,
-                      (REAL)loadBtnWidth, (REAL)SLOT_BUTTON_HEIGHT);
+    // Load button (blue)
+    int loadBtnX = applyBtnX + applyBtnWidth + actionBtnSpacing;
+    RectF loadBtnRect((REAL)loadBtnX, (REAL)currentY, (REAL)loadBtnWidth, (REAL)actionBtnHeight);
 
     Color loadBtnColor = g_pressedLoadButton ? Color(255, 30, 60, 120) :
                          g_loadButtonHover ? Color(255, 80, 140, 220) : Color(255, 50, 100, 180);
     SolidBrush loadBtnBrush(loadBtnColor);
     graphics.FillRectangle(&loadBtnBrush, loadBtnRect);
-
     Pen loadBorder(Color(255, 100, 150, 255), 1);
     graphics.DrawRectangle(&loadBorder, loadBtnRect);
-
-    // Draw "Load" text
     SolidBrush loadTextBrush(Color(255, 255, 255, 255));
     graphics.DrawString(L"Load", -1, &presetFont, loadBtnRect, &sfCenter, &loadTextBrush);
 }
@@ -1473,13 +1443,12 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         }
 
         case WM_MOUSEMOVE: {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
-            RECT rc;
-            GetClientRect(hwnd, &rc);
+            // Inverse scale mouse coordinates for hit testing
+            int x = InverseScaled(LOWORD(lParam));
+            int y = InverseScaled(HIWORD(lParam));
             bool needRedraw = false;
 
-            // Window dragging
+            // Window dragging (use raw screen coordinates, no scaling needed)
             if (g_windowDragging) {
                 POINT pt;
                 GetCursorPos(&pt);
@@ -1546,8 +1515,8 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 needRedraw = true;
             }
 
-            // Check pin button hover
-            int pinBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
+            // Check pin button hover (using base dimensions)
+            int pinBtnX = WINDOW_WIDTH - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
             int pinBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
             bool wasPinHover = g_pinButtonHover;
             g_pinButtonHover = (x >= pinBtnX && x < pinBtnX + CLOSE_BUTTON_SIZE &&
@@ -1555,7 +1524,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (wasPinHover != g_pinButtonHover) needRedraw = true;
 
             // Check close button hover
-            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+            int closeBtnX = WINDOW_WIDTH - PADDING - CLOSE_BUTTON_SIZE;
             int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
             bool wasCloseHover = g_closeButtonHover;
             g_closeButtonHover = (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
@@ -1568,7 +1537,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // Check navigation buttons hover (if multi-view mode)
             if (g_multiViewMode && g_numKeyframePairs > 1) {
                 int navY = PADDING + HEADER_HEIGHT + PADDING;
-                int navCenterX = rc.right / 2;
+                int navCenterX = WINDOW_WIDTH / 2;
                 int prevBtnX = navCenterX - 80;
                 int nextBtnX = navCenterX + 80 - NAV_BUTTON_SIZE;
 
@@ -1588,7 +1557,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int lockY = baseY + GRAPH_HEIGHT + 4;
             if (g_multiViewMode) {
                 int graphW = GRAPH_HEIGHT;  // Square
-                int lockX = (rc.right - graphW) / 2;
+                int lockX = (WINDOW_WIDTH - graphW) / 2;
                 int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 30;
 
                 bool wasLockHover = g_lockHandlesHover;
@@ -1597,67 +1566,59 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 if (wasLockHover != g_lockHandlesHover) needRedraw = true;
             }
 
-            // Check preset button hover
+            // Check preset button hover (2x6 grid)
             int currentY = g_multiViewMode ? (lockY + LOCK_BUTTON_SIZE + PADDING) : (baseY + GRAPH_HEIGHT + PADDING);
-            int presetCount = 5;
             int btnSpacing = 4;
-            int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
-            int presetStartX = (rc.right - totalBtnWidth) / 2;
+            int totalRowWidth = PRESET_COLS * PRESET_BUTTON_WIDTH + (PRESET_COLS - 1) * btnSpacing;
+            int presetStartX = (WINDOW_WIDTH - totalRowWidth) / 2;
 
             int oldHoveredPreset = g_hoveredPresetButton;
             g_hoveredPresetButton = -1;
 
-            for (int i = 0; i < presetCount; i++) {
-                int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + btnSpacing);
-                if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
-                    y >= currentY && y < currentY + PRESET_BUTTON_HEIGHT) {
-                    g_hoveredPresetButton = i;
-                    break;
+            for (int row = 0; row < PRESET_ROWS; row++) {
+                int rowY = currentY + row * (PRESET_BUTTON_HEIGHT + btnSpacing);
+                for (int col = 0; col < PRESET_COLS; col++) {
+                    int presetIdx = row * PRESET_COLS + col;
+                    int btnX = presetStartX + col * (PRESET_BUTTON_WIDTH + btnSpacing);
+                    if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
+                        y >= rowY && y < rowY + PRESET_BUTTON_HEIGHT) {
+                        g_hoveredPresetButton = presetIdx;
+                        break;
+                    }
                 }
+                if (g_hoveredPresetButton >= 0) break;
             }
             if (oldHoveredPreset != g_hoveredPresetButton) needRedraw = true;
 
-            // Check slot button hover
-            int slotY = currentY + PRESET_BUTTON_HEIGHT + PADDING + 24 + 30;
-            int slotBtnSpacing = 6;
+            // Calculate Y after preset grid (2 rows + spacing + padding)
+            int presetGridHeight = PRESET_ROWS * PRESET_BUTTON_HEIGHT + (PRESET_ROWS - 1) * btnSpacing;
+            int actionY = currentY + presetGridHeight + PADDING + 22;  // +22 for info row
+
+            // Check save/apply/load button hover
+            int actionBtnSpacing = 8;
             int saveBtnWidth = 44;
-            int applyBtnWidth = 60;
+            int applyBtnWidth = 70;
             int loadBtnWidth = 50;
-            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 3 + saveBtnWidth + applyBtnWidth + loadBtnWidth;
-            int slotStartX = (rc.right - totalSlotWidth) / 2;
+            int totalActionWidth = saveBtnWidth + applyBtnWidth + loadBtnWidth + actionBtnSpacing * 2;
+            int actionStartX = (WINDOW_WIDTH - totalActionWidth) / 2;
+            int actionBtnHeight = 28;
 
-            int oldHoveredSlot = g_hoveredSlotButton;
-            g_hoveredSlotButton = -1;
-
-            for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
-                int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
-                if (x >= btnX && x < btnX + SLOT_BUTTON_WIDTH &&
-                    y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
-                    g_hoveredSlotButton = i;
-                    break;
-                }
-            }
-            if (oldHoveredSlot != g_hoveredSlotButton) needRedraw = true;
-
-            // Check save button hover
-            int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
+            int saveBtnX = actionStartX;
             bool wasSaveHover = g_saveButtonHover;
             g_saveButtonHover = (x >= saveBtnX && x < saveBtnX + saveBtnWidth &&
-                                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
+                                 y >= actionY && y < actionY + actionBtnHeight);
             if (wasSaveHover != g_saveButtonHover) needRedraw = true;
 
-            // Check apply button hover
-            int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
+            int applyBtnX = saveBtnX + saveBtnWidth + actionBtnSpacing;
             bool wasApplyHover = g_applyButtonHover;
             g_applyButtonHover = (x >= applyBtnX && x < applyBtnX + applyBtnWidth &&
-                                  y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
+                                  y >= actionY && y < actionY + actionBtnHeight);
             if (wasApplyHover != g_applyButtonHover) needRedraw = true;
 
-            // Check load button hover
-            int loadBtnX = applyBtnX + applyBtnWidth + slotBtnSpacing;
+            int loadBtnX = applyBtnX + applyBtnWidth + actionBtnSpacing;
             bool wasLoadHover = g_loadButtonHover;
             g_loadButtonHover = (x >= loadBtnX && x < loadBtnX + loadBtnWidth &&
-                                 y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT);
+                                 y >= actionY && y < actionY + actionBtnHeight);
             if (wasLoadHover != g_loadButtonHover) needRedraw = true;
 
             // Check handle hover (when not dragging)
@@ -1689,13 +1650,12 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         }
 
         case WM_LBUTTONDOWN: {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
-            RECT rc;
-            GetClientRect(hwnd, &rc);
+            // Inverse scale mouse coordinates for hit testing
+            int x = InverseScaled(LOWORD(lParam));
+            int y = InverseScaled(HIWORD(lParam));
 
-            // Check pin button click
-            int pinBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
+            // Check pin button click (using base dimensions)
+            int pinBtnX = WINDOW_WIDTH - PADDING - CLOSE_BUTTON_SIZE * 2 - 4;
             int pinBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
             if (x >= pinBtnX && x < pinBtnX + CLOSE_BUTTON_SIZE &&
                 y >= pinBtnY && y < pinBtnY + CLOSE_BUTTON_SIZE) {
@@ -1707,7 +1667,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             }
 
             // Check close button click
-            int closeBtnX = rc.right - PADDING - CLOSE_BUTTON_SIZE;
+            int closeBtnX = WINDOW_WIDTH - PADDING - CLOSE_BUTTON_SIZE;
             int closeBtnY = PADDING + (HEADER_HEIGHT - CLOSE_BUTTON_SIZE) / 2;
             if (x >= closeBtnX && x < closeBtnX + CLOSE_BUTTON_SIZE &&
                 y >= closeBtnY && y < closeBtnY + CLOSE_BUTTON_SIZE) {
@@ -1739,7 +1699,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
                 // Check navigation buttons click
                 int navY = PADDING + HEADER_HEIGHT + PADDING;
-                int navCenterX = rc.right / 2;
+                int navCenterX = WINDOW_WIDTH / 2;
                 int prevBtnX = navCenterX - 80;
                 int nextBtnX = navCenterX + 80 - NAV_BUTTON_SIZE;
 
@@ -1778,7 +1738,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             int lockY = baseY + GRAPH_HEIGHT + 4;
             if (g_multiViewMode) {
                 int graphW = GRAPH_HEIGHT;  // Square
-                int lockX = (rc.right - graphW) / 2;
+                int lockX = (WINDOW_WIDTH - graphW) / 2;
                 int lockBtnWidth = LOCK_BUTTON_SIZE * 2 + 30;
 
                 if (x >= lockX && x < lockX + lockBtnWidth &&
@@ -1791,59 +1751,57 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 }
             }
 
-            // Check preset button click
+            // Check preset button click (2x6 grid)
             int currentY = g_multiViewMode ? (lockY + LOCK_BUTTON_SIZE + PADDING) : (baseY + GRAPH_HEIGHT + PADDING);
-            int presetCount = 5;
             int btnSpacing = 4;
-            int totalBtnWidth = presetCount * PRESET_BUTTON_WIDTH + (presetCount - 1) * btnSpacing;
-            int presetStartX = (rc.right - totalBtnWidth) / 2;
+            int totalRowWidth = PRESET_COLS * PRESET_BUTTON_WIDTH + (PRESET_COLS - 1) * btnSpacing;
+            int presetStartX = (WINDOW_WIDTH - totalRowWidth) / 2;
 
-            for (int i = 0; i < presetCount; i++) {
-                int btnX = presetStartX + i * (PRESET_BUTTON_WIDTH + btnSpacing);
-                if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
-                    y >= currentY && y < currentY + PRESET_BUTTON_HEIGHT) {
-                    g_pressedPresetButton = i;
-                    g_currentPreset = (KeyframeUI::VelocityPreset)i;
-                    g_currentCurve = g_presetCurves[i];
-                    InvalidateRect(hwnd, NULL, TRUE);
-                    SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
-                    return 0;
-                }
-            }
+            for (int row = 0; row < PRESET_ROWS; row++) {
+                int rowY = currentY + row * (PRESET_BUTTON_HEIGHT + btnSpacing);
+                for (int col = 0; col < PRESET_COLS; col++) {
+                    int presetIdx = row * PRESET_COLS + col;
+                    int btnX = presetStartX + col * (PRESET_BUTTON_WIDTH + btnSpacing);
+                    if (x >= btnX && x < btnX + PRESET_BUTTON_WIDTH &&
+                        y >= rowY && y < rowY + PRESET_BUTTON_HEIGHT) {
+                        g_pressedPresetButton = presetIdx;
 
-            // Check slot button click
-            int slotY = currentY + PRESET_BUTTON_HEIGHT + PADDING + 24 + 30;
-            int slotBtnSpacing = 6;
-            int saveBtnWidth = 44;
-            int applyBtnWidthLocal = 60;
-            int loadBtnWidth = 50;
-            int totalSlotWidth = NUM_CUSTOM_SLOTS * SLOT_BUTTON_WIDTH + (NUM_CUSTOM_SLOTS - 1) * slotBtnSpacing + slotBtnSpacing * 3 + saveBtnWidth + applyBtnWidthLocal + loadBtnWidth;
-            int slotStartX = (rc.right - totalSlotWidth) / 2;
+                        bool isEditable = (presetIdx >= 6);
+                        if (g_saveMode && isEditable) {
+                            // Save current curve to this editable slot
+                            g_presetCurves[presetIdx] = g_currentCurve;
+                            g_presetFilled[presetIdx] = true;
+                            g_saveMode = false;
+                        } else if (g_presetFilled[presetIdx]) {
+                            // Load curve from preset
+                            g_currentPreset = (KeyframeUI::VelocityPreset)presetIdx;
+                            g_currentCurve = g_presetCurves[presetIdx];
+                        }
 
-            for (int i = 0; i < NUM_CUSTOM_SLOTS; i++) {
-                int btnX = slotStartX + i * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
-                if (x >= btnX && x < btnX + SLOT_BUTTON_WIDTH &&
-                    y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
-                    g_pressedSlotButton = i;
-                    if (g_saveMode) {
-                        // Save current curve to slot
-                        KeyframeUI::SavePresetToSlot(i, g_currentCurve);
-                        g_saveMode = false;
-                    } else if (g_slotFilled[i]) {
-                        // Load curve from slot
-                        KeyframeUI::LoadPresetFromSlot(i, g_currentCurve);
-                        g_currentPreset = KeyframeUI::PRESET_CUSTOM;
+                        InvalidateRect(hwnd, NULL, TRUE);
+                        SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
+                        return 0;
                     }
-                    InvalidateRect(hwnd, NULL, TRUE);
-                    SetTimer(hwnd, CLICK_FEEDBACK_TIMER_ID, CLICK_FEEDBACK_DURATION_MS, NULL);
-                    return 0;
                 }
             }
 
-            // Check save button click
-            int saveBtnX = slotStartX + NUM_CUSTOM_SLOTS * (SLOT_BUTTON_WIDTH + slotBtnSpacing);
+            // Calculate Y after preset grid (2 rows + spacing + padding)
+            int presetGridHeight = PRESET_ROWS * PRESET_BUTTON_HEIGHT + (PRESET_ROWS - 1) * btnSpacing;
+            int actionY = currentY + presetGridHeight + PADDING + 22;  // +22 for info row
+
+            // Check save/apply/load button clicks
+            int actionBtnSpacing = 8;
+            int saveBtnWidth = 44;
+            int applyBtnWidth = 70;
+            int loadBtnWidth = 50;
+            int totalActionWidth = saveBtnWidth + applyBtnWidth + loadBtnWidth + actionBtnSpacing * 2;
+            int actionStartX = (WINDOW_WIDTH - totalActionWidth) / 2;
+            int actionBtnHeight = 28;
+
+            // Save button click
+            int saveBtnX = actionStartX;
             if (x >= saveBtnX && x < saveBtnX + saveBtnWidth &&
-                y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                y >= actionY && y < actionY + actionBtnHeight) {
                 g_pressedSaveButton = true;
                 g_saveMode = !g_saveMode;
                 InvalidateRect(hwnd, NULL, TRUE);
@@ -1851,14 +1809,12 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 return 0;
             }
 
-            // Check apply button click
-            int applyBtnWidth = 60;
-            int applyBtnX = saveBtnX + saveBtnWidth + slotBtnSpacing;
+            // Apply button click
+            int applyBtnX = saveBtnX + saveBtnWidth + actionBtnSpacing;
             if (x >= applyBtnX && x < applyBtnX + applyBtnWidth &&
-                y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                y >= actionY && y < actionY + actionBtnHeight) {
                 g_pressedApplyButton = true;
                 InvalidateRect(hwnd, NULL, TRUE);
-                // Apply current curve
                 g_result.applied = true;
                 g_result.preset = g_currentPreset;
                 g_result.customCurve = g_currentCurve;
@@ -1869,10 +1825,10 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 return 0;
             }
 
-            // Check load button click
-            int loadBtnX = applyBtnX + applyBtnWidth + slotBtnSpacing;
+            // Load button click
+            int loadBtnX = applyBtnX + applyBtnWidth + actionBtnSpacing;
             if (x >= loadBtnX && x < loadBtnX + loadBtnWidth &&
-                y >= slotY && y < slotY + SLOT_BUTTON_HEIGHT) {
+                y >= actionY && y < actionY + actionBtnHeight) {
                 g_pressedLoadButton = true;
                 g_result.loadRequested = true;
                 InvalidateRect(hwnd, NULL, TRUE);
@@ -1941,7 +1897,6 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (wParam == CLICK_FEEDBACK_TIMER_ID) {
                 // Reset all pressed states
                 g_pressedPresetButton = -1;
-                g_pressedSlotButton = -1;
                 g_pressedSaveButton = false;
                 g_pressedApplyButton = false;
                 g_pressedPinButton = false;

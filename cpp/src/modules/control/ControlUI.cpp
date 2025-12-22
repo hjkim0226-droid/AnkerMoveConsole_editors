@@ -17,6 +17,22 @@
 
 using namespace Gdiplus;
 
+// External function from SnapPlugin.cpp to get module scale factor
+extern float GetModuleScaleFactor(const char* moduleName);
+
+// Current scale factor for this module (1.0 = 100%, 0.8 = 80%, 1.7 = 170%)
+static float g_scaleFactor = 1.0f;
+
+// Helper: scale an integer value by the current scale factor
+inline int Scaled(int baseValue) {
+    return (int)(baseValue * g_scaleFactor);
+}
+
+// Helper: inverse scale for mouse coordinates
+inline int InverseScaled(int screenValue) {
+    return (int)(screenValue / g_scaleFactor);
+}
+
 // GDI+ token
 static ULONG_PTR g_gdiplusToken = 0;
 
@@ -262,6 +278,9 @@ PanelMode GetMode() {
 void ShowPanelAt(int x, int y) {
     if (g_isVisible) return;
 
+    // Get module scale factor from settings
+    g_scaleFactor = GetModuleScaleFactor("control");
+
     // Reset state based on mode
     g_selectedIndex = 0;
     g_hoverIndex = -1;
@@ -296,18 +315,22 @@ void ShowPanelAt(int x, int y) {
 
     int windowHeight = headerHeight + PADDING * 2 + itemCount * ITEM_HEIGHT + PADDING;
 
+    // Calculate scaled dimensions
+    int scaledWidth = Scaled(WINDOW_WIDTH);
+    int scaledHeight = Scaled(windowHeight);
+
     // Calculate Y offset to center the search bar at mouse position
     int searchBarCenterY;
     if (g_panelMode == MODE_SEARCH) {
         // Mode 1: Search bar at top
-        searchBarCenterY = PADDING + SEARCH_HEIGHT / 2;
+        searchBarCenterY = Scaled(PADDING + SEARCH_HEIGHT / 2);
     } else {
         // Mode 2: Search bar below header and preset bar
-        searchBarCenterY = PADDING + HEADER_HEIGHT + 4 + PRESET_BAR_HEIGHT + SEARCH_HEIGHT / 2;
+        searchBarCenterY = Scaled(PADDING + HEADER_HEIGHT + 4 + PRESET_BAR_HEIGHT + SEARCH_HEIGHT / 2);
     }
 
     // Calculate initial window position (centered on mouse)
-    int windowX = x - WINDOW_WIDTH / 2;
+    int windowX = x - scaledWidth / 2;
     int windowY = y - searchBarCenterY;
 
     // Clamp window position to stay within monitor bounds
@@ -321,20 +344,20 @@ void ShowPanelAt(int x, int y) {
             // Clamp X: ensure window stays within horizontal bounds
             if (windowX < workArea.left) {
                 windowX = workArea.left;
-            } else if (windowX + WINDOW_WIDTH > workArea.right) {
-                windowX = workArea.right - WINDOW_WIDTH;
+            } else if (windowX + scaledWidth > workArea.right) {
+                windowX = workArea.right - scaledWidth;
             }
 
             // Clamp Y: ensure window stays within vertical bounds
             if (windowY < workArea.top) {
                 windowY = workArea.top;
-            } else if (windowY + windowHeight > workArea.bottom) {
-                windowY = workArea.bottom - windowHeight;
+            } else if (windowY + scaledHeight > workArea.bottom) {
+                windowY = workArea.bottom - scaledHeight;
             }
         }
     }
 
-    // Create or reposition window
+    // Create or reposition window with scaled dimensions
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
             WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
@@ -343,8 +366,8 @@ void ShowPanelAt(int x, int y) {
             WS_POPUP,
             windowX,
             windowY,
-            WINDOW_WIDTH,
-            windowHeight,
+            scaledWidth,
+            scaledHeight,
             NULL, NULL,
             GetModuleHandle(NULL),
             NULL
@@ -354,7 +377,7 @@ void ShowPanelAt(int x, int y) {
         SetWindowPos(g_hwnd, HWND_TOPMOST,
                      windowX,
                      windowY,
-                     WINDOW_WIDTH, windowHeight,
+                     scaledWidth, scaledHeight,
                      SWP_SHOWWINDOW);
     }
 
@@ -594,21 +617,30 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     graphics.SetSmoothingMode(SmoothingModeAntiAlias);
     graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
-    // Background
+    // Apply scale transform - all subsequent drawing will be scaled
+    graphics.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
+    // Use base width for layout (transform handles scaling)
+    int baseWidth = WINDOW_WIDTH;
+
+    // Calculate base height from actual height
+    int baseHeight = (int)(height / g_scaleFactor);
+
+    // Background (fill entire base area)
     SolidBrush bgBrush(COLOR_BG);
-    graphics.FillRectangle(&bgBrush, 0, 0, width, height);
+    graphics.FillRectangle(&bgBrush, 0, 0, baseWidth, baseHeight);
 
     // Border
     Pen borderPen(COLOR_BORDER, 1);
-    graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
+    graphics.DrawRectangle(&borderPen, 0, 0, baseWidth - 1, baseHeight - 1);
 
     // Search box background (full width - only pin button on right)
     SolidBrush searchBgBrush(COLOR_SEARCH_BG);
-    RectF searchRect(PADDING, PADDING, width - PADDING * 2 - NEW_EC_BUTTON_SIZE - 8, SEARCH_HEIGHT);
+    RectF searchRect(PADDING, PADDING, baseWidth - PADDING * 2 - NEW_EC_BUTTON_SIZE - 8, SEARCH_HEIGHT);
     graphics.FillRectangle(&searchBgBrush, searchRect);
 
     // Keep open (pin) button - right side
-    int pinBtnX = width - PADDING - NEW_EC_BUTTON_SIZE;
+    int pinBtnX = baseWidth - PADDING - NEW_EC_BUTTON_SIZE;
     int pinBtnY = PADDING + (SEARCH_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
     RectF pinRect((REAL)pinBtnX, (REAL)pinBtnY, (REAL)NEW_EC_BUTTON_SIZE, (REAL)NEW_EC_BUTTON_SIZE);
 
@@ -631,7 +663,7 @@ void DrawControlPanel(HDC hdc, int width, int height) {
     SolidBrush textBrush(COLOR_TEXT);
     SolidBrush dimBrush(COLOR_TEXT_DIM);
 
-    RectF textRect(PADDING + 8, PADDING + 8, width - PADDING * 2 - 16, SEARCH_HEIGHT - 16);
+    RectF textRect(PADDING + 8, PADDING + 8, baseWidth - PADDING * 2 - 16, SEARCH_HEIGHT - 16);
     StringFormat sf;
     sf.SetAlignment(StringAlignmentNear);
     sf.SetLineAlignment(StringAlignmentCenter);
@@ -697,7 +729,7 @@ void DrawControlPanel(HDC hdc, int width, int height) {
 
     for (int i = 0; i < visibleCount; i++) {
         const auto& item = g_searchResults[i];
-        RectF itemRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+        RectF itemRect(PADDING, y, baseWidth - PADDING * 2, ITEM_HEIGHT);
 
         // Highlight selected/hover
         if (i == g_selectedIndex) {
@@ -709,14 +741,14 @@ void DrawControlPanel(HDC hdc, int width, int height) {
         }
 
         // Effect name
-        RectF nameRect(PADDING + 8, y + 4, width - PADDING * 2 - 100, ITEM_HEIGHT / 2);
+        RectF nameRect(PADDING + 8, y + 4, baseWidth - PADDING * 2 - 100, ITEM_HEIGHT / 2);
         graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
 
         // Category (right aligned)
         StringFormat sfRight;
         sfRight.SetAlignment(StringAlignmentFar);
         sfRight.SetLineAlignment(StringAlignmentCenter);
-        RectF catRect(width - 110, y, 100, ITEM_HEIGHT);
+        RectF catRect(baseWidth - 110, y, 100, ITEM_HEIGHT);
         graphics.DrawString(item.category, -1, &categoryFont, catRect, &sfRight, &dimBrush);
 
         y += ITEM_HEIGHT;
@@ -724,7 +756,7 @@ void DrawControlPanel(HDC hdc, int width, int height) {
 
     // No results message
     if (g_searchResults.empty() && wcslen(g_searchQuery) > 0) {
-        RectF msgRect(PADDING, y, width - PADDING * 2, ITEM_HEIGHT);
+        RectF msgRect(PADDING, y, baseWidth - PADDING * 2, ITEM_HEIGHT);
         graphics.DrawString(L"No effects found", -1, &itemFont, msgRect, &sf, &dimBrush);
     }
 }
@@ -845,13 +877,20 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     graphics.SetSmoothingMode(SmoothingModeAntiAlias);
     graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
+    // Apply scale transform
+    graphics.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
+    // Use base dimensions for layout
+    int baseWidth = WINDOW_WIDTH;
+    int baseHeight = (int)(height / g_scaleFactor);
+
     // Background
     SolidBrush bgBrush(COLOR_BG);
-    graphics.FillRectangle(&bgBrush, 0, 0, width, height);
+    graphics.FillRectangle(&bgBrush, 0, 0, baseWidth, baseHeight);
 
     // Border
     Pen borderPen(COLOR_BORDER, 1);
-    graphics.DrawRectangle(&borderPen, 0, 0, width - 1, height - 1);
+    graphics.DrawRectangle(&borderPen, 0, 0, baseWidth - 1, baseHeight - 1);
 
     // Fonts
     FontFamily fontFamily(L"Segoe UI");
@@ -882,7 +921,7 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     graphics.FillRectangle(&labelBrush, labelX, labelY, labelSize, labelSize);
 
     // Layer name
-    RectF titleRect(PADDING + labelSize + 10, currentY, width - PADDING * 2 - NEW_EC_BUTTON_SIZE - 10, HEADER_HEIGHT);
+    RectF titleRect(PADDING + labelSize + 10, currentY, baseWidth - PADDING * 2 - NEW_EC_BUTTON_SIZE - 10, HEADER_HEIGHT);
     if (wcslen(g_currentLayerName) > 0) {
         graphics.DrawString(g_currentLayerName, -1, &headerFont, titleRect, &sf, &textBrush);
     } else {
@@ -890,7 +929,7 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     }
 
     // Keep open (pin) button - right side
-    int pinBtnX = width - PADDING - NEW_EC_BUTTON_SIZE;
+    int pinBtnX = baseWidth - PADDING - NEW_EC_BUTTON_SIZE;
     int pinBtnY = currentY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
     RectF pinRect((REAL)pinBtnX, (REAL)pinBtnY, (REAL)NEW_EC_BUTTON_SIZE, (REAL)NEW_EC_BUTTON_SIZE);
 
@@ -936,7 +975,7 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
     int presetBtnSpacing = 4;
     // 6 preset buttons + save button
     int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
-    int presetStartX = (width - totalPresetWidth) / 2;
+    int presetStartX = (baseWidth - totalPresetWidth) / 2;
 
     for (int i = 0; i < PRESET_SLOT_COUNT; i++) {
         int btnX = presetStartX + i * (PRESET_BUTTON_HEIGHT + presetBtnSpacing);
@@ -995,11 +1034,11 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
 
     // ===== Search bar =====
     SolidBrush searchBgBrush(COLOR_SEARCH_BG);
-    RectF searchRect(PADDING, currentY, width - PADDING * 2, SEARCH_HEIGHT);
+    RectF searchRect(PADDING, currentY, baseWidth - PADDING * 2, SEARCH_HEIGHT);
     graphics.FillRectangle(&searchBgBrush, searchRect);
 
     // Search text or placeholder
-    RectF searchTextRect(PADDING + 8, currentY, width - PADDING * 2 - 16, SEARCH_HEIGHT);
+    RectF searchTextRect(PADDING + 8, currentY, baseWidth - PADDING * 2 - 16, SEARCH_HEIGHT);
     if (wcslen(g_searchQuery) > 0) {
         graphics.DrawString(g_searchQuery, -1, &itemFont, searchTextRect, &sf, &textBrush);
     } else {
@@ -1016,14 +1055,14 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
         int visibleCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
 
         if (visibleCount == 0) {
-            RectF msgRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+            RectF msgRect(PADDING, currentY, baseWidth - PADDING * 2, ITEM_HEIGHT);
             graphics.DrawString(L"No matching effects", -1, &itemFont, msgRect, &sf, &dimBrush);
             return;
         }
 
         for (int i = 0; i < visibleCount; i++) {
             const auto& item = g_searchResults[i];
-            RectF itemRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+            RectF itemRect(PADDING, currentY, baseWidth - PADDING * 2, ITEM_HEIGHT);
 
             // Highlight selected/hover
             if (i == g_selectedIndex) {
@@ -1035,11 +1074,11 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
             }
 
             // Effect name
-            RectF nameRect(PADDING + 8, currentY, width - PADDING * 2 - 100, ITEM_HEIGHT);
+            RectF nameRect(PADDING + 8, currentY, baseWidth - PADDING * 2 - 100, ITEM_HEIGHT);
             graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
 
             // Category
-            RectF catRect(width - PADDING - 90, currentY, 80, ITEM_HEIGHT);
+            RectF catRect(baseWidth - PADDING - 90, currentY, 80, ITEM_HEIGHT);
             StringFormat sfRight;
             sfRight.SetAlignment(StringAlignmentFar);
             sfRight.SetLineAlignment(StringAlignmentCenter);
@@ -1052,14 +1091,14 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
         int visibleCount = min((int)g_layerEffects.size(), MAX_VISIBLE_ITEMS);
 
         if (visibleCount == 0) {
-            RectF msgRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+            RectF msgRect(PADDING, currentY, baseWidth - PADDING * 2, ITEM_HEIGHT);
             graphics.DrawString(L"No effects on layer", -1, &itemFont, msgRect, &sf, &dimBrush);
             return;
         }
 
         for (int i = 0; i < visibleCount; i++) {
             const auto& item = g_layerEffects[i];
-            RectF itemRect(PADDING, currentY, width - PADDING * 2, ITEM_HEIGHT);
+            RectF itemRect(PADDING, currentY, baseWidth - PADDING * 2, ITEM_HEIGHT);
 
             // Highlight selected/hover
             if (i == g_selectedIndex) {
@@ -1081,11 +1120,11 @@ void DrawEffectsPanel(HDC hdc, int width, int height) {
             graphics.DrawString(indexStr, -1, &indexFont, indexRect, &sf, &dimBrush);
 
             // Effect name
-            RectF nameRect(PADDING + 44, currentY, width - PADDING * 2 - 80, ITEM_HEIGHT);
+            RectF nameRect(PADDING + 44, currentY, baseWidth - PADDING * 2 - 80, ITEM_HEIGHT);
             graphics.DrawString(item.name, -1, &itemFont, nameRect, &sf, &textBrush);
 
             // Delete button [x]
-            int btnX = width - PADDING - ACTION_BUTTON_SIZE - 4;
+            int btnX = baseWidth - PADDING - ACTION_BUTTON_SIZE - 4;
             int btnY = currentY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
 
             Pen deletePen(Color(255, 200, 80, 80), 1.5f);
@@ -1300,10 +1339,9 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_MOUSEMOVE: {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
-            RECT rc;
-            GetClientRect(hwnd, &rc);
+            // Inverse scale mouse coordinates for hit testing
+            int x = InverseScaled(LOWORD(lParam));
+            int y = InverseScaled(HIWORD(lParam));
             bool needRedraw = false;
 
             if (g_panelMode == ControlUI::MODE_SEARCH) {
@@ -1312,7 +1350,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int startY = PADDING + headerHeight + PADDING;
 
                 // Check pin button hover
-                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnX = WINDOW_WIDTH - PADDING - NEW_EC_BUTTON_SIZE;
                 int pinBtnY = PADDING + (headerHeight - NEW_EC_BUTTON_SIZE) / 2;
                 bool wasPinHover = g_keepOpenButtonHover;
                 g_keepOpenButtonHover = (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
@@ -1342,7 +1380,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int itemsStartY = searchBarY + SEARCH_HEIGHT + PADDING;
 
                 // Check pin button hover (in header - right side)
-                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnX = WINDOW_WIDTH - PADDING - NEW_EC_BUTTON_SIZE;
                 int pinBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
                 bool wasPinHover = g_keepOpenButtonHover;
                 g_keepOpenButtonHover = (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
@@ -1360,7 +1398,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 // Check preset buttons and save button hover (in preset bar)
                 int presetBtnSpacing = 4;
                 int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
-                int presetStartX = (rc.right - totalPresetWidth) / 2;
+                int presetStartX = (WINDOW_WIDTH - totalPresetWidth) / 2;
                 int oldHoveredPreset = g_hoveredPresetButton;
                 g_hoveredPresetButton = -1;
 
@@ -1404,10 +1442,9 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_LBUTTONDOWN: {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
-            RECT rc;
-            GetClientRect(hwnd, &rc);
+            // Inverse scale mouse coordinates for hit testing
+            int x = InverseScaled(LOWORD(lParam));
+            int y = InverseScaled(HIWORD(lParam));
 
             if (g_panelMode == ControlUI::MODE_SEARCH) {
                 // Mode 1: Search mode
@@ -1415,7 +1452,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int startY = PADDING + headerHeight + PADDING;
 
                 // Check pin button click (toggle keep-open)
-                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnX = WINDOW_WIDTH - PADDING - NEW_EC_BUTTON_SIZE;
                 int pinBtnY = PADDING + (headerHeight - NEW_EC_BUTTON_SIZE) / 2;
                 if (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
                     y >= pinBtnY && y < pinBtnY + NEW_EC_BUTTON_SIZE) {
@@ -1446,7 +1483,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int itemsStartY = searchBarY + SEARCH_HEIGHT + PADDING;
 
                 // Check pin button click (toggle keep-open) - in header, right side
-                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnX = WINDOW_WIDTH - PADDING - NEW_EC_BUTTON_SIZE;
                 int pinBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
                 if (x >= pinBtnX && x < pinBtnX + NEW_EC_BUTTON_SIZE &&
                     y >= pinBtnY && y < pinBtnY + NEW_EC_BUTTON_SIZE) {
@@ -1470,7 +1507,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 // Check preset buttons and save button in preset bar
                 int presetBtnSpacing = 4;
                 int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
-                int presetStartX = (rc.right - totalPresetWidth) / 2;
+                int presetStartX = (WINDOW_WIDTH - totalPresetWidth) / 2;
 
                 // Check 6 preset buttons (square, PRESET_BUTTON_HEIGHT x PRESET_BUTTON_HEIGHT)
                 for (int i = 0; i < PRESET_SLOT_COUNT; i++) {
@@ -1535,7 +1572,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         // Layer effects mode
                         if (idx >= 0 && idx < (int)g_layerEffects.size()) {
                             int itemY = itemsStartY + idx * ITEM_HEIGHT;
-                            int btnX = rc.right - PADDING - ACTION_BUTTON_SIZE - 4;
+                            int btnX = WINDOW_WIDTH - PADDING - ACTION_BUTTON_SIZE - 4;
                             int btnY = itemY + (ITEM_HEIGHT - ACTION_BUTTON_SIZE) / 2;
 
                             // Check if clicked on delete button
@@ -1603,8 +1640,9 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // Use (short) cast to handle negative screen coordinates properly
             POINT pt = { (int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam) };
             ScreenToClient(hwnd, &pt);
-            RECT rc;
-            GetClientRect(hwnd, &rc);
+            // Inverse scale for hit testing (coordinates are in scaled window space)
+            pt.x = InverseScaled(pt.x);
+            pt.y = InverseScaled(pt.y);
 
             if (g_panelMode == ControlUI::MODE_SEARCH) {
                 // Mode 1: Search mode
@@ -1613,7 +1651,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int itemsStartY = searchBottom + PADDING;
 
                 // Pin button (right side of search bar)
-                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnX = WINDOW_WIDTH - PADDING - NEW_EC_BUTTON_SIZE;
                 int pinBtnY = PADDING + (headerHeight - NEW_EC_BUTTON_SIZE) / 2;
                 if (pt.x >= pinBtnX && pt.x <= pinBtnX + NEW_EC_BUTTON_SIZE &&
                     pt.y >= pinBtnY && pt.y <= pinBtnY + NEW_EC_BUTTON_SIZE) {
@@ -1629,7 +1667,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int visibleCount = min((int)g_searchResults.size(), MAX_VISIBLE_ITEMS);
                 int itemsEndY = itemsStartY + visibleCount * ITEM_HEIGHT;
                 if (pt.y >= itemsStartY && pt.y < itemsEndY &&
-                    pt.x >= PADDING && pt.x <= rc.right - PADDING) {
+                    pt.x >= PADDING && pt.x <= WINDOW_WIDTH - PADDING) {
                     return HTCLIENT;  // Item area - clickable
                 }
             } else {
@@ -1643,7 +1681,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int itemsStartY = searchBottom + PADDING;
 
                 // Pin button (header, right side)
-                int pinBtnX = rc.right - PADDING - NEW_EC_BUTTON_SIZE;
+                int pinBtnX = WINDOW_WIDTH - PADDING - NEW_EC_BUTTON_SIZE;
                 int pinBtnY = headerY + (HEADER_HEIGHT - NEW_EC_BUTTON_SIZE) / 2;
                 if (pt.x >= pinBtnX && pt.x <= pinBtnX + NEW_EC_BUTTON_SIZE &&
                     pt.y >= pinBtnY && pt.y <= pinBtnY + NEW_EC_BUTTON_SIZE) {
@@ -1662,7 +1700,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 if (pt.y >= presetBarY && pt.y < presetBottom) {
                     int presetBtnSpacing = 4;
                     int totalPresetWidth = PRESET_SLOT_COUNT * (PRESET_BUTTON_HEIGHT + presetBtnSpacing) + SAVE_BUTTON_SIZE + presetBtnSpacing;
-                    int presetStartX = (rc.right - totalPresetWidth) / 2;
+                    int presetStartX = (WINDOW_WIDTH - totalPresetWidth) / 2;
                     int presetEndX = presetStartX + totalPresetWidth;
                     if (pt.x >= presetStartX && pt.x < presetEndX) {
                         return HTCLIENT;  // Preset buttons - clickable
@@ -1671,7 +1709,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
                 // Search input area
                 if (pt.y >= searchBarY && pt.y < searchBottom &&
-                    pt.x >= PADDING && pt.x <= rc.right - PADDING) {
+                    pt.x >= PADDING && pt.x <= WINDOW_WIDTH - PADDING) {
                     return HTCLIENT;  // Text input area - no drag
                 }
 
@@ -1679,7 +1717,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int visibleCount = min((int)(wcslen(g_searchQuery) > 0 ? g_searchResults.size() : g_layerEffects.size()), MAX_VISIBLE_ITEMS);
                 int itemsEndY = itemsStartY + visibleCount * ITEM_HEIGHT;
                 if (pt.y >= itemsStartY && pt.y < itemsEndY &&
-                    pt.x >= PADDING && pt.x <= rc.right - PADDING) {
+                    pt.x >= PADDING && pt.x <= WINDOW_WIDTH - PADDING) {
                     return HTCLIENT;  // Item area - clickable
                 }
             }

@@ -15,11 +15,27 @@
 
 using namespace Gdiplus;
 
+// External function from SnapPlugin.cpp to get module scale factor
+extern float GetModuleScaleFactor(const char* moduleName);
+
 namespace DMenuUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 140;
 static const int WINDOW_HEIGHT = 126;  // 4 items now
+
+// Scale factor for this module (set in ShowMenu)
+static float g_scaleFactor = 1.0f;
+
+// Helper functions for scaling
+inline int Scaled(int baseValue) {
+    return (int)(baseValue * g_scaleFactor);
+}
+
+inline int InverseScaled(int screenValue) {
+    return (int)(screenValue / g_scaleFactor);
+}
+
 static const int ITEM_HEIGHT = 28;
 static const int PADDING = 8;
 
@@ -133,19 +149,24 @@ void ShowMenu(int x, int y) {
     g_action = ACTION_NONE;
     g_hoverIndex = -1;
 
+    // Get scale factor from settings
+    g_scaleFactor = GetModuleScaleFactor("dmenu");
+    int scaledWidth = Scaled(WINDOW_WIDTH);
+    int scaledHeight = Scaled(WINDOW_HEIGHT);
+
     // Position near mouse
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    int posX = x - WINDOW_WIDTH / 2;
+    int posX = x - scaledWidth / 2;
     int posY = y - 10; // Slightly above cursor
 
     if (posX < workArea.left) posX = workArea.left;
     if (posY < workArea.top) posY = workArea.top;
-    if (posX + WINDOW_WIDTH > workArea.right) posX = workArea.right - WINDOW_WIDTH;
-    if (posY + WINDOW_HEIGHT > workArea.bottom) posY = workArea.bottom - WINDOW_HEIGHT;
+    if (posX + scaledWidth > workArea.right) posX = workArea.right - scaledWidth;
+    if (posY + scaledHeight > workArea.bottom) posY = workArea.bottom - scaledHeight;
 
-    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_SHOWWINDOW);
+    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight, SWP_SHOWWINDOW);
     ShowWindow(g_hwnd, SW_SHOW);
 
     // Take focus - this is key to intercepting keyboard input
@@ -211,6 +232,9 @@ static void Draw(HDC hdc) {
     g.SetSmoothingMode(SmoothingModeAntiAlias);
     g.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
+    // Apply scale transform - all drawing uses base dimensions
+    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
     // Background with rounded corners
     SolidBrush bgBrush(COLOR_BG);
     Pen borderPen(COLOR_BORDER, 1);
@@ -264,8 +288,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     case WM_MOUSEMOVE: {
-        int x = GET_X_LPARAM(lParam);
-        int y = GET_Y_LPARAM(lParam);
+        // Inverse scale mouse coordinates for hit testing
+        int x = InverseScaled(GET_X_LPARAM(lParam));
+        int y = InverseScaled(GET_Y_LPARAM(lParam));
         int newHover = HitTest(x, y);
         if (newHover != g_hoverIndex) {
             g_hoverIndex = newHover;
@@ -275,8 +300,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     case WM_LBUTTONDOWN: {
-        int x = GET_X_LPARAM(lParam);
-        int y = GET_Y_LPARAM(lParam);
+        // Inverse scale mouse coordinates for hit testing
+        int x = InverseScaled(GET_X_LPARAM(lParam));
+        int y = InverseScaled(GET_Y_LPARAM(lParam));
         int index = HitTest(x, y);
         if (index >= 0 && index < MENU_ITEM_COUNT) {
             g_action = MENU_ITEMS[index].action;

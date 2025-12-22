@@ -325,6 +325,34 @@ static int g_loadedGridScale = 2;    // 0-9, default 2 (0%)
 static int g_loadedGridOpacity = 75; // 0-100%
 static int g_loadedCellOpacity = 50; // 0-100%
 
+// Module scales (0-9: -20% to +70%, default 2 = 0%)
+static int g_moduleScaleControl = 2;   // Effect Search (Shift+E)
+static int g_moduleScaleKeyframe = 2;  // Keyframe (K)
+static int g_moduleScaleAlign = 2;     // Align (A)
+static int g_moduleScaleText = 2;      // Text (T)
+static int g_moduleScaleDmenu = 2;     // D-Menu (D)
+static int g_moduleScaleComp = 2;      // Comp (C)
+
+// Scale factor lookup: index 0-9 → -20% to +70%
+static const float g_scaleFactors[10] = {
+    0.80f, 0.90f, 1.00f, 1.10f, 1.20f, 1.30f, 1.40f, 1.50f, 1.60f, 1.70f
+};
+
+// Module scale factor getters (returns 0.8 ~ 1.7)
+float GetModuleScaleFactor(const char* moduleName) {
+    int scaleIdx = 2; // default 0%
+    if (strcmp(moduleName, "control") == 0) scaleIdx = g_moduleScaleControl;
+    else if (strcmp(moduleName, "keyframe") == 0) scaleIdx = g_moduleScaleKeyframe;
+    else if (strcmp(moduleName, "align") == 0) scaleIdx = g_moduleScaleAlign;
+    else if (strcmp(moduleName, "text") == 0) scaleIdx = g_moduleScaleText;
+    else if (strcmp(moduleName, "dmenu") == 0) scaleIdx = g_moduleScaleDmenu;
+    else if (strcmp(moduleName, "comp") == 0) scaleIdx = g_moduleScaleComp;
+
+    if (scaleIdx < 0) scaleIdx = 0;
+    if (scaleIdx > 9) scaleIdx = 9;
+    return g_scaleFactors[scaleIdx];
+}
+
 // Define MissingSuiteError for AEGP_SuiteHandler
 void AEGP_SuiteHandler::MissingSuiteError() const {
   throw std::runtime_error("Missing AEGP Suite");
@@ -593,6 +621,55 @@ void LoadSettingsFromFile() {
           // Store in NativeUI clipboard
           NativeUI::SetClipboardAnchor(rx, ry);
         }
+      }
+    }
+  }
+
+  // moduleScales - parse {"control":2,"keyframe":2,"align":2,"text":2,"dmenu":2,"comp":2}
+  if ((p = strstr(buffer, "\"moduleScales\":")) != NULL) {
+    const char *objStart = strchr(p, '{');
+    if (objStart) {
+      // control
+      const char *kp = strstr(objStart, "\"control\":");
+      if (kp) {
+        kp += 10;
+        int val = atoi(kp);
+        if (val >= 0 && val <= 9) g_moduleScaleControl = val;
+      }
+      // keyframe
+      kp = strstr(objStart, "\"keyframe\":");
+      if (kp) {
+        kp += 11;
+        int val = atoi(kp);
+        if (val >= 0 && val <= 9) g_moduleScaleKeyframe = val;
+      }
+      // align
+      kp = strstr(objStart, "\"align\":");
+      if (kp) {
+        kp += 8;
+        int val = atoi(kp);
+        if (val >= 0 && val <= 9) g_moduleScaleAlign = val;
+      }
+      // text
+      kp = strstr(objStart, "\"text\":");
+      if (kp) {
+        kp += 7;
+        int val = atoi(kp);
+        if (val >= 0 && val <= 9) g_moduleScaleText = val;
+      }
+      // dmenu
+      kp = strstr(objStart, "\"dmenu\":");
+      if (kp) {
+        kp += 8;
+        int val = atoi(kp);
+        if (val >= 0 && val <= 9) g_moduleScaleDmenu = val;
+      }
+      // comp
+      kp = strstr(objStart, "\"comp\":");
+      if (kp) {
+        kp += 7;
+        int val = atoi(kp);
+        if (val >= 0 && val <= 9) g_moduleScaleComp = val;
       }
     }
   }
@@ -1679,11 +1756,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       snprintf(script, sizeof(script),
                "(function(){"
                "try{"
-               "alert('Apply: out=%.2f/%.2f in=%.2f/%.2f');"
                "var c=app.project.activeItem;"
-               "if(!c||!(c instanceof CompItem)){alert('No comp');return;}"
+               "if(!c||!(c instanceof CompItem))return;"
                "var props=c.selectedProperties;"
-               "if(!props||props.length===0){alert('No props');return;}"
+               "if(!props||props.length===0)return;"
                "var outSpd=%.2f,outInf=%.2f,inSpd=%.2f,inInf=%.2f;"
                "app.beginUndoGroup('Apply Keyframe Easing');"
                "for(var i=0;i<props.length;i++){"
@@ -1701,18 +1777,16 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                "for(var j=0;j<keys.length;j++){"
                "var k=keys[j];"
                "if(j<keys.length-1){"
-               "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e1){alert('out err:'+e1);}"
+               "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e){}"
                "}"
                "if(j>0){"
-               "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e2){alert('in err:'+e2);}"
+               "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e){}"
                "}"
                "}"
                "}"
                "app.endUndoGroup();"
-               "alert('Done!');"
-               "}catch(e){alert('Error:'+e);}"
+               "}catch(e){}"
                "})();",
-               outSpd, outInf, inSpd, inInf,
                outSpd, outInf, inSpd, inInf);
       ExecuteScript(script);
     }

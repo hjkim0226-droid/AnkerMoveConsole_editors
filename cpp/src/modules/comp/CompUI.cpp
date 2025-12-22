@@ -15,11 +15,27 @@
 
 using namespace Gdiplus;
 
+// External function from SnapPlugin.cpp to get module scale factor
+extern float GetModuleScaleFactor(const char* moduleName);
+
 namespace CompUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 280;
 static const int WINDOW_HEIGHT = 160;
+
+// Scale factor for this module (set in ShowPanel)
+static float g_scaleFactor = 1.0f;
+
+// Helper functions for scaling
+inline int Scaled(int baseValue) {
+    return (int)(baseValue * g_scaleFactor);
+}
+
+inline int InverseScaled(int screenValue) {
+    return (int)(screenValue / g_scaleFactor);
+}
+
 static const int HEADER_HEIGHT = 32;
 static const int BUTTON_HEIGHT = 36;
 static const int BUTTON_MARGIN = 8;
@@ -154,19 +170,24 @@ void ShowPanel(int x, int y) {
     g_result = CompResult();
     g_hoverButton = -1;
 
+    // Get scale factor from settings
+    g_scaleFactor = GetModuleScaleFactor("comp");
+    int scaledWidth = Scaled(WINDOW_WIDTH);
+    int scaledHeight = Scaled(WINDOW_HEIGHT);
+
     // Position window
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    int posX = x - WINDOW_WIDTH / 2;
-    int posY = y - WINDOW_HEIGHT / 2;
+    int posX = x - scaledWidth / 2;
+    int posY = y - scaledHeight / 2;
 
     if (posX < workArea.left) posX = workArea.left;
     if (posY < workArea.top) posY = workArea.top;
-    if (posX + WINDOW_WIDTH > workArea.right) posX = workArea.right - WINDOW_WIDTH;
-    if (posY + WINDOW_HEIGHT > workArea.bottom) posY = workArea.bottom - WINDOW_HEIGHT;
+    if (posX + scaledWidth > workArea.right) posX = workArea.right - scaledWidth;
+    if (posY + scaledHeight > workArea.bottom) posY = workArea.bottom - scaledHeight;
 
-    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, WINDOW_WIDTH, WINDOW_HEIGHT,
+    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
     ShowWindow(g_hwnd, SW_SHOWNA);
     InvalidateRect(g_hwnd, NULL, TRUE);
@@ -196,8 +217,9 @@ void UpdateHover(int mouseX, int mouseY) {
 
     RECT wndRect;
     GetWindowRect(g_hwnd, &wndRect);
-    int localX = mouseX - wndRect.left;
-    int localY = mouseY - wndRect.top;
+    // Convert to local coords and inverse scale for hit testing
+    int localX = InverseScaled(mouseX - wndRect.left);
+    int localY = InverseScaled(mouseY - wndRect.top);
 
     bool needsRepaint = false;
     POINT pt = {localX, localY};
@@ -274,14 +296,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
-        // Double buffering
+        // Double buffering - use scaled dimensions
+        int scaledWidth = Scaled(WINDOW_WIDTH);
+        int scaledHeight = Scaled(WINDOW_HEIGHT);
         HDC memDC = CreateCompatibleDC(hdc);
-        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, WINDOW_WIDTH, WINDOW_HEIGHT);
+        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, scaledWidth, scaledHeight);
         HGDIOBJ oldBitmap = SelectObject(memDC, memBitmap);
 
         Draw(memDC);
 
-        BitBlt(hdc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, memDC, 0, 0, SRCCOPY);
+        BitBlt(hdc, 0, 0, scaledWidth, scaledHeight, memDC, 0, 0, SRCCOPY);
 
         SelectObject(memDC, oldBitmap);
         DeleteObject(memBitmap);
@@ -295,8 +319,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return MA_NOACTIVATE;
 
     case WM_LBUTTONDOWN: {
-        int x = GET_X_LPARAM(lParam);
-        int y = GET_Y_LPARAM(lParam);
+        // Inverse scale mouse coordinates for hit testing
+        int x = InverseScaled(GET_X_LPARAM(lParam));
+        int y = InverseScaled(GET_Y_LPARAM(lParam));
 
         // Check header drag
         if (y >= PADDING && y < PADDING + HEADER_HEIGHT && x < g_pinRect.left) {
@@ -375,6 +400,9 @@ static void Draw(HDC hdc) {
     Graphics g(hdc);
     g.SetSmoothingMode(SmoothingModeAntiAlias);
     g.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
+
+    // Apply scale transform - all drawing uses base dimensions
+    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
 
     // Background
     SolidBrush bgBrush(COLOR_BG);

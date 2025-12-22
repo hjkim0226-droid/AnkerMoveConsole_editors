@@ -24,7 +24,24 @@ class Settings {
             ],
             selectedPreset: 0,
             // Clipboard anchor for copy/paste (ratio 0-1)
-            clipboardAnchor: null
+            clipboardAnchor: null,
+            // Module scales (0-9: -20% to +70%, same as gridScale)
+            // Grid uses gridScale, these are for other modules
+            moduleScales: {
+                control: 2,    // Effect Search (Shift+E)
+                keyframe: 2,   // Keyframe (K)
+                align: 2,      // Align (A via D-menu)
+                text: 2,       // Text (T via D-menu)
+                dmenu: 2,      // D-Menu
+                comp: 2        // Comp (C via D-menu)
+            },
+            // Keyboard shortcuts (key codes or key names)
+            shortcuts: {
+                grid: 'Y',           // Anchor Grid
+                control: 'Shift+E',  // Effect Search
+                keyframe: 'K',       // Keyframe Editor
+                dmenu: 'D'           // D-Menu (leads to A, T, K options)
+            }
         };
 
         this.settings = { ...this.defaults };
@@ -164,8 +181,41 @@ class Settings {
         const langSelect = document.getElementById('language-select');
         if (langSelect) langSelect.value = this.settings.language;
 
+        // Module scales
+        this.updateModuleScalesUI();
+
+        // Shortcuts
+        this.updateShortcutsUI();
+
         // Build preview grid
         this.buildPreviewGrid();
+    }
+
+    updateModuleScalesUI() {
+        const scaleValues = ['-20%', '-10%', '0%', '+10%', '+20%', '+30%', '+40%', '+50%', '+60%', '+70%'];
+        const modules = ['control', 'keyframe', 'align', 'text', 'dmenu', 'comp'];
+
+        modules.forEach(mod => {
+            const slider = document.getElementById(`scale-${mod}`);
+            const display = document.getElementById(`scale-${mod}-display`);
+            if (slider && this.settings.moduleScales) {
+                slider.value = this.settings.moduleScales[mod] || 2;
+                if (display) {
+                    display.textContent = scaleValues[this.settings.moduleScales[mod] || 2];
+                }
+            }
+        });
+    }
+
+    updateShortcutsUI() {
+        const shortcuts = ['grid', 'control', 'keyframe', 'dmenu'];
+
+        shortcuts.forEach(mod => {
+            const input = document.getElementById(`shortcut-${mod}`);
+            if (input && this.settings.shortcuts) {
+                input.value = this.settings.shortcuts[mod] || '';
+            }
+        });
     }
 
     updateModeButtons() {
@@ -281,6 +331,81 @@ class Settings {
             this.set('language', e.target.value);
             if (window.i18n) {
                 i18n.setLanguage(e.target.value);
+            }
+        });
+
+        // Module scale sliders
+        this.bindModuleScaleEvents();
+
+        // Shortcut inputs
+        this.bindShortcutEvents();
+    }
+
+    bindModuleScaleEvents() {
+        const scaleValues = ['-20%', '-10%', '0%', '+10%', '+20%', '+30%', '+40%', '+50%', '+60%', '+70%'];
+        const modules = ['control', 'keyframe', 'align', 'text', 'dmenu', 'comp'];
+        const self = this;
+
+        modules.forEach(mod => {
+            const slider = document.getElementById(`scale-${mod}`);
+            if (slider) {
+                slider.addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value);
+                    if (!self.settings.moduleScales) {
+                        self.settings.moduleScales = {};
+                    }
+                    self.settings.moduleScales[mod] = value;
+                    self.save();
+
+                    const display = document.getElementById(`scale-${mod}-display`);
+                    if (display) {
+                        display.textContent = scaleValues[value];
+                    }
+                });
+            }
+        });
+    }
+
+    bindShortcutEvents() {
+        const shortcuts = ['grid', 'control', 'keyframe', 'dmenu'];
+        const self = this;
+
+        shortcuts.forEach(mod => {
+            const input = document.getElementById(`shortcut-${mod}`);
+            if (input) {
+                // Capture key on keydown
+                input.addEventListener('keydown', (e) => {
+                    e.preventDefault();
+
+                    let key = '';
+                    if (e.ctrlKey) key += 'Ctrl+';
+                    if (e.altKey) key += 'Alt+';
+                    if (e.shiftKey) key += 'Shift+';
+
+                    // Get the actual key (not modifier)
+                    if (!['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+                        key += e.key.toUpperCase();
+
+                        if (!self.settings.shortcuts) {
+                            self.settings.shortcuts = {};
+                        }
+                        self.settings.shortcuts[mod] = key;
+                        self.save();
+                        input.value = key;
+                    }
+                });
+
+                // Clear on right-click (reset to default)
+                input.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    const defaults = { grid: 'Y', control: 'Shift+E', keyframe: 'K', dmenu: 'D' };
+                    if (!self.settings.shortcuts) {
+                        self.settings.shortcuts = {};
+                    }
+                    self.settings.shortcuts[mod] = defaults[mod];
+                    self.save();
+                    input.value = defaults[mod];
+                });
             }
         });
     }

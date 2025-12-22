@@ -15,11 +15,27 @@
 
 using namespace Gdiplus;
 
+// External function from SnapPlugin.cpp to get module scale factor
+extern float GetModuleScaleFactor(const char* moduleName);
+
 namespace TextUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 340;
 static const int WINDOW_HEIGHT = 260;
+
+// Scale factor for this module (set in ShowPanel)
+static float g_scaleFactor = 1.0f;
+
+// Helper functions for scaling
+inline int Scaled(int baseValue) {
+    return (int)(baseValue * g_scaleFactor);
+}
+
+inline int InverseScaled(int screenValue) {
+    return (int)(screenValue / g_scaleFactor);
+}
+
 static const int HEADER_HEIGHT = 32;
 static const int SECTION_HEIGHT = 28;
 static const int VALUE_BOX_WIDTH = 100;
@@ -229,19 +245,24 @@ void ShowPanel(int x, int y) {
     g_editMode = false;
     g_hoverTarget = TARGET_NONE;
 
+    // Get scale factor from settings
+    g_scaleFactor = GetModuleScaleFactor("text");
+    int scaledWidth = Scaled(WINDOW_WIDTH);
+    int scaledHeight = Scaled(WINDOW_HEIGHT);
+
     // Position window
     RECT workArea;
     SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
 
-    int posX = x - WINDOW_WIDTH / 2;
-    int posY = y - WINDOW_HEIGHT / 2;
+    int posX = x - scaledWidth / 2;
+    int posY = y - scaledHeight / 2;
 
     if (posX < workArea.left) posX = workArea.left;
     if (posY < workArea.top) posY = workArea.top;
-    if (posX + WINDOW_WIDTH > workArea.right) posX = workArea.right - WINDOW_WIDTH;
-    if (posY + WINDOW_HEIGHT > workArea.bottom) posY = workArea.bottom - WINDOW_HEIGHT;
+    if (posX + scaledWidth > workArea.right) posX = workArea.right - scaledWidth;
+    if (posY + scaledHeight > workArea.bottom) posY = workArea.bottom - scaledHeight;
 
-    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, WINDOW_WIDTH, WINDOW_HEIGHT,
+    SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
     ShowWindow(g_hwnd, SW_SHOWNA);
     InvalidateRect(g_hwnd, NULL, TRUE);
@@ -274,8 +295,9 @@ void UpdateHover(int mouseX, int mouseY) {
 
     RECT wndRect;
     GetWindowRect(g_hwnd, &wndRect);
-    int localX = mouseX - wndRect.left;
-    int localY = mouseY - wndRect.top;
+    // Convert to local coords and inverse scale for hit testing
+    int localX = InverseScaled(mouseX - wndRect.left);
+    int localY = InverseScaled(mouseY - wndRect.top);
 
     bool needsRepaint = false;
     POINT pt = {localX, localY};
@@ -400,19 +422,23 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return MA_ACTIVATE;
 
     case WM_LBUTTONDOWN:
-        HandleMouseDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        // Inverse scale mouse coordinates for hit testing
+        HandleMouseDown(InverseScaled(GET_X_LPARAM(lParam)), InverseScaled(GET_Y_LPARAM(lParam)));
         return 0;
 
     case WM_LBUTTONUP:
-        HandleMouseUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        // Inverse scale mouse coordinates for hit testing
+        HandleMouseUp(InverseScaled(GET_X_LPARAM(lParam)), InverseScaled(GET_Y_LPARAM(lParam)));
         return 0;
 
     case WM_MOUSEMOVE:
-        HandleMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        // Inverse scale mouse coordinates for hit testing
+        HandleMouseMove(InverseScaled(GET_X_LPARAM(lParam)), InverseScaled(GET_Y_LPARAM(lParam)));
         return 0;
 
     case WM_LBUTTONDBLCLK:
-        HandleDoubleClick(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        // Inverse scale mouse coordinates for hit testing
+        HandleDoubleClick(InverseScaled(GET_X_LPARAM(lParam)), InverseScaled(GET_Y_LPARAM(lParam)));
         return 0;
 
     case WM_KEYDOWN:
@@ -463,6 +489,9 @@ static void Draw(HDC hdc) {
     Graphics g(hdc);
     g.SetSmoothingMode(SmoothingModeAntiAlias);
     g.SetTextRenderingHint(TextRenderingHintAntiAlias);
+
+    // Apply scale transform - all drawing uses base dimensions
+    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
 
     // Background
     SolidBrush bgBrush(COLOR_BG);

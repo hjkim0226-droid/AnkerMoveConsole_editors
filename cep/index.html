@@ -181,16 +181,68 @@
         </div>
     </div>
 
-    <!-- Shortcuts Section -->
+    <!-- Module Scales Section -->
     <div class="section">
-        <div class="section-title" data-i18n="shortcuts">Shortcuts</div>
-        <div class="shortcut-row">
-            <span class="shortcut-label" data-i18n="holdGrid">Hold Grid:</span>
-            <span class="shortcut-key" id="key-hold">Y</span>
+        <div class="section-title" data-i18n="moduleScales">Module Scales</div>
+        <div class="help-text" style="margin-bottom: 8px;">Adjust popup size for each module (Grid uses its own scale above)</div>
+
+        <div class="module-scale-row">
+            <span class="module-label">Effect Search (Shift+E)</span>
+            <input type="range" id="scale-control" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+            <span class="scale-value-mini" id="scale-control-display">0%</span>
         </div>
-        <div class="shortcut-row">
-            <span class="shortcut-label" data-i18n="toggleClick">Toggle Click:</span>
-            <span class="shortcut-key" id="key-toggle">Y~Y</span>
+        <div class="module-scale-row">
+            <span class="module-label">Keyframe (K)</span>
+            <input type="range" id="scale-keyframe" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+            <span class="scale-value-mini" id="scale-keyframe-display">0%</span>
+        </div>
+        <div class="module-scale-row">
+            <span class="module-label">D-Menu (D)</span>
+            <input type="range" id="scale-dmenu" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+            <span class="scale-value-mini" id="scale-dmenu-display">0%</span>
+        </div>
+        <div class="module-scale-row">
+            <span class="module-label">Align (A)</span>
+            <input type="range" id="scale-align" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+            <span class="scale-value-mini" id="scale-align-display">0%</span>
+        </div>
+        <div class="module-scale-row">
+            <span class="module-label">Text (T)</span>
+            <input type="range" id="scale-text" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+            <span class="scale-value-mini" id="scale-text-display">0%</span>
+        </div>
+        <div class="module-scale-row">
+            <span class="module-label">Comp (C)</span>
+            <input type="range" id="scale-comp" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+            <span class="scale-value-mini" id="scale-comp-display">0%</span>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Section -->
+    <div class="section">
+        <div class="section-title" data-i18n="shortcuts">Keyboard Shortcuts</div>
+        <div class="help-text" style="margin-bottom: 8px;">Click input and press new key. Right-click to reset.</div>
+
+        <div class="shortcut-edit-row">
+            <span class="shortcut-label">Anchor Grid:</span>
+            <input type="text" id="shortcut-grid" class="shortcut-input" value="Y" readonly>
+        </div>
+        <div class="shortcut-edit-row">
+            <span class="shortcut-label">Effect Search:</span>
+            <input type="text" id="shortcut-control" class="shortcut-input" value="Shift+E" readonly>
+        </div>
+        <div class="shortcut-edit-row">
+            <span class="shortcut-label">Keyframe:</span>
+            <input type="text" id="shortcut-keyframe" class="shortcut-input" value="K" readonly>
+        </div>
+        <div class="shortcut-edit-row">
+            <span class="shortcut-label">D-Menu:</span>
+            <input type="text" id="shortcut-dmenu" class="shortcut-input" value="D" readonly>
+        </div>
+
+        <div class="shortcut-info">
+            <span class="shortcut-key">Hold</span> = 0.4s hold to show
+            <span class="shortcut-key">~</span> = Double-tap for toggle mode
         </div>
     </div>
 
