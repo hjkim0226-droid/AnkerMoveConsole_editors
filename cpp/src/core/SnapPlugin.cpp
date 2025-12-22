@@ -1209,10 +1209,11 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: user is typing in text field OR After Effects is not in
-  // foreground
+  // Skip if: user is typing in text field, text tool active, OR After Effects
+  // is not in foreground
   if (y_key_held && !g_globals.key_was_held && !alt_held &&
-      !IsTextInputFocused() && IsAfterEffectsForeground()) {
+      !IsTextInputFocused() && !IsTextToolActive() &&
+      IsAfterEffectsForeground()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
       auto timeSinceLastRelease =
@@ -1304,7 +1305,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Shift+E just pressed - toggle panel
   if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible) {
+      !IsTextToolActive() && IsAfterEffectsForeground() &&
+      !g_globals.menu_visible) {
 
     if (g_controlVisible) {
       // Already open - close it (toggle off)
@@ -1574,7 +1576,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Right Shift+K just pressed - toggle panel
   if (rshift_k_pressed && !g_rshiftKWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_dMenuVisible) {
+      !IsTextToolActive() && IsAfterEffectsForeground() &&
+      !g_globals.menu_visible && !g_dMenuVisible) {
 
     if (g_keyframeVisible) {
       // Already open - close it (toggle off)
