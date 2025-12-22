@@ -68,10 +68,6 @@ A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
  * IsTextInputFocused
  * Check if focus is on a text input field (Edit, RichEdit, etc.)
  * Returns true if user is typing in a text field
- *
- * NOTE: We only check window class names now, not caret visibility.
- * Caret-based detection was too aggressive and blocked shortcuts
- * even after finishing text editing in After Effects.
  *****************************************************************************/
 #ifdef MSWindows
 bool IsTextInputFocused() {
@@ -84,15 +80,25 @@ bool IsTextInputFocused() {
 
   if (!GetGUIThreadInfo(threadId, &gti)) return false;
 
-  // Check focused window class name
-  // Only block for actual text input controls (not AE text layer editing)
+  // Method 1: Check if caret is visible (most reliable for text input)
+  // hwndCaret is set when a text caret (cursor) is visible in any window
+  if (gti.hwndCaret != NULL) {
+    return true;
+  }
+
+  // Method 2: Check if caret is blinking (alternative detection)
+  if (gti.flags & GUI_CARETBLINKING) {
+    return true;
+  }
+
+  // Method 3: Check focused window class name (fallback)
   HWND focused = gti.hwndFocus;
   if (!focused) return false;
 
   char className[64] = {0};
   GetClassNameA(focused, className, sizeof(className));
 
-  // Common text input class names (dialogs, search bars, etc.)
+  // Common text input class names
   if (_strnicmp(className, "Edit", 4) == 0 ||
       _strnicmp(className, "RichEdit", 8) == 0 ||
       _strnicmp(className, "RICHEDIT", 8) == 0 ||
@@ -1280,11 +1286,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: user is typing in text field, text tool active, OR After Effects
-  // is not in foreground
+  // Skip if: user is typing in text field OR After Effects is not in foreground
   if (y_key_held && !g_globals.key_was_held && !alt_held &&
-      !IsTextInputFocused() && !IsTextToolActive() &&
-      IsAfterEffectsForeground()) {
+      !IsTextInputFocused() && IsAfterEffectsForeground()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
       auto timeSinceLastRelease =
@@ -1376,8 +1380,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Shift+E just pressed - toggle panel
   if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
-      !IsTextToolActive() && IsAfterEffectsForeground() &&
-      !g_globals.menu_visible) {
+      IsAfterEffectsForeground() && !g_globals.menu_visible) {
 
     if (g_controlVisible) {
       // Already open - close it (toggle off)
@@ -1647,8 +1650,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Right Shift+K just pressed - toggle panel
   if (rshift_k_pressed && !g_rshiftKWasHeld && !IsTextInputFocused() &&
-      !IsTextToolActive() && IsAfterEffectsForeground() &&
-      !g_globals.menu_visible && !g_dMenuVisible) {
+      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_dMenuVisible) {
 
     if (g_keyframeVisible) {
       // Already open - close it (toggle off)
@@ -1851,10 +1853,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  // Skip if: modifier keys held (Ctrl/Shift/Alt), text input focused, or text tool active
+  // Skip if: modifier keys held (Ctrl/Shift/Alt) or text input focused
   bool ctrl_held = KeyboardMonitor::IsCtrlHeld();
   if (d_key_held && !g_dKeyWasHeld && !alt_held && !shift_held && !ctrl_held &&
-      !IsTextInputFocused() && !IsTextToolActive() && IsAfterEffectsForeground() &&
+      !IsTextInputFocused() && IsAfterEffectsForeground() &&
       !g_globals.menu_visible && !g_controlVisible && !g_keyframeVisible &&
       !g_alignVisible && !g_textVisible && !g_dMenuVisible) {
     int mouseX = 0, mouseY = 0;
