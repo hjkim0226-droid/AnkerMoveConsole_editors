@@ -15,8 +15,11 @@
 
 using namespace Gdiplus;
 
-// External function from SnapPlugin.cpp to get module scale factor
+// External functions from SnapPlugin.cpp
 extern float GetModuleScaleFactor(const char* moduleName);
+extern void ApplyTextPropertyValue(const char* propName, float value);
+extern void ApplyTextColorValue(bool stroke, float r, float g, float b);
+extern void ApplyTextJustificationValue(int just);
 
 namespace TextUI {
 
@@ -1110,10 +1113,11 @@ static std::wstring FormatValue(ValueTarget target, float value) {
 }
 
 /*****************************************************************************
- * ExtendScript execution (stub - actual implementation in SnapPlugin.cpp)
+ * ExtendScript execution - calls SnapPlugin.cpp functions
  *****************************************************************************/
 static void ApplyTextProperty(const char* propName, float value) {
-    // This will be called from SnapPlugin.cpp via the result
+    // Call the external function to apply via ExtendScript
+    ApplyTextPropertyValue(propName, value);
     g_result.applied = true;
 }
 
@@ -1129,11 +1133,15 @@ static void ApplyTextColor(bool stroke, float r, float g, float b) {
         g_textInfo.fillColor[2] = b;
         g_textInfo.applyFill = true;
     }
+    // Call the external function to apply via ExtendScript
+    ApplyTextColorValue(stroke, r, g, b);
     g_result.applied = true;
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
 
 static void ApplyJustification(Justification just) {
+    // Call the external function to apply via ExtendScript
+    ApplyTextJustificationValue((int)just);
     g_result.applied = true;
 }
 

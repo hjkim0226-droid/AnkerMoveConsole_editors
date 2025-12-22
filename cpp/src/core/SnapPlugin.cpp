@@ -316,6 +316,97 @@ bool IsTextToolActive() { return false; }
 static bool g_effectsLoaded = false;
 void GetAllEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
 void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
+void ApplyTextPropertyValue(const char* propName, float value) {}
+void ApplyTextColorValue(bool stroke, float r, float g, float b) {}
+void ApplyTextJustificationValue(int just) {}
+#endif
+
+/*****************************************************************************
+ * ApplyTextPropertyValue
+ * Apply a single text property to the selected text layer
+ *****************************************************************************/
+#ifdef MSWindows
+void ApplyTextPropertyValue(const char* propName, float value) {
+  char script[512];
+  snprintf(script, sizeof(script),
+    "(function(){"
+    "try{"
+    "var c=app.project.activeItem;"
+    "if(!c||!(c instanceof CompItem))return;"
+    "var sel=c.selectedLayers;"
+    "for(var i=0;i<sel.length;i++){"
+    "if(!(sel[i] instanceof TextLayer))continue;"
+    "var txt=sel[i].text.sourceText;"
+    "var doc=txt.value;"
+    "doc.%s=%f;"
+    "txt.setValue(doc);"
+    "}"
+    "}catch(e){}"
+    "})();",
+    propName, value);
+  ExecuteScript(script);
+}
+
+/*****************************************************************************
+ * ApplyTextColorValue
+ * Apply fill or stroke color to the selected text layer
+ *****************************************************************************/
+void ApplyTextColorValue(bool stroke, float r, float g, float b) {
+  char script[512];
+  snprintf(script, sizeof(script),
+    "(function(){"
+    "try{"
+    "var c=app.project.activeItem;"
+    "if(!c||!(c instanceof CompItem))return;"
+    "var sel=c.selectedLayers;"
+    "for(var i=0;i<sel.length;i++){"
+    "if(!(sel[i] instanceof TextLayer))continue;"
+    "var txt=sel[i].text.sourceText;"
+    "var doc=txt.value;"
+    "doc.%sColor=[%f,%f,%f];"
+    "txt.setValue(doc);"
+    "}"
+    "}catch(e){}"
+    "})();",
+    stroke ? "stroke" : "fill", r, g, b);
+  ExecuteScript(script);
+}
+
+/*****************************************************************************
+ * ApplyTextJustificationValue
+ * Apply paragraph justification to the selected text layer
+ *****************************************************************************/
+void ApplyTextJustificationValue(int just) {
+  const char* justNames[] = {
+    "ParagraphJustification.LEFT_JUSTIFY",
+    "ParagraphJustification.CENTER_JUSTIFY",
+    "ParagraphJustification.RIGHT_JUSTIFY",
+    "ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT",
+    "ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER",
+    "ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT",
+    "ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL"
+  };
+  if (just < 0 || just > 6) just = 0;
+
+  char script[512];
+  snprintf(script, sizeof(script),
+    "(function(){"
+    "try{"
+    "var c=app.project.activeItem;"
+    "if(!c||!(c instanceof CompItem))return;"
+    "var sel=c.selectedLayers;"
+    "for(var i=0;i<sel.length;i++){"
+    "if(!(sel[i] instanceof TextLayer))continue;"
+    "var txt=sel[i].text.sourceText;"
+    "var doc=txt.value;"
+    "doc.justification=%s;"
+    "txt.setValue(doc);"
+    "}"
+    "}catch(e){}"
+    "})();",
+    justNames[just]);
+  ExecuteScript(script);
+}
 #endif
 
 // Settings loaded from CEP
