@@ -1,0 +1,17 @@
+<map id="CEPBridge::GetIPCDirectory" name="CEPBridge::GetIPCDirectory">
+<area shape="rect" id="Node000001" title=" " alt="" coords="739,56,931,82"/>
+<area shape="rect" id="Node000002" href="$namespace_c_e_p_bridge.html#a96d7e60dbb95d9693d1dbf50d3bb3e48" title=" " alt="" coords="468,56,691,82"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="721,69,692,71,691,66,726,69"/>
+<area shape="rect" id="Node000003" href="$namespace_c_e_p_bridge.html#a77dbdbaa8288c375333ac5b8a77de1fc" title=" " alt="" coords="258,5,400,31"/>
+<area shape="poly" id="edge8_Node000001_Node000003" title=" " alt="" coords="749,53,691,46,535,31,401,24,400,18,536,26,692,41,754,53"/>
+<area shape="rect" id="Node000005" href="$namespace_c_e_p_bridge.html#a67e87e1daab1a76d4477bd62d463ebb4" title=" " alt="" coords="482,113,677,139"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="762,85,641,115,640,110,757,86"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="495,53,396,34,396,29,500,52"/>
+<area shape="rect" id="Node000004" href="$namespace_c_e_p_bridge.html#af8519400d1d3477e25b45b335e279517" title=" " alt="" coords="5,31,190,56"/>
+<area shape="poly" id="edge4_Node000002_Node000004" title=" " alt="" coords="451,64,190,51,190,46,454,60"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="239,29,191,36,189,31,244,26"/>
+<area shape="rect" id="Node000006" href="$namespace_c_e_p_bridge.html#a49fc958bb2b6bf669497ba9bc6ac8ceb" title=" " alt="" coords="238,106,420,146"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="464,126,421,129,420,124,470,126"/>
+<area shape="rect" id="Node000007" href="$namespace_c_e_p_bridge.html#a853dc6bfbc25b97fbcd84a3d198335f4" title=" " alt="" coords="241,171,416,196"/>
+<area shape="poly" id="edge7_Node000005_Node000007" title=" " alt="" coords="508,143,389,173,388,167,503,143"/>
+</map>

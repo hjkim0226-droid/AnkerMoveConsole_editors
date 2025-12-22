@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep:*)",
+      "Bash(git checkout:*)",
+      "Bash(git mv:*)",
+      "Bash(git merge:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(cmake --build:*)",
+      "WebFetch(domain:docsforadobe.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ae-scripting.docsforadobe.dev)",
+      "WebFetch(domain:ioconsolerykerprodcdn.azureedge.net)",
+      "WebSearch",
+      "Bash(git tag:*)",
+      "WebFetch(domain:hyperbrew.co)",
+      "WebFetch(domain:hyperbrew.github.io)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:aenhancers.com)",
+      "WebFetch(domain:www.provideocoalition.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

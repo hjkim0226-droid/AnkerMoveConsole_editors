@@ -1,0 +1,214 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.15.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AE Anchor Radial Menu: cpp/src/modules/comp/CompUI.h 소스 파일</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript" src="cookie.js"></script>
+<link href="search/search.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="search/searchdata.js"></script>
+<script type="text/javascript" src="search/search.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">AE Anchor Radial Menu
+   </div>
+   <div id="projectbrief">After Effects Plugin - 앵커 포인트 라디얼 메뉴</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- 다음에 의해 생성됨 :  Doxygen 1.15.0 -->
+<script type="text/javascript">
+var searchBox = new SearchBox("searchBox", "search/",'.html');
+</script>
+<script type="text/javascript">
+$(function() { codefold.init(); });
+</script>
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+$(function() {
+  initMenu('',true,false,'search.php','검색',true);
+  $(function() { init_search(); });
+});
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(function(){initNavTree('_comp_u_i_8h_source.html','',''); });
+</script>
+<div id="container">
+<div id="doc-content">
+<!-- window showing the filter options -->
+<div id="MSearchSelectWindow"
+     onmouseover="return searchBox.OnSearchSelectShow()"
+     onmouseout="return searchBox.OnSearchSelectHide()"
+     onkeydown="return searchBox.OnSearchSelectKey(event)">
+</div>
+
+<!-- iframe showing the search results (closed by default) -->
+<div id="MSearchResultsWindow">
+<div id="MSearchResults">
+<div class="SRPage">
+<div id="SRIndex">
+<div id="SRResults"></div>
+<div class="SRStatus" id="Loading">로딩중...</div>
+<div class="SRStatus" id="Searching">검색중...</div>
+<div class="SRStatus" id="NoMatches">일치하는것 없음</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="header">
+  <div class="headertitle"><div class="title">CompUI.h</div></div>
+</div><!--header-->
+<div class="contents">
+<a href="_comp_u_i_8h.html">이 파일의 문서화 페이지로 가기</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="comment">/*****************************************************************************</span></div>
+<div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="comment"> * CompUI.h</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="comment"> * Native Windows UI for Anchor Snap - Composition Editor Module</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="comment"> * Provides quick composition editing operations</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="comment"> * Trigger: D → C sequence (D key + C key within 500ms)</span></div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="comment"> * Features:</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="comment"> * - Auto Crop: Fit composition to layer bounds</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="comment"> * - Full Duplicate: Complete comp duplication with nested comps</span></div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="comment"> * - Duration Extend/Trim: Adjust comp duration (two modes)</span></div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="comment"> * - Pre-render: Pre-render composition</span></div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="comment"> *****************************************************************************/</span></div>
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span> </div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="preprocessor">#ifndef COMPUI_H</span></div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span><span class="preprocessor">#define COMPUI_H</span></div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span> </div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespace_comp_u_i.html">CompUI</a> {</div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span> </div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span><span class="comment">// Action types</span></div>
+<div class="foldopen" id="foldopen00021" data-start="{" data-end="};">
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno"><a class="line" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008">   21</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008">CompAction</a> {</div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno"><a class="line" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008aaca90ed0ba0c36a4d7cc31ab6e807a1c">   22</a></span>    <a class="code hl_enumvalue" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008aaca90ed0ba0c36a4d7cc31ab6e807a1c">ACTION_NONE</a> = -1,</div>
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno"><a class="line" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a60d07ade9b6df6258b39fd7fa1881c2f">   23</a></span>    <a class="code hl_enumvalue" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a60d07ade9b6df6258b39fd7fa1881c2f">ACTION_AUTO_CROP</a> = 0,</div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno"><a class="line" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a25eb99385048832e171a63c2ec451e5d">   24</a></span>    <a class="code hl_enumvalue" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a25eb99385048832e171a63c2ec451e5d">ACTION_DUPLICATE</a>,</div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a51fc8177667a60247c4c9f9892673b44">   25</a></span>    <a class="code hl_enumvalue" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a51fc8177667a60247c4c9f9892673b44">ACTION_FIT_DURATION</a>  <span class="comment">// Fit to layer duration (extend/shrink)</span></div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span>};</div>
+</div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span> </div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span><span class="comment">// Current composition info (read from AE)</span></div>
+<div class="foldopen" id="foldopen00029" data-start="{" data-end="};">
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html">   29</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_comp_u_i_1_1_comp_info.html">CompInfo</a> {</div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#a3001fad9e764a17b734922c6504bb10e">   30</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#a3001fad9e764a17b734922c6504bb10e">name</a>[256];</div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#a31506a00b69bba1f9e28a123f140f455">   31</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#a31506a00b69bba1f9e28a123f140f455">width</a>;</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#abbbdba86d6d33d96c2b9e63b35fdd81a">   32</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#abbbdba86d6d33d96c2b9e63b35fdd81a">height</a>;</div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#a7fddf4d1ac7c025473378e940fd399c7">   33</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#a7fddf4d1ac7c025473378e940fd399c7">duration</a>;</div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#a2383f172dd74a2c2ec98c4a2b2aa5c8f">   34</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#a2383f172dd74a2c2ec98c4a2b2aa5c8f">frameRate</a>;</div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#ac28f969b724f0e677bc2c999b2a271e1">   35</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#ac28f969b724f0e677bc2c999b2a271e1">workAreaStart</a>;</div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_info.html#a306736e681ce6e269bad302e9106aff4">   36</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_info.html#a306736e681ce6e269bad302e9106aff4">workAreaEnd</a>;</div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span>};</div>
+</div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span> </div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span><span class="comment">// Result structure</span></div>
+<div class="foldopen" id="foldopen00040" data-start="{" data-end="};">
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_result.html">   40</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_comp_u_i_1_1_comp_result.html">CompResult</a> {</div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_result.html#af2be04d08a9a8f4988fb2a3281c28ec1">   41</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_result.html#af2be04d08a9a8f4988fb2a3281c28ec1">cancelled</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_result.html#ac44fa7d6c81d5bd0f1142dc8d1d4f596">   42</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_result.html#ac44fa7d6c81d5bd0f1142dc8d1d4f596">applied</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno"><a class="line" href="struct_comp_u_i_1_1_comp_result.html#ab0ecc316a2fdee15d11204fc97a23631">   43</a></span>    <a class="code hl_enumeration" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008">CompAction</a> <a class="code hl_variable" href="struct_comp_u_i_1_1_comp_result.html#ab0ecc316a2fdee15d11204fc97a23631">action</a> = <a class="code hl_enumvalue" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008aaca90ed0ba0c36a4d7cc31ab6e807a1c">ACTION_NONE</a>;</div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>};</div>
+</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span><span class="comment">// Initialize the Comp UI system</span></div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_comp_u_i.html#a492dc70c03c561fa215887e59a0e127d">Initialize</a>();</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span> </div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span><span class="comment">// Cleanup</span></div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_comp_u_i.html#a774e29c6f6c49c1df4411b77f44d9240">Shutdown</a>();</div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno">   51</span> </div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span><span class="comment">// Show the comp panel at specified position</span></div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_comp_u_i.html#aeeaf3aad8f6571300c45eeb0fa8da808">ShowPanel</a>(<span class="keywordtype">int</span> x, <span class="keywordtype">int</span> y);</div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span> </div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span><span class="comment">// Hide the panel and return result</span></div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span><a class="code hl_struct" href="struct_comp_u_i_1_1_comp_result.html">CompResult</a> <a class="code hl_function" href="namespace_comp_u_i.html#ab966ffec6c326a7061d512d26ed8144e">HidePanel</a>();</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span> </div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span><span class="comment">// Check if panel is visible</span></div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_comp_u_i.html#a2e903a56a65c3d6f18a1245bdae442e2">IsVisible</a>();</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span> </div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span><span class="comment">// Update hover state (call periodically with mouse position)</span></div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_comp_u_i.html#a10641c99d9c330fd8dc9039e635dd2ef">UpdateHover</a>(<span class="keywordtype">int</span> mouseX, <span class="keywordtype">int</span> mouseY);</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span> </div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span><span class="comment">// Get the result after panel closes</span></div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span><a class="code hl_struct" href="struct_comp_u_i_1_1_comp_result.html">CompResult</a> <a class="code hl_function" href="namespace_comp_u_i.html#a545687d845eab52a206948bdc2fba29a">GetResult</a>();</div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span> </div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span><span class="comment">// Set current comp info from ExtendScript JSON</span></div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_comp_u_i.html#a90c440a9e33fed6f299a47b3736d147b">SetCompInfo</a>(<span class="keyword">const</span> <span class="keywordtype">wchar_t</span>* jsonInfo);</div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span> </div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><span class="comment">// Get selected action</span></div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span><a class="code hl_enumeration" href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008">CompAction</a> <a class="code hl_function" href="namespace_comp_u_i.html#a00905bbe06b8c244e5b5a11642e232c9">GetSelectedAction</a>();</div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span> </div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span>} <span class="comment">// namespace CompUI</span></div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span> </div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span><span class="preprocessor">#endif </span><span class="comment">// COMPUI_H</span></div>
+<div class="ttc" id="anamespace_comp_u_i_html"><div class="ttname"><a href="namespace_comp_u_i.html">CompUI</a></div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00548">CompUI.cpp:548</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a00905bbe06b8c244e5b5a11642e232c9"><div class="ttname"><a href="namespace_comp_u_i.html#a00905bbe06b8c244e5b5a11642e232c9">CompUI::GetSelectedAction</a></div><div class="ttdeci">CompAction GetSelectedAction()</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00558">CompUI.cpp:558</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a10641c99d9c330fd8dc9039e635dd2ef"><div class="ttname"><a href="namespace_comp_u_i.html#a10641c99d9c330fd8dc9039e635dd2ef">CompUI::UpdateHover</a></div><div class="ttdeci">void UpdateHover(int mouseX, int mouseY)</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00555">CompUI.cpp:555</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a2e903a56a65c3d6f18a1245bdae442e2"><div class="ttname"><a href="namespace_comp_u_i.html#a2e903a56a65c3d6f18a1245bdae442e2">CompUI::IsVisible</a></div><div class="ttdeci">bool IsVisible()</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00554">CompUI.cpp:554</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a492dc70c03c561fa215887e59a0e127d"><div class="ttname"><a href="namespace_comp_u_i.html#a492dc70c03c561fa215887e59a0e127d">CompUI::Initialize</a></div><div class="ttdeci">void Initialize()</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00550">CompUI.cpp:550</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a545687d845eab52a206948bdc2fba29a"><div class="ttname"><a href="namespace_comp_u_i.html#a545687d845eab52a206948bdc2fba29a">CompUI::GetResult</a></div><div class="ttdeci">CompResult GetResult()</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00556">CompUI.cpp:556</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a774e29c6f6c49c1df4411b77f44d9240"><div class="ttname"><a href="namespace_comp_u_i.html#a774e29c6f6c49c1df4411b77f44d9240">CompUI::Shutdown</a></div><div class="ttdeci">void Shutdown()</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00551">CompUI.cpp:551</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_a90c440a9e33fed6f299a47b3736d147b"><div class="ttname"><a href="namespace_comp_u_i.html#a90c440a9e33fed6f299a47b3736d147b">CompUI::SetCompInfo</a></div><div class="ttdeci">void SetCompInfo(const wchar_t *jsonInfo)</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00557">CompUI.cpp:557</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_ab966ffec6c326a7061d512d26ed8144e"><div class="ttname"><a href="namespace_comp_u_i.html#ab966ffec6c326a7061d512d26ed8144e">CompUI::HidePanel</a></div><div class="ttdeci">CompResult HidePanel()</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00553">CompUI.cpp:553</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_aeeaf3aad8f6571300c45eeb0fa8da808"><div class="ttname"><a href="namespace_comp_u_i.html#aeeaf3aad8f6571300c45eeb0fa8da808">CompUI::ShowPanel</a></div><div class="ttdeci">void ShowPanel(int x, int y)</div><div class="ttdef"><b>Definition</b> <a href="_comp_u_i_8cpp_source.html#l00552">CompUI.cpp:552</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_afaae6a2f62f4a69f05d0c6e6923ec008"><div class="ttname"><a href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008">CompUI::CompAction</a></div><div class="ttdeci">CompAction</div><div class="ttdef"><b>Definition</b> <a href="#l00021">CompUI.h:21</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_afaae6a2f62f4a69f05d0c6e6923ec008a25eb99385048832e171a63c2ec451e5d"><div class="ttname"><a href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a25eb99385048832e171a63c2ec451e5d">CompUI::ACTION_DUPLICATE</a></div><div class="ttdeci">@ ACTION_DUPLICATE</div><div class="ttdef"><b>Definition</b> <a href="#l00024">CompUI.h:24</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_afaae6a2f62f4a69f05d0c6e6923ec008a51fc8177667a60247c4c9f9892673b44"><div class="ttname"><a href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a51fc8177667a60247c4c9f9892673b44">CompUI::ACTION_FIT_DURATION</a></div><div class="ttdeci">@ ACTION_FIT_DURATION</div><div class="ttdef"><b>Definition</b> <a href="#l00025">CompUI.h:25</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_afaae6a2f62f4a69f05d0c6e6923ec008a60d07ade9b6df6258b39fd7fa1881c2f"><div class="ttname"><a href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008a60d07ade9b6df6258b39fd7fa1881c2f">CompUI::ACTION_AUTO_CROP</a></div><div class="ttdeci">@ ACTION_AUTO_CROP</div><div class="ttdef"><b>Definition</b> <a href="#l00023">CompUI.h:23</a></div></div>
+<div class="ttc" id="anamespace_comp_u_i_html_afaae6a2f62f4a69f05d0c6e6923ec008aaca90ed0ba0c36a4d7cc31ab6e807a1c"><div class="ttname"><a href="namespace_comp_u_i.html#afaae6a2f62f4a69f05d0c6e6923ec008aaca90ed0ba0c36a4d7cc31ab6e807a1c">CompUI::ACTION_NONE</a></div><div class="ttdeci">@ ACTION_NONE</div><div class="ttdef"><b>Definition</b> <a href="#l00022">CompUI.h:22</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html">CompUI::CompInfo</a></div><div class="ttdef"><b>Definition</b> <a href="#l00029">CompUI.h:29</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_a2383f172dd74a2c2ec98c4a2b2aa5c8f"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#a2383f172dd74a2c2ec98c4a2b2aa5c8f">CompUI::CompInfo::frameRate</a></div><div class="ttdeci">float frameRate</div><div class="ttdef"><b>Definition</b> <a href="#l00034">CompUI.h:34</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_a3001fad9e764a17b734922c6504bb10e"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#a3001fad9e764a17b734922c6504bb10e">CompUI::CompInfo::name</a></div><div class="ttdeci">wchar_t name[256]</div><div class="ttdef"><b>Definition</b> <a href="#l00030">CompUI.h:30</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_a306736e681ce6e269bad302e9106aff4"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#a306736e681ce6e269bad302e9106aff4">CompUI::CompInfo::workAreaEnd</a></div><div class="ttdeci">float workAreaEnd</div><div class="ttdef"><b>Definition</b> <a href="#l00036">CompUI.h:36</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_a31506a00b69bba1f9e28a123f140f455"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#a31506a00b69bba1f9e28a123f140f455">CompUI::CompInfo::width</a></div><div class="ttdeci">float width</div><div class="ttdef"><b>Definition</b> <a href="#l00031">CompUI.h:31</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_a7fddf4d1ac7c025473378e940fd399c7"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#a7fddf4d1ac7c025473378e940fd399c7">CompUI::CompInfo::duration</a></div><div class="ttdeci">float duration</div><div class="ttdef"><b>Definition</b> <a href="#l00033">CompUI.h:33</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_abbbdba86d6d33d96c2b9e63b35fdd81a"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#abbbdba86d6d33d96c2b9e63b35fdd81a">CompUI::CompInfo::height</a></div><div class="ttdeci">float height</div><div class="ttdef"><b>Definition</b> <a href="#l00032">CompUI.h:32</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_info_html_ac28f969b724f0e677bc2c999b2a271e1"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_info.html#ac28f969b724f0e677bc2c999b2a271e1">CompUI::CompInfo::workAreaStart</a></div><div class="ttdeci">float workAreaStart</div><div class="ttdef"><b>Definition</b> <a href="#l00035">CompUI.h:35</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_result_html"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_result.html">CompUI::CompResult</a></div><div class="ttdef"><b>Definition</b> <a href="#l00040">CompUI.h:40</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_result_html_ab0ecc316a2fdee15d11204fc97a23631"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_result.html#ab0ecc316a2fdee15d11204fc97a23631">CompUI::CompResult::action</a></div><div class="ttdeci">CompAction action</div><div class="ttdef"><b>Definition</b> <a href="#l00043">CompUI.h:43</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_result_html_ac44fa7d6c81d5bd0f1142dc8d1d4f596"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_result.html#ac44fa7d6c81d5bd0f1142dc8d1d4f596">CompUI::CompResult::applied</a></div><div class="ttdeci">bool applied</div><div class="ttdef"><b>Definition</b> <a href="#l00042">CompUI.h:42</a></div></div>
+<div class="ttc" id="astruct_comp_u_i_1_1_comp_result_html_af2be04d08a9a8f4988fb2a3281c28ec1"><div class="ttname"><a href="struct_comp_u_i_1_1_comp_result.html#af2be04d08a9a8f4988fb2a3281c28ec1">CompUI::CompResult::cancelled</a></div><div class="ttdeci">bool cancelled</div><div class="ttdef"><b>Definition</b> <a href="#l00041">CompUI.h:41</a></div></div>
+</div><!-- fragment --></div><!-- contents -->
+</div><!-- doc-content -->
+</div><!-- container -->
+<!-- start footer part -->
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a href="dir_df511e5bd85cec96854b39d5e1c27aa8.html">cpp</a></li><li class="navelem"><a href="dir_7e72c7cf48e3493f8206cd364e6bc9f6.html">src</a></li><li class="navelem"><a href="dir_4badd9e9bf767c80da8f797f4356e4b7.html">modules</a></li><li class="navelem"><a href="dir_fe54d661ee676168ba16d699ef09bb0c.html">comp</a></li><li class="navelem"><a href="_comp_u_i_8h.html">CompUI.h</a></li>
+    <li class="footer">다음에 의해 생성됨 :  <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.15.0 </li>
+  </ul>
+</div>
+</body>
+</html>

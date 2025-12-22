@@ -1,0 +1,18 @@
+<map id="KeyboardMonitor::IsKeyHeld" name="KeyboardMonitor::IsKeyHeld">
+<area shape="rect" id="Node000001" title=" " alt="" coords="527,87,716,113"/>
+<area shape="rect" id="Node000002" href="$_snap_plugin_8cpp.html#a6d08fca2bd60bcf863b00515610f1237" title=" " alt="" coords="165,87,238,113"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="587,78,538,51,509,38,479,28,425,15,381,9,339,12,287,28,264,40,244,56,214,89,210,85,240,52,261,35,285,23,338,7,382,3,426,10,480,23,511,33,541,46,592,78"/>
+<area shape="rect" id="Node000004" href="$namespace_keyboard_monitor.html#ab2b754e42b82ecf1f504548226a55339" title=" " alt="" coords="292,38,473,63"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="538,84,448,67,449,61,543,83"/>
+<area shape="rect" id="Node000005" href="$namespace_keyboard_monitor.html#aaa5026dc3d4bcc02e92bf9995e596e8d" title=" " alt="" coords="286,87,479,113"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="509,100,480,103,479,97,514,100"/>
+<area shape="rect" id="Node000006" href="$namespace_keyboard_monitor.html#aef24008cc52808f65a53f28978a41c77" title=" " alt="" coords="290,136,476,162"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="543,116,449,138,448,133,538,117"/>
+<area shape="rect" id="Node000007" href="$namespace_keyboard_monitor.html#a280ae1f9c52d87210ca28747bbf2bb00" title=" " alt="" coords="286,186,479,211"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="589,120,538,151,480,177,447,188,446,182,478,172,535,146,583,122"/>
+<area shape="rect" id="Node000003" href="$_snap_plugin_8cpp.html#a93ac7ff3ad6003dabd3b1a84dce8165a" title=" " alt="" coords="5,87,117,113"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="147,101,118,102,116,97,151,99"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="309,69,287,77,240,91,238,86,285,72,314,67"/>
+<area shape="poly" id="edge7_Node000006_Node000002" title=" " alt="" coords="309,132,285,128,239,114,239,109,287,123,314,132"/>
+<area shape="poly" id="edge9_Node000007_Node000002" title=" " alt="" coords="294,179,285,177,242,146,213,116,215,111,246,142,287,172,300,180"/>
+</map>

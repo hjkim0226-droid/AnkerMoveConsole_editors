@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.15.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AE Anchor Radial Menu: cpp/src/modules/text/TextUI.h 소스 파일</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript" src="cookie.js"></script>
+<link href="search/search.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="search/searchdata.js"></script>
+<script type="text/javascript" src="search/search.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">AE Anchor Radial Menu
+   </div>
+   <div id="projectbrief">After Effects Plugin - 앵커 포인트 라디얼 메뉴</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- 다음에 의해 생성됨 :  Doxygen 1.15.0 -->
+<script type="text/javascript">
+var searchBox = new SearchBox("searchBox", "search/",'.html');
+</script>
+<script type="text/javascript">
+$(function() { codefold.init(); });
+</script>
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+$(function() {
+  initMenu('',true,false,'search.php','검색',true);
+  $(function() { init_search(); });
+});
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(function(){initNavTree('_text_u_i_8h_source.html','',''); });
+</script>
+<div id="container">
+<div id="doc-content">
+<!-- window showing the filter options -->
+<div id="MSearchSelectWindow"
+     onmouseover="return searchBox.OnSearchSelectShow()"
+     onmouseout="return searchBox.OnSearchSelectHide()"
+     onkeydown="return searchBox.OnSearchSelectKey(event)">
+</div>
+
+<!-- iframe showing the search results (closed by default) -->
+<div id="MSearchResultsWindow">
+<div id="MSearchResults">
+<div class="SRPage">
+<div id="SRIndex">
+<div id="SRResults"></div>
+<div class="SRStatus" id="Loading">로딩중...</div>
+<div class="SRStatus" id="Searching">검색중...</div>
+<div class="SRStatus" id="NoMatches">일치하는것 없음</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="header">
+  <div class="headertitle"><div class="title">TextUI.h</div></div>
+</div><!--header-->
+<div class="contents">
+<a href="_text_u_i_8h.html">이 파일의 문서화 페이지로 가기</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="comment">/*****************************************************************************</span></div>
+<div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="comment"> * TextUI.h</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="comment"> * Native Windows UI for Anchor Snap - Text Options Module</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="comment"> * Provides quick text layer property adjustment</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="comment"> * Trigger: D → T sequence (D key + T key within 500ms)</span></div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="comment"> * Features:</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="comment"> * - Drag scrubbing for numeric values (Size, Tracking, Leading, StrokeWidth)</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="comment"> * - Double-click for direct input (inline edit with style toggle)</span></div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="comment"> * - Color picker for Fill/Stroke</span></div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span><span class="comment"> * - Font family/style dropdown</span></div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="comment"> * - Paragraph alignment buttons</span></div>
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="comment"> * Key mechanism: WS_EX_NOACTIVATE for drag mode (preserves AE text input),</span></div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span><span class="comment"> * temporarily removed for edit mode (allows keyboard input)</span></div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span><span class="comment"> *****************************************************************************/</span></div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span> </div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span><span class="preprocessor">#ifndef TEXTUI_H</span></div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span><span class="preprocessor">#define TEXTUI_H</span></div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span> </div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespace_text_u_i.html">TextUI</a> {</div>
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span> </div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span><span class="comment">// Drag/Edit target values</span></div>
+<div class="foldopen" id="foldopen00025" data-start="{" data-end="};">
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616">   25</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616">ValueTarget</a> {</div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616aa1c83b482b5fe8ee06b7c71d9dbb3d38">   26</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616aa1c83b482b5fe8ee06b7c71d9dbb3d38">TARGET_NONE</a> = -1,</div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616ac5cdee2dc35c641297ac135d2c48b7b4">   27</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616ac5cdee2dc35c641297ac135d2c48b7b4">TARGET_SIZE</a> = 0,</div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616ac99bb49870dd08441f126a7211e5b4fc">   28</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616ac99bb49870dd08441f126a7211e5b4fc">TARGET_TRACKING</a>,</div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616a28091437e962d8d44a967c343aac3f78">   29</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616a28091437e962d8d44a967c343aac3f78">TARGET_LEADING</a>,</div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616a0156d1cedf256a24402091675c284dbd">   30</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616a0156d1cedf256a24402091675c284dbd">TARGET_STROKE_WIDTH</a></div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span>};</div>
+</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span> </div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span><span class="comment">// Paragraph justification (matches AE ParagraphJustification enum)</span></div>
+<div class="foldopen" id="foldopen00034" data-start="{" data-end="};">
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8df">   34</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8df">Justification</a> {</div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0b0bc798eef2d8e9a481897d8ffcd0a0">   35</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0b0bc798eef2d8e9a481897d8ffcd0a0">JUST_LEFT</a> = 0,           <span class="comment">// LEFT_JUSTIFY</span></div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0e58366175ad77ce76310534427f2c32">   36</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0e58366175ad77ce76310534427f2c32">JUST_CENTER</a>,             <span class="comment">// CENTER_JUSTIFY</span></div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa7c89c43af2bf4a05209295965e534ce5">   37</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa7c89c43af2bf4a05209295965e534ce5">JUST_RIGHT</a>,              <span class="comment">// RIGHT_JUSTIFY</span></div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfad51f9ae01cf992f0b5d1c54f3948b232">   38</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfad51f9ae01cf992f0b5d1c54f3948b232">JUST_FULL_LEFT</a>,          <span class="comment">// FULL_JUSTIFY_LASTLINE_LEFT</span></div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfacc1aadaa4d09b369bf76f1959b6a8647">   39</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfacc1aadaa4d09b369bf76f1959b6a8647">JUST_FULL_CENTER</a>,        <span class="comment">// FULL_JUSTIFY_LASTLINE_CENTER</span></div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0bcf1118dabea1081ca1f775c2c68c50">   40</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0bcf1118dabea1081ca1f775c2c68c50">JUST_FULL_RIGHT</a>,         <span class="comment">// FULL_JUSTIFY_LASTLINE_RIGHT</span></div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfaa72679deb8c69923036fe2b21c453669">   41</a></span>    <a class="code hl_enumvalue" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfaa72679deb8c69923036fe2b21c453669">JUST_FULL_FULL</a>           <span class="comment">// FULL_JUSTIFY_LASTLINE_FULL</span></div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>};</div>
+</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span> </div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span><span class="comment">// Current text layer information (read from AE)</span></div>
+<div class="foldopen" id="foldopen00045" data-start="{" data-end="};">
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html">   45</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_text_u_i_1_1_text_info.html">TextInfo</a> {</div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a1cb127db7630b1c3019b87c8566e699e">   46</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a1cb127db7630b1c3019b87c8566e699e">font</a>[128];</div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a6e18786ba730e82697ec4c95f8dc500a">   47</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a6e18786ba730e82697ec4c95f8dc500a">fontStyle</a>[64];</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a322cfa3d3db4a535c3dba9089ace7594">   48</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a322cfa3d3db4a535c3dba9089ace7594">fontSize</a>;</div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a51effe9e50f0aec7d60da5abb69c950f">   49</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a51effe9e50f0aec7d60da5abb69c950f">tracking</a>;</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a5a604c32c7da7a8c4a14842742933df1">   50</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a5a604c32c7da7a8c4a14842742933df1">leading</a>;          <span class="comment">// 0 = Auto</span></div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a28104273e899990b670c1f6cdfbf07e4">   51</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a28104273e899990b670c1f6cdfbf07e4">strokeWidth</a>;</div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a1e03448a202442e3ba728f2a3970bb12">   52</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a1e03448a202442e3ba728f2a3970bb12">fillColor</a>[3];     <span class="comment">// RGB 0-1</span></div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#add4399d5f2865f6aedb01ddfbca061ec">   53</a></span>    <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#add4399d5f2865f6aedb01ddfbca061ec">strokeColor</a>[3];   <span class="comment">// RGB 0-1</span></div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a751e6bc3623fb241cd862b7f26e1934e">   54</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a751e6bc3623fb241cd862b7f26e1934e">applyFill</a>;</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#ae46549409fa189a64419ca000b592f9a">   55</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#ae46549409fa189a64419ca000b592f9a">applyStroke</a>;</div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#ae3dc54455b18f0d31f8372ecd802944b">   56</a></span>    <a class="code hl_enumeration" href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8df">Justification</a> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#ae3dc54455b18f0d31f8372ecd802944b">justify</a>;</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_info.html#a42cb3e4f016293636759af4c9b51b7bd">   57</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_info.html#a42cb3e4f016293636759af4c9b51b7bd">layerName</a>[256];</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>};</div>
+</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> </div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span><span class="comment">// Result structure</span></div>
+<div class="foldopen" id="foldopen00061" data-start="{" data-end="};">
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_result.html">   61</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_text_u_i_1_1_text_result.html">TextResult</a> {</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_result.html#ae6a81048d963ccd8efc8b5eda8490b02">   62</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_result.html#ae6a81048d963ccd8efc8b5eda8490b02">cancelled</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno"><a class="line" href="struct_text_u_i_1_1_text_result.html#ac2c1f9269551187cd23b668af9c9441d">   63</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_text_u_i_1_1_text_result.html#ac2c1f9269551187cd23b668af9c9441d">applied</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>};</div>
+</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span> </div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span><span class="comment">// Initialize the Text UI system</span></div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#af05f88ea88143b1d97a0f521f749fd32">Initialize</a>();</div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span><span class="comment">// Cleanup</span></div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#a151bdb1501dd7293ceac99ac6fbfec68">Shutdown</a>();</div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span> </div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span><span class="comment">// Show the text panel at specified position</span></div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#a0c4d2082072a37136655cc6e8c867427">ShowPanel</a>(<span class="keywordtype">int</span> x, <span class="keywordtype">int</span> y);</div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span> </div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span><span class="comment">// Hide the panel and return result</span></div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span><a class="code hl_struct" href="struct_text_u_i_1_1_text_result.html">TextResult</a> <a class="code hl_function" href="namespace_text_u_i.html#a952af1b162edfc2fbbddb52186a17599">HidePanel</a>();</div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span> </div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span><span class="comment">// Check if panel is visible</span></div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_text_u_i.html#a1bcc654bfba572e7c8dcdd8b00bdf1a0">IsVisible</a>();</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span> </div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span><span class="comment">// Update hover state (call periodically with mouse position)</span></div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#a80f4d9eaefc861cab6b4fd9248c3e6c4">UpdateHover</a>(<span class="keywordtype">int</span> mouseX, <span class="keywordtype">int</span> mouseY);</div>
+<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span> </div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span><span class="comment">// Get the result after panel closes</span></div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span><a class="code hl_struct" href="struct_text_u_i_1_1_text_result.html">TextResult</a> <a class="code hl_function" href="namespace_text_u_i.html#a6560de61f03faec6e00b7994c1edcbf7">GetResult</a>();</div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span> </div>
+<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span><span class="comment">// Set current text info from ExtendScript JSON</span></div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#a2b24db8c4fa90c8d105eae4355f12846">SetTextInfo</a>(<span class="keyword">const</span> <span class="keywordtype">wchar_t</span>* jsonInfo);</div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span> </div>
+<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span><span class="comment">// Color picker</span></div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#aef1c1b413be5735d6d8918a4981a7ce9">ShowColorPicker</a>(<span class="keywordtype">bool</span> forStroke, <span class="keywordtype">int</span> x, <span class="keywordtype">int</span> y);</div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_text_u_i.html#ae8105850e2c5705497e763574c4e3255">HideColorPicker</a>();</div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_text_u_i.html#a1db3c039b2fca98a8b5958aff89c4920">IsColorPickerVisible</a>();</div>
+<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span> </div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span>} <span class="comment">// namespace TextUI</span></div>
+<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span> </div>
+<div class="line"><a id="l00097" name="l00097"></a><span class="lineno">   97</span><span class="preprocessor">#endif </span><span class="comment">// TEXTUI_H</span></div>
+<div class="ttc" id="anamespace_text_u_i_html"><div class="ttname"><a href="namespace_text_u_i.html">TextUI</a></div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01105">TextUI.cpp:1105</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a0c4d2082072a37136655cc6e8c867427"><div class="ttname"><a href="namespace_text_u_i.html#a0c4d2082072a37136655cc6e8c867427">TextUI::ShowPanel</a></div><div class="ttdeci">void ShowPanel(int x, int y)</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01109">TextUI.cpp:1109</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a151bdb1501dd7293ceac99ac6fbfec68"><div class="ttname"><a href="namespace_text_u_i.html#a151bdb1501dd7293ceac99ac6fbfec68">TextUI::Shutdown</a></div><div class="ttdeci">void Shutdown()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01108">TextUI.cpp:1108</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a1bcc654bfba572e7c8dcdd8b00bdf1a0"><div class="ttname"><a href="namespace_text_u_i.html#a1bcc654bfba572e7c8dcdd8b00bdf1a0">TextUI::IsVisible</a></div><div class="ttdeci">bool IsVisible()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01111">TextUI.cpp:1111</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a1db3c039b2fca98a8b5958aff89c4920"><div class="ttname"><a href="namespace_text_u_i.html#a1db3c039b2fca98a8b5958aff89c4920">TextUI::IsColorPickerVisible</a></div><div class="ttdeci">bool IsColorPickerVisible()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01117">TextUI.cpp:1117</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a2b24db8c4fa90c8d105eae4355f12846"><div class="ttname"><a href="namespace_text_u_i.html#a2b24db8c4fa90c8d105eae4355f12846">TextUI::SetTextInfo</a></div><div class="ttdeci">void SetTextInfo(const wchar_t *jsonInfo)</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01114">TextUI.cpp:1114</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8df"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8df">TextUI::Justification</a></div><div class="ttdeci">Justification</div><div class="ttdef"><b>Definition</b> <a href="#l00034">TextUI.h:34</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfa0b0bc798eef2d8e9a481897d8ffcd0a0"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0b0bc798eef2d8e9a481897d8ffcd0a0">TextUI::JUST_LEFT</a></div><div class="ttdeci">@ JUST_LEFT</div><div class="ttdef"><b>Definition</b> <a href="#l00035">TextUI.h:35</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfa0bcf1118dabea1081ca1f775c2c68c50"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0bcf1118dabea1081ca1f775c2c68c50">TextUI::JUST_FULL_RIGHT</a></div><div class="ttdeci">@ JUST_FULL_RIGHT</div><div class="ttdef"><b>Definition</b> <a href="#l00040">TextUI.h:40</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfa0e58366175ad77ce76310534427f2c32"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa0e58366175ad77ce76310534427f2c32">TextUI::JUST_CENTER</a></div><div class="ttdeci">@ JUST_CENTER</div><div class="ttdef"><b>Definition</b> <a href="#l00036">TextUI.h:36</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfa7c89c43af2bf4a05209295965e534ce5"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfa7c89c43af2bf4a05209295965e534ce5">TextUI::JUST_RIGHT</a></div><div class="ttdeci">@ JUST_RIGHT</div><div class="ttdef"><b>Definition</b> <a href="#l00037">TextUI.h:37</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfaa72679deb8c69923036fe2b21c453669"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfaa72679deb8c69923036fe2b21c453669">TextUI::JUST_FULL_FULL</a></div><div class="ttdeci">@ JUST_FULL_FULL</div><div class="ttdef"><b>Definition</b> <a href="#l00041">TextUI.h:41</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfacc1aadaa4d09b369bf76f1959b6a8647"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfacc1aadaa4d09b369bf76f1959b6a8647">TextUI::JUST_FULL_CENTER</a></div><div class="ttdeci">@ JUST_FULL_CENTER</div><div class="ttdef"><b>Definition</b> <a href="#l00039">TextUI.h:39</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a649458a3280f5546ea2e8612a9aac8dfad51f9ae01cf992f0b5d1c54f3948b232"><div class="ttname"><a href="namespace_text_u_i.html#a649458a3280f5546ea2e8612a9aac8dfad51f9ae01cf992f0b5d1c54f3948b232">TextUI::JUST_FULL_LEFT</a></div><div class="ttdeci">@ JUST_FULL_LEFT</div><div class="ttdef"><b>Definition</b> <a href="#l00038">TextUI.h:38</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6560de61f03faec6e00b7994c1edcbf7"><div class="ttname"><a href="namespace_text_u_i.html#a6560de61f03faec6e00b7994c1edcbf7">TextUI::GetResult</a></div><div class="ttdeci">TextResult GetResult()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01113">TextUI.cpp:1113</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6e676a21094b8db2ce03977971061616"><div class="ttname"><a href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616">TextUI::ValueTarget</a></div><div class="ttdeci">ValueTarget</div><div class="ttdef"><b>Definition</b> <a href="#l00025">TextUI.h:25</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6e676a21094b8db2ce03977971061616a0156d1cedf256a24402091675c284dbd"><div class="ttname"><a href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616a0156d1cedf256a24402091675c284dbd">TextUI::TARGET_STROKE_WIDTH</a></div><div class="ttdeci">@ TARGET_STROKE_WIDTH</div><div class="ttdef"><b>Definition</b> <a href="#l00030">TextUI.h:30</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6e676a21094b8db2ce03977971061616a28091437e962d8d44a967c343aac3f78"><div class="ttname"><a href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616a28091437e962d8d44a967c343aac3f78">TextUI::TARGET_LEADING</a></div><div class="ttdeci">@ TARGET_LEADING</div><div class="ttdef"><b>Definition</b> <a href="#l00029">TextUI.h:29</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6e676a21094b8db2ce03977971061616aa1c83b482b5fe8ee06b7c71d9dbb3d38"><div class="ttname"><a href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616aa1c83b482b5fe8ee06b7c71d9dbb3d38">TextUI::TARGET_NONE</a></div><div class="ttdeci">@ TARGET_NONE</div><div class="ttdef"><b>Definition</b> <a href="#l00026">TextUI.h:26</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6e676a21094b8db2ce03977971061616ac5cdee2dc35c641297ac135d2c48b7b4"><div class="ttname"><a href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616ac5cdee2dc35c641297ac135d2c48b7b4">TextUI::TARGET_SIZE</a></div><div class="ttdeci">@ TARGET_SIZE</div><div class="ttdef"><b>Definition</b> <a href="#l00027">TextUI.h:27</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a6e676a21094b8db2ce03977971061616ac99bb49870dd08441f126a7211e5b4fc"><div class="ttname"><a href="namespace_text_u_i.html#a6e676a21094b8db2ce03977971061616ac99bb49870dd08441f126a7211e5b4fc">TextUI::TARGET_TRACKING</a></div><div class="ttdeci">@ TARGET_TRACKING</div><div class="ttdef"><b>Definition</b> <a href="#l00028">TextUI.h:28</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a80f4d9eaefc861cab6b4fd9248c3e6c4"><div class="ttname"><a href="namespace_text_u_i.html#a80f4d9eaefc861cab6b4fd9248c3e6c4">TextUI::UpdateHover</a></div><div class="ttdeci">void UpdateHover(int mouseX, int mouseY)</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01112">TextUI.cpp:1112</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_a952af1b162edfc2fbbddb52186a17599"><div class="ttname"><a href="namespace_text_u_i.html#a952af1b162edfc2fbbddb52186a17599">TextUI::HidePanel</a></div><div class="ttdeci">TextResult HidePanel()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01110">TextUI.cpp:1110</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_ae8105850e2c5705497e763574c4e3255"><div class="ttname"><a href="namespace_text_u_i.html#ae8105850e2c5705497e763574c4e3255">TextUI::HideColorPicker</a></div><div class="ttdeci">void HideColorPicker()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01116">TextUI.cpp:1116</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_aef1c1b413be5735d6d8918a4981a7ce9"><div class="ttname"><a href="namespace_text_u_i.html#aef1c1b413be5735d6d8918a4981a7ce9">TextUI::ShowColorPicker</a></div><div class="ttdeci">void ShowColorPicker(bool forStroke, int x, int y)</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01115">TextUI.cpp:1115</a></div></div>
+<div class="ttc" id="anamespace_text_u_i_html_af05f88ea88143b1d97a0f521f749fd32"><div class="ttname"><a href="namespace_text_u_i.html#af05f88ea88143b1d97a0f521f749fd32">TextUI::Initialize</a></div><div class="ttdeci">void Initialize()</div><div class="ttdef"><b>Definition</b> <a href="_text_u_i_8cpp_source.html#l01107">TextUI.cpp:1107</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html">TextUI::TextInfo</a></div><div class="ttdef"><b>Definition</b> <a href="#l00045">TextUI.h:45</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a1cb127db7630b1c3019b87c8566e699e"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a1cb127db7630b1c3019b87c8566e699e">TextUI::TextInfo::font</a></div><div class="ttdeci">wchar_t font[128]</div><div class="ttdef"><b>Definition</b> <a href="#l00046">TextUI.h:46</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a1e03448a202442e3ba728f2a3970bb12"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a1e03448a202442e3ba728f2a3970bb12">TextUI::TextInfo::fillColor</a></div><div class="ttdeci">float fillColor[3]</div><div class="ttdef"><b>Definition</b> <a href="#l00052">TextUI.h:52</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a28104273e899990b670c1f6cdfbf07e4"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a28104273e899990b670c1f6cdfbf07e4">TextUI::TextInfo::strokeWidth</a></div><div class="ttdeci">float strokeWidth</div><div class="ttdef"><b>Definition</b> <a href="#l00051">TextUI.h:51</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a322cfa3d3db4a535c3dba9089ace7594"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a322cfa3d3db4a535c3dba9089ace7594">TextUI::TextInfo::fontSize</a></div><div class="ttdeci">float fontSize</div><div class="ttdef"><b>Definition</b> <a href="#l00048">TextUI.h:48</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a42cb3e4f016293636759af4c9b51b7bd"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a42cb3e4f016293636759af4c9b51b7bd">TextUI::TextInfo::layerName</a></div><div class="ttdeci">wchar_t layerName[256]</div><div class="ttdef"><b>Definition</b> <a href="#l00057">TextUI.h:57</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a51effe9e50f0aec7d60da5abb69c950f"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a51effe9e50f0aec7d60da5abb69c950f">TextUI::TextInfo::tracking</a></div><div class="ttdeci">float tracking</div><div class="ttdef"><b>Definition</b> <a href="#l00049">TextUI.h:49</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a5a604c32c7da7a8c4a14842742933df1"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a5a604c32c7da7a8c4a14842742933df1">TextUI::TextInfo::leading</a></div><div class="ttdeci">float leading</div><div class="ttdef"><b>Definition</b> <a href="#l00050">TextUI.h:50</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a6e18786ba730e82697ec4c95f8dc500a"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a6e18786ba730e82697ec4c95f8dc500a">TextUI::TextInfo::fontStyle</a></div><div class="ttdeci">wchar_t fontStyle[64]</div><div class="ttdef"><b>Definition</b> <a href="#l00047">TextUI.h:47</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_a751e6bc3623fb241cd862b7f26e1934e"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#a751e6bc3623fb241cd862b7f26e1934e">TextUI::TextInfo::applyFill</a></div><div class="ttdeci">bool applyFill</div><div class="ttdef"><b>Definition</b> <a href="#l00054">TextUI.h:54</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_add4399d5f2865f6aedb01ddfbca061ec"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#add4399d5f2865f6aedb01ddfbca061ec">TextUI::TextInfo::strokeColor</a></div><div class="ttdeci">float strokeColor[3]</div><div class="ttdef"><b>Definition</b> <a href="#l00053">TextUI.h:53</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_ae3dc54455b18f0d31f8372ecd802944b"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#ae3dc54455b18f0d31f8372ecd802944b">TextUI::TextInfo::justify</a></div><div class="ttdeci">Justification justify</div><div class="ttdef"><b>Definition</b> <a href="#l00056">TextUI.h:56</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_info_html_ae46549409fa189a64419ca000b592f9a"><div class="ttname"><a href="struct_text_u_i_1_1_text_info.html#ae46549409fa189a64419ca000b592f9a">TextUI::TextInfo::applyStroke</a></div><div class="ttdeci">bool applyStroke</div><div class="ttdef"><b>Definition</b> <a href="#l00055">TextUI.h:55</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_result_html"><div class="ttname"><a href="struct_text_u_i_1_1_text_result.html">TextUI::TextResult</a></div><div class="ttdef"><b>Definition</b> <a href="#l00061">TextUI.h:61</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_result_html_ac2c1f9269551187cd23b668af9c9441d"><div class="ttname"><a href="struct_text_u_i_1_1_text_result.html#ac2c1f9269551187cd23b668af9c9441d">TextUI::TextResult::applied</a></div><div class="ttdeci">bool applied</div><div class="ttdef"><b>Definition</b> <a href="#l00063">TextUI.h:63</a></div></div>
+<div class="ttc" id="astruct_text_u_i_1_1_text_result_html_ae6a81048d963ccd8efc8b5eda8490b02"><div class="ttname"><a href="struct_text_u_i_1_1_text_result.html#ae6a81048d963ccd8efc8b5eda8490b02">TextUI::TextResult::cancelled</a></div><div class="ttdeci">bool cancelled</div><div class="ttdef"><b>Definition</b> <a href="#l00062">TextUI.h:62</a></div></div>
+</div><!-- fragment --></div><!-- contents -->
+</div><!-- doc-content -->
+</div><!-- container -->
+<!-- start footer part -->
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a href="dir_df511e5bd85cec96854b39d5e1c27aa8.html">cpp</a></li><li class="navelem"><a href="dir_7e72c7cf48e3493f8206cd364e6bc9f6.html">src</a></li><li class="navelem"><a href="dir_4badd9e9bf767c80da8f797f4356e4b7.html">modules</a></li><li class="navelem"><a href="dir_50d823a778ba90240c87adf0d0a9c17a.html">text</a></li><li class="navelem"><a href="_text_u_i_8h.html">TextUI.h</a></li>
+    <li class="footer">다음에 의해 생성됨 :  <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.15.0 </li>
+  </ul>
+</div>
+</body>
+</html>

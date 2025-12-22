@@ -1679,10 +1679,11 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       snprintf(script, sizeof(script),
                "(function(){"
                "try{"
+               "alert('Apply: out=%.2f/%.2f in=%.2f/%.2f');"
                "var c=app.project.activeItem;"
-               "if(!c||!(c instanceof CompItem))return;"
+               "if(!c||!(c instanceof CompItem)){alert('No comp');return;}"
                "var props=c.selectedProperties;"
-               "if(!props||props.length===0)return;"
+               "if(!props||props.length===0){alert('No props');return;}"
                "var outSpd=%.2f,outInf=%.2f,inSpd=%.2f,inInf=%.2f;"
                "app.beginUndoGroup('Apply Keyframe Easing');"
                "for(var i=0;i<props.length;i++){"
@@ -1692,9 +1693,6 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                "var numDims=1;"
                "if(prop.propertyValueType===PropertyValueType.TwoD)numDims=2;"
                "else if(prop.propertyValueType===PropertyValueType.ThreeD)numDims=3;"
-               "else if(prop.propertyValueType===PropertyValueType.COLOR)numDims=4;"
-               "// Spatial properties (Position, Anchor Point) use only 1 KeyframeEase"
-               "// TwoD_SPATIAL, ThreeD_SPATIAL remain numDims=1"
                "var outArr=[],inArr=[];"
                "for(var d=0;d<numDims;d++){"
                "outArr.push(new KeyframeEase(outSpd,outInf));"
@@ -1703,16 +1701,18 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                "for(var j=0;j<keys.length;j++){"
                "var k=keys[j];"
                "if(j<keys.length-1){"
-               "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e1){}"
+               "try{prop.setTemporalEaseAtKey(k,prop.keyInTemporalEase(k),outArr);}catch(e1){alert('out err:'+e1);}"
                "}"
                "if(j>0){"
-               "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e2){}"
+               "try{prop.setTemporalEaseAtKey(k,inArr,prop.keyOutTemporalEase(k));}catch(e2){alert('in err:'+e2);}"
                "}"
                "}"
                "}"
                "app.endUndoGroup();"
-               "}catch(e){}"
+               "alert('Done!');"
+               "}catch(e){alert('Error:'+e);}"
                "})();",
+               outSpd, outInf, inSpd, inInf,
                outSpd, outInf, inSpd, inInf);
       ExecuteScript(script);
     }

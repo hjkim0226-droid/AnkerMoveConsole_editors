@@ -1,0 +1,23 @@
+var searchData=
+[
+  ['getaction_0',['GetAction',['../namespace_d_menu_u_i.html#a1f2ffb89a28d5374a835dbf3b87397c7',1,'DMenuUI']]],
+  ['getalleffectslist_1',['GetAllEffectsList',['../_snap_plugin_8cpp.html#ac486ba0efd36697539d573fec9d6547d',1,'SnapPlugin.cpp']]],
+  ['getclipboardanchor_2',['GetClipboardAnchor',['../namespace_native_u_i.html#a8ad2b9aa0bc4b5f3280c982d8b43cafa',1,'NativeUI']]],
+  ['getcommandfilepath_3',['GetCommandFilePath',['../namespace_c_e_p_bridge.html#a96d7e60dbb95d9693d1dbf50d3bb3e48',1,'CEPBridge']]],
+  ['getcurrentcurve_4',['GetCurrentCurve',['../namespace_keyframe_u_i.html#a835db189ad4422acddf223736e3e1500',1,'KeyframeUI']]],
+  ['getcurrentgridselection_5',['GetCurrentGridSelection',['../namespace_c_e_p_bridge.html#a49fc958bb2b6bf669497ba9bc6ac8ceb',1,'CEPBridge']]],
+  ['getfunctionmode_6',['GetFunctionMode',['../namespace_align_u_i.html#abb9ea9317954fb253ffa0a86b8ba5625',1,'AlignUI']]],
+  ['gethovercell_7',['GetHoverCell',['../namespace_native_u_i.html#a5b9711012167cf84ff4d9a2927d8faa7',1,'NativeUI']]],
+  ['gethoverextoption_8',['GetHoverExtOption',['../namespace_native_u_i.html#ab13c31c94ab62f5f089b1595ecd5b961',1,'NativeUI']]],
+  ['getipcdirectory_9',['GetIPCDirectory',['../namespace_c_e_p_bridge.html#a38916a97a3117838a6795def2c7b69e2',1,'CEPBridge']]],
+  ['getlayereffectslist_10',['GetLayerEffectsList',['../_snap_plugin_8cpp.html#ad6d6d5d0b262177253407e52aef5a3be',1,'SnapPlugin.cpp']]],
+  ['getmode_11',['GetMode',['../namespace_control_u_i.html#aae1fd6d52df6a2429f66b1a35cf01851',1,'ControlUI']]],
+  ['getmouseposition_12',['GetMousePosition',['../namespace_keyboard_monitor.html#ab54e561c206e4c0f00e1138a9b9bab28',1,'KeyboardMonitor']]],
+  ['getpresetfilepath_13',['GetPresetFilePath',['../_snap_plugin_8cpp.html#a5564debf97cbdbceb628fe036cdac073',1,'SnapPlugin.cpp']]],
+  ['getpresetsloticon_14',['GetPresetSlotIcon',['../namespace_control_u_i.html#a5f03aabbdb22408773f8c612617b338e',1,'ControlUI']]],
+  ['getreferencemode_15',['GetReferenceMode',['../namespace_align_u_i.html#a2f8b4f74e213f78f86436a73d8b10b95',1,'AlignUI']]],
+  ['getresult_16',['GetResult',['../namespace_align_u_i.html#ad75a9b88a69cc447ab5808c3c2d84d6e',1,'AlignUI::GetResult()'],['../namespace_comp_u_i.html#a545687d845eab52a206948bdc2fba29a',1,'CompUI::GetResult()'],['../namespace_control_u_i.html#a7f7154695b51cec668e9521723492eea',1,'ControlUI::GetResult()'],['../namespace_keyframe_u_i.html#a1ac8533c8ec12efe9e9f82b3e31af6b1',1,'KeyframeUI::GetResult()'],['../namespace_text_u_i.html#a6560de61f03faec6e00b7994c1edcbf7',1,'TextUI::GetResult()']]],
+  ['getselectedaction_17',['GetSelectedAction',['../namespace_comp_u_i.html#a00905bbe06b8c244e5b5a11642e232c9',1,'CompUI']]],
+  ['getsettings_18',['GetSettings',['../namespace_control_u_i.html#a799e0fe42e6fa9c0dff4403299ac628c',1,'ControlUI::GetSettings()'],['../namespace_native_u_i.html#a523b9f0311a532ee93b1d8ef5dec3f45',1,'NativeUI::GetSettings()'],['../namespace_keyframe_u_i.html#a474c6aeed85ea6f23054f358d62525b5',1,'KeyframeUI::GetSettings()']]],
+  ['getstatefilepath_19',['GetStateFilePath',['../namespace_c_e_p_bridge.html#a67e87e1daab1a76d4477bd62d463ebb4',1,'CEPBridge']]]
+];

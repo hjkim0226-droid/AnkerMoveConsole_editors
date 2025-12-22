@@ -1,0 +1,27 @@
+var searchData=
+[
+  ['saveclipboardanchortofile_0',['SaveClipboardAnchorToFile',['../_snap_plugin_8cpp.html#a5f0783700863c7694762151fe3a84e1a',1,'SnapPlugin.cpp']]],
+  ['savepresettoslot_1',['SavePresetToSlot',['../_snap_plugin_8cpp.html#aef333111850cb1f09ad0c03b5a7777be',1,'SavePresetToSlot():&#160;SnapPlugin.cpp'],['../namespace_keyframe_u_i.html#a2576feea211fd21d8029eab03d756832',1,'KeyframeUI::SavePresetToSlot()']]],
+  ['savesettingstofile_2',['SaveSettingsToFile',['../_snap_plugin_8cpp.html#ab45444e0a984fceb84eb1d24951a2836',1,'SnapPlugin.cpp']]],
+  ['sendcommand_3',['SendCommand',['../namespace_c_e_p_bridge.html#af8519400d1d3477e25b45b335e279517',1,'CEPBridge']]],
+  ['setavailableeffects_4',['SetAvailableEffects',['../namespace_control_u_i.html#ad7880f323768e498bfd9cc622ba0d958',1,'ControlUI']]],
+  ['setclipboardanchor_5',['SetClipboardAnchor',['../namespace_native_u_i.html#a709d2b278e8b45418cebfbfd95b17294',1,'NativeUI']]],
+  ['setcompinfo_6',['SetCompInfo',['../namespace_comp_u_i.html#a90c440a9e33fed6f299a47b3736d147b',1,'CompUI']]],
+  ['setfunctionmode_7',['SetFunctionMode',['../namespace_align_u_i.html#a62f29b5113f14bada6b8ef09152d53cd',1,'AlignUI']]],
+  ['setkeyframeinfo_8',['SetKeyframeInfo',['../namespace_keyframe_u_i.html#a5d6df4cf9f2c282468d97ac1bd683bf1',1,'KeyframeUI']]],
+  ['setlayereffects_9',['SetLayerEffects',['../namespace_control_u_i.html#a135b94c51f636b33ad2e36a5f5b3154a',1,'ControlUI']]],
+  ['setlayerinfo_10',['SetLayerInfo',['../namespace_control_u_i.html#af38664fcbdf293ee8f7e32447406b498',1,'ControlUI']]],
+  ['setmode_11',['SetMode',['../namespace_control_u_i.html#a5b4a9ef56f2a432238da9d86dbd6de0b',1,'ControlUI']]],
+  ['setpresetslotfilled_12',['SetPresetSlotFilled',['../namespace_control_u_i.html#a84b935c6c0607ed7c9780c0595245844',1,'ControlUI']]],
+  ['setpresetsloticon_13',['SetPresetSlotIcon',['../namespace_control_u_i.html#ae3425ae3e146040618fa0def8f037f9e',1,'ControlUI']]],
+  ['setreferencemode_14',['SetReferenceMode',['../namespace_align_u_i.html#a0425a593e499db584e6d293eb1178da5',1,'AlignUI']]],
+  ['settextinfo_15',['SetTextInfo',['../namespace_text_u_i.html#a2b24db8c4fa90c8d105eae4355f12846',1,'TextUI']]],
+  ['showanchorgrid_16',['ShowAnchorGrid',['../_snap_plugin_8cpp.html#a6cb9de088db788943fae2021834cefa4',1,'SnapPlugin.cpp']]],
+  ['showcolorpicker_17',['ShowColorPicker',['../namespace_text_u_i.html#aef1c1b413be5735d6d8918a4981a7ce9',1,'TextUI']]],
+  ['showgrid_18',['ShowGrid',['../namespace_native_u_i.html#a4e033ac277d2098e8f35d04903bc4a57',1,'NativeUI']]],
+  ['showmenu_19',['ShowMenu',['../namespace_d_menu_u_i.html#ad54bfd31f82fa9bf1f69e72e145bbcc2',1,'DMenuUI']]],
+  ['showpanel_20',['ShowPanel',['../namespace_align_u_i.html#ad62865d9b4cdb82292086fe243432046',1,'AlignUI::ShowPanel()'],['../namespace_comp_u_i.html#aeeaf3aad8f6571300c45eeb0fa8da808',1,'CompUI::ShowPanel()'],['../namespace_control_u_i.html#a0f75f7819e8d17786318f6d1352bd4a3',1,'ControlUI::ShowPanel()'],['../namespace_keyframe_u_i.html#a68a73285f13f7de2c6c96b83cec34a8d',1,'KeyframeUI::ShowPanel()'],['../namespace_text_u_i.html#a0c4d2082072a37136655cc6e8c867427',1,'TextUI::ShowPanel()']]],
+  ['showpanelat_21',['ShowPanelAt',['../namespace_control_u_i.html#a0e5701d2c231c83c60c900c5277a8bb5',1,'ControlUI']]],
+  ['showradialmenu_22',['ShowRadialMenu',['../_snap_plugin_8h.html#aba8e6698fef3a7a951a887b23d5428db',1,'SnapPlugin.h']]],
+  ['shutdown_23',['Shutdown',['../namespace_align_u_i.html#a209ecc48ea8fea86d4bdbdf7f4a1202f',1,'AlignUI::Shutdown()'],['../namespace_comp_u_i.html#a774e29c6f6c49c1df4411b77f44d9240',1,'CompUI::Shutdown()'],['../namespace_control_u_i.html#a994f25fdd0427fe7c4f3fffa6175862a',1,'ControlUI::Shutdown()'],['../namespace_d_menu_u_i.html#a473a79c09b7200d5850bc4028b51688e',1,'DMenuUI::Shutdown()'],['../namespace_keyframe_u_i.html#ad4d0fbc0fae4a1b6cb6a52b9ba23889b',1,'KeyframeUI::Shutdown()'],['../namespace_text_u_i.html#a151bdb1501dd7293ceac99ac6fbfec68',1,'TextUI::Shutdown()']]]
+];

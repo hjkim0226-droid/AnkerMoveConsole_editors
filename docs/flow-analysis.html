@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(135deg, #121220 0%, #101828 100%);
             color: #e0e0e0;
             min-height: 100vh;
             padding: 20px;
@@ -67,6 +67,9 @@
         .filter-item label { cursor: pointer; font-size: 14px; }
         .node-hidden { opacity: 0.15 !important; }
         .edge-hidden { opacity: 0.1 !important; }
+        .edge-hidden path { opacity: 0.1 !important; }
+        .edgePath.edge-hidden { opacity: 0.1 !important; }
+        .edgePath.edge-hidden path { stroke-opacity: 0.1 !important; }
         .toast {
             position: fixed;
             bottom: 20px;
@@ -189,12 +192,12 @@ flowchart TD
     C5 -.->|"그리드 설정"| P1
     P2 -.->|"저장된 설정"| C5
 
-    style INPUT fill:#0d47a1,color:#fff,stroke:#1565c0,stroke-width:2px
-    style CPP fill:#0a3d62,color:#fff,stroke:#1565c0,stroke-width:2px
-    style ES fill:#1b5e20,color:#fff,stroke:#2e7d32,stroke-width:2px
-    style CEP fill:#b8860b,color:#fff,stroke:#f9a825,stroke-width:2px
-    style OUTPUT fill:#bf360c,color:#fff,stroke:#e65100,stroke-width:2px
-    style X1 fill:#666,color:#fff
+    style INPUT fill:#082a5a,color:#fff,stroke:#1565c0,stroke-width:2px
+    style CPP fill:#041c2c,color:#fff,stroke:#1565c0,stroke-width:2px
+    style ES fill:#0a2010,color:#fff,stroke:#2e7d32,stroke-width:2px
+    style CEP fill:#4a3505,color:#fff,stroke:#f9a825,stroke-width:2px
+    style OUTPUT fill:#4a1505,color:#fff,stroke:#e65100,stroke-width:2px
+    style X1 fill:#333,color:#fff
         </div>
     </div>
     <div class="toast" id="toast"></div>
@@ -221,12 +224,38 @@ flowchart TD
             securityLevel: 'loose'
         });
 
-        // 각 입력별 관련 노드 정의
+        // 각 입력별 고유 노드 정의 (공유되지 않는 핵심 노드만)
         const flowNodes = {
-            'y': ['I1', 'C1', 'C2', 'C3', 'C4', 'C5', 'C9', 'E1', 'O1', 'P1', 'P2', 'X1'],
-            'yy': ['I2', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C9', 'E1', 'O1', 'P1', 'P2'],
-            'e': ['I3', 'C7', 'E2', 'E3', 'O2'],
-            'd': ['I4', 'C8', 'P3', 'P4', 'P5', 'E4', 'E5', 'E6', 'O3', 'O4', 'O5']
+            'y': ['I1', 'X1'],  // Y키: 입력, 무시(홀드 실패)
+            'yy': ['I2', 'C6'],  // Y~Y 더블탭: 입력, 토글 모드
+            'e': ['I3', 'C7', 'E2', 'E3', 'O2'],  // Shift+E: 이펙트
+            'd': ['I4', 'C8', 'P3', 'P4', 'P5', 'E4', 'E5', 'E6', 'O3', 'O4', 'O5']  // D키: 메뉴
+        };
+
+        // 공유 노드 (Y키/YY 공통 경로)
+        const sharedNodes = {
+            'y_yy': ['C1', 'C2', 'C3', 'C4', 'C5', 'C9', 'E1', 'O1', 'P1', 'P2']
+        };
+
+        // 엣지 연결 정보 (Mermaid 코드 순서와 동일)
+        const edgeConnections = [
+            ['I1', 'C1'], ['I2', 'C1'], ['I3', 'C7'], ['I4', 'C8'],
+            ['C1', 'C2'], ['C2', 'C3'], ['C2', 'X1'], ['C3', 'C4'],
+            ['C4', 'C5'], ['C4', 'C6'], ['C6', 'C5'], ['C5', 'C9'],
+            ['C9', 'E1'], ['E1', 'O1'],
+            ['C7', 'E2'], ['E2', 'O2'], ['C7', 'E3'], ['E3', 'O2'],
+            ['C8', 'P3'], ['C8', 'P4'], ['C8', 'P5'],
+            ['P3', 'E5'], ['P4', 'E6'], ['P5', 'E4'],
+            ['E4', 'O3'], ['E5', 'O4'], ['E6', 'O5'],
+            ['C5', 'P1'], ['P2', 'C5']
+        ];
+
+        // 입력별 강조 색상
+        const highlightColors = {
+            'y': '#4fc3f7',   // 밝은 파랑
+            'yy': '#81d4fa',  // 더 밝은 파랑
+            'e': '#81c784',   // 초록
+            'd': '#ffb74d'    // 주황
         };
 
         function updateFilter() {
@@ -235,36 +264,126 @@ flowchart TD
             const eChecked = document.getElementById('filter-e').checked;
             const dChecked = document.getElementById('filter-d').checked;
 
-            // 활성화된 노드 수집
+            // 활성화된 노드 수집 + 노드별 색상 매핑
             const activeNodes = new Set();
-            if (yChecked) flowNodes['y'].forEach(n => activeNodes.add(n));
-            if (yyChecked) flowNodes['yy'].forEach(n => activeNodes.add(n));
-            if (eChecked) flowNodes['e'].forEach(n => activeNodes.add(n));
-            if (dChecked) flowNodes['d'].forEach(n => activeNodes.add(n));
+            const nodeColors = {};
 
-            // 노드 표시/숨김
+            // 고유 노드 추가
+            if (yChecked) flowNodes['y'].forEach(n => { activeNodes.add(n); nodeColors[n] = highlightColors['y']; });
+            if (yyChecked) flowNodes['yy'].forEach(n => { activeNodes.add(n); nodeColors[n] = highlightColors['yy']; });
+            if (eChecked) flowNodes['e'].forEach(n => { activeNodes.add(n); nodeColors[n] = highlightColors['e']; });
+            if (dChecked) flowNodes['d'].forEach(n => { activeNodes.add(n); nodeColors[n] = highlightColors['d']; });
+
+            // 공유 노드 추가 (Y나 YY 중 하나라도 체크되면)
+            if (yChecked || yyChecked) {
+                sharedNodes['y_yy'].forEach(n => {
+                    activeNodes.add(n);
+                    // 색상은 먼저 체크된 것 기준
+                    if (!nodeColors[n]) nodeColors[n] = yChecked ? highlightColors['y'] : highlightColors['yy'];
+                });
+            }
+
+            // 활성 필터 개수 확인
+            const activeCount = [yChecked, yyChecked, eChecked, dChecked].filter(Boolean).length;
+            const shouldHighlight = activeCount >= 1;  // 1개 이상 체크 시 색상 표시
+            const allChecked = activeCount === 4;  // 전체 선택 시 필터링 스킵
+            const noneChecked = activeCount === 0;  // 아무것도 선택 안 됨 → 전체 표시
+
+            // 노드 표시/숨김 + 강조
             document.querySelectorAll('.node').forEach(function(node) {
                 const nodeId = node.id.replace('flowchart-', '').split('-')[0];
-                if (activeNodes.size === 0 || activeNodes.has(nodeId)) {
+                const rect = node.querySelector('rect, polygon, circle, ellipse, path');
+
+                if (allChecked || noneChecked || activeNodes.has(nodeId)) {
                     node.classList.remove('node-hidden');
+                    // 단일 필터 선택 시 테두리 강조
+                    if (shouldHighlight && nodeColors[nodeId] && rect) {
+                        rect.style.stroke = nodeColors[nodeId];
+                        rect.style.strokeWidth = '3px';
+                    } else if (rect) {
+                        rect.style.stroke = '';
+                        rect.style.strokeWidth = '';
+                    }
                 } else {
                     node.classList.add('node-hidden');
+                    if (rect) {
+                        rect.style.stroke = '';
+                        rect.style.strokeWidth = '';
+                    }
                 }
             });
 
-            // 엣지(화살표) 표시/숨김
-            document.querySelectorAll('.edgePath, .edgeLabel').forEach(function(edge) {
-                const edgeId = edge.id || '';
-                let shouldShow = false;
-                activeNodes.forEach(function(n) {
-                    if (edgeId.includes(n)) shouldShow = true;
+            // 엣지(화살표) 필터링 - SVG 구조 직접 분석
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) { console.log('SVG not found'); return; }
+
+            // 방법 1: edgePath 또는 edgePaths 클래스
+            let edgeGs = svg.querySelectorAll('.edgePath, .edgePaths, [class*="edge-"]');
+
+            // 방법 2: 없으면 edge로 시작하는 id를 가진 g 요소
+            if (edgeGs.length === 0) {
+                edgeGs = svg.querySelectorAll('g[id^="edge"], g[id*="-to-"]');
+            }
+
+            // 방법 3: 여전히 없으면, path들 중 stroke 스타일이 있고 fill이 none인 것 (화살표 라인)
+            if (edgeGs.length === 0) {
+                const allPaths = svg.querySelectorAll('path');
+                const linePaths = [];
+                allPaths.forEach(p => {
+                    const fill = p.getAttribute('fill') || getComputedStyle(p).fill;
+                    const stroke = p.getAttribute('stroke') || getComputedStyle(p).stroke;
+                    // fill이 none이고 stroke가 있으면 화살표 라인
+                    if ((fill === 'none' || fill === 'transparent') && stroke && stroke !== 'none') {
+                        linePaths.push(p);
+                    }
                 });
-                if (activeNodes.size === 0 || shouldShow) {
-                    edge.classList.remove('edge-hidden');
+                edgeGs = linePaths;
+                console.log('방법3: stroke 있는 path 수:', linePaths.length);
+            }
+
+            console.log('찾은 엣지 요소 수:', edgeGs.length, '연결 정의 수:', edgeConnections.length);
+
+            // 엣지 요소 필터링
+            edgeGs.forEach(function(edge, idx) {
+                if (idx >= edgeConnections.length) return;
+
+                const conn = edgeConnections[idx];
+                const srcNode = conn[0];
+                const tgtNode = conn[1];
+                const srcActive = activeNodes.has(srcNode);
+                const tgtActive = activeNodes.has(tgtNode);
+                const edgeColor = nodeColors[srcNode] || nodeColors[tgtNode];
+
+                // edge가 g 요소면 내부 path들을, 직접 path면 그것 자체를
+                const paths = edge.tagName === 'g' ? edge.querySelectorAll('path') : [edge];
+
+                // OR 로직: 양쪽 중 하나라도 활성이면 표시
+                if (allChecked || noneChecked || srcActive || tgtActive) {
+                    paths.forEach(p => {
+                        p.style.opacity = '1';
+                        if (shouldHighlight && edgeColor) {
+                            p.style.stroke = edgeColor;
+                            p.style.strokeWidth = '2.5px';
+                        } else {
+                            p.style.stroke = '';
+                            p.style.strokeWidth = '';
+                        }
+                    });
+                    if (edge.tagName === 'g') edge.style.opacity = '1';
                 } else {
-                    edge.classList.add('edge-hidden');
+                    paths.forEach(p => p.style.opacity = '0.1');
+                    if (edge.tagName === 'g') edge.style.opacity = '0.1';
                 }
             });
+
+            // 엣지 라벨 - 일단 전부 표시 (필터링 비활성화)
+            // 복잡한 매칭 대신 단순하게 처리
+            const edgeLabels = document.querySelectorAll('.edgeLabel');
+            console.log('엣지 라벨 수:', edgeLabels.length);
+            if (edgeLabels.length > 0) {
+                console.log('라벨 ID 예시:', Array.from(edgeLabels).slice(0, 3).map(l => l.id));
+            }
+            // 라벨은 필터링하지 않음 - 항상 표시
         }
 
         // 노드 클릭 이벤트 연결
@@ -278,6 +397,22 @@ flowchart TD
                     });
                 }
             });
+
+            // 초기 필터 적용 및 SVG 구조 디버깅
+            const svg = document.querySelector('.mermaid svg');
+            if (svg) {
+                const allG = svg.querySelectorAll('g');
+                const edgeGs = [];
+                allG.forEach(g => {
+                    const cls = g.getAttribute('class') || '';
+                    if (cls.includes('edge') || cls.includes('link')) edgeGs.push(cls);
+                });
+                console.log('Edge 관련 g 요소 클래스들:', edgeGs);
+
+                const pathsWithMarker = svg.querySelectorAll('path[marker-end]');
+                console.log('marker-end 있는 path 수:', pathsWithMarker.length);
+            }
+            updateFilter();
         }, 500);
     </script>
 </body>

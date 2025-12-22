@@ -1,0 +1,242 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.15.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AE Anchor Radial Menu: cpp/src/modules/align/AlignUI.h 소스 파일</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript" src="cookie.js"></script>
+<link href="search/search.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="search/searchdata.js"></script>
+<script type="text/javascript" src="search/search.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">AE Anchor Radial Menu
+   </div>
+   <div id="projectbrief">After Effects Plugin - 앵커 포인트 라디얼 메뉴</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- 다음에 의해 생성됨 :  Doxygen 1.15.0 -->
+<script type="text/javascript">
+var searchBox = new SearchBox("searchBox", "search/",'.html');
+</script>
+<script type="text/javascript">
+$(function() { codefold.init(); });
+</script>
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+$(function() {
+  initMenu('',true,false,'search.php','검색',true);
+  $(function() { init_search(); });
+});
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(function(){initNavTree('_align_u_i_8h_source.html','',''); });
+</script>
+<div id="container">
+<div id="doc-content">
+<!-- window showing the filter options -->
+<div id="MSearchSelectWindow"
+     onmouseover="return searchBox.OnSearchSelectShow()"
+     onmouseout="return searchBox.OnSearchSelectHide()"
+     onkeydown="return searchBox.OnSearchSelectKey(event)">
+</div>
+
+<!-- iframe showing the search results (closed by default) -->
+<div id="MSearchResultsWindow">
+<div id="MSearchResults">
+<div class="SRPage">
+<div id="SRIndex">
+<div id="SRResults"></div>
+<div class="SRStatus" id="Loading">로딩중...</div>
+<div class="SRStatus" id="Searching">검색중...</div>
+<div class="SRStatus" id="NoMatches">일치하는것 없음</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="header">
+  <div class="headertitle"><div class="title">AlignUI.h</div></div>
+</div><!--header-->
+<div class="contents">
+<a href="_align_u_i_8h.html">이 파일의 문서화 페이지로 가기</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="comment">/*****************************************************************************</span></div>
+<div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="comment"> * AlignUI.h</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="comment"> * Native Windows UI for Anchor Snap - Align/Distribute Module</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="comment"> * Provides quick layer alignment and distribution functionality</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="comment"> * Trigger: D → A sequence (D key + A key within 500ms)</span></div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="comment"> * Modes:</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="comment"> * - Function: Align (6 directions) / Distribute (H/V)</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="comment"> * - Reference: Selection (layer-based) / Composition (comp bounds)</span></div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="comment"> *****************************************************************************/</span></div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span> </div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="preprocessor">#ifndef ALIGNUI_H</span></div>
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span><span class="preprocessor">#define ALIGNUI_H</span></div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span> </div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespace_align_u_i.html">AlignUI</a> {</div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno">   17</span> </div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno">   18</span><span class="comment">// Function mode (left side of header)</span></div>
+<div class="foldopen" id="foldopen00019" data-start="{" data-end="};">
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0">   19</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0">FunctionMode</a> {</div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ac8a90d8d12d5a8b06d77e4101533e00f">   20</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ac8a90d8d12d5a8b06d77e4101533e00f">FUNC_ALIGN</a> = 0,</div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ab6fb784b3450a3e2a5395e3ba135a295">   21</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ab6fb784b3450a3e2a5395e3ba135a295">FUNC_DISTRIBUTE</a></div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span>};</div>
+</div>
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno">   23</span> </div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno">   24</span><span class="comment">// Reference mode (right side of header)</span></div>
+<div class="foldopen" id="foldopen00025" data-start="{" data-end="};">
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091">   25</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091">ReferenceMode</a> {</div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a458708a277e6a44c884ff8dc716b1262">   26</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a458708a277e6a44c884ff8dc716b1262">REF_SELECTION</a> = 0,</div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a1acaa2e2d8038dceb101375c22fc94af">   27</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a1acaa2e2d8038dceb101375c22fc94af">REF_COMPOSITION</a></div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>};</div>
+</div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span> </div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span><span class="comment">// Align direction (6 buttons)</span></div>
+<div class="foldopen" id="foldopen00031" data-start="{" data-end="};">
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2be">   31</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2be">AlignDirection</a> {</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaef31cb97c94898ef7ef3d7783d80e91d">   32</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaef31cb97c94898ef7ef3d7783d80e91d">ALIGN_LEFT</a> = 0,</div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2bea22274ca12c5b3915ccf73a961e6d89c8">   33</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2bea22274ca12c5b3915ccf73a961e6d89c8">ALIGN_CENTER_H</a>,</div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beae3ff329af2e28ef946a6d310cb8b794f">   34</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beae3ff329af2e28ef946a6d310cb8b794f">ALIGN_RIGHT</a>,</div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaefcf9350a97475bbcbb3d75ef23f48d0">   35</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaefcf9350a97475bbcbb3d75ef23f48d0">ALIGN_TOP</a>,</div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beac2c89fbd3cc9aa4801c1d2ed34ffb483">   36</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beac2c89fbd3cc9aa4801c1d2ed34ffb483">ALIGN_MIDDLE_V</a>,</div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beabe03d0419037fd0b187712152b6e8ea5">   37</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beabe03d0419037fd0b187712152b6e8ea5">ALIGN_BOTTOM</a></div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>};</div>
+</div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span> </div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span><span class="comment">// Distribute direction (2 buttons)</span></div>
+<div class="foldopen" id="foldopen00041" data-start="{" data-end="};">
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46f">   41</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46f">DistributeDirection</a> {</div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa509339aebb5fde34e466edef0fb65d6c">   42</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa509339aebb5fde34e466edef0fb65d6c">DIST_HORIZONTAL</a> = 0,</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno"><a class="line" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa9e2dc2eae1b5821d8c234b323b087e55">   43</a></span>    <a class="code hl_enumvalue" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa9e2dc2eae1b5821d8c234b323b087e55">DIST_VERTICAL</a></div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>};</div>
+</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span><span class="comment">// Result structure</span></div>
+<div class="foldopen" id="foldopen00047" data-start="{" data-end="};">
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html">   47</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_align_u_i_1_1_align_result.html">AlignResult</a> {</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html#acf0b6b5c78ba19249e7056e3c5f19997">   48</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_align_u_i_1_1_align_result.html#acf0b6b5c78ba19249e7056e3c5f19997">cancelled</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html#a848135f3bf9e4ab4444ec2c82beec44e">   49</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_align_u_i_1_1_align_result.html#a848135f3bf9e4ab4444ec2c82beec44e">applied</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html#abf72fc9a80f3dd0b5a4464b3f02e13d9">   50</a></span>    <a class="code hl_enumeration" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0">FunctionMode</a> <a class="code hl_variable" href="struct_align_u_i_1_1_align_result.html#abf72fc9a80f3dd0b5a4464b3f02e13d9">funcMode</a> = <a class="code hl_enumvalue" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ac8a90d8d12d5a8b06d77e4101533e00f">FUNC_ALIGN</a>;</div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html#a34da546bdd8ce907ad02faa781c92233">   51</a></span>    <a class="code hl_enumeration" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091">ReferenceMode</a> <a class="code hl_variable" href="struct_align_u_i_1_1_align_result.html#a34da546bdd8ce907ad02faa781c92233">refMode</a> = <a class="code hl_enumvalue" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a458708a277e6a44c884ff8dc716b1262">REF_SELECTION</a>;</div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html#a67086289aea05b71bc1d29551956298c">   52</a></span>    <a class="code hl_enumeration" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2be">AlignDirection</a> <a class="code hl_variable" href="struct_align_u_i_1_1_align_result.html#a67086289aea05b71bc1d29551956298c">alignDir</a> = <a class="code hl_enumvalue" href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaef31cb97c94898ef7ef3d7783d80e91d">ALIGN_LEFT</a>;      <span class="comment">// Valid when FUNC_ALIGN</span></div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="struct_align_u_i_1_1_align_result.html#a2908c430c36ecfb8bebcd3f273391bab">   53</a></span>    <a class="code hl_enumeration" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46f">DistributeDirection</a> <a class="code hl_variable" href="struct_align_u_i_1_1_align_result.html#a2908c430c36ecfb8bebcd3f273391bab">distDir</a> = <a class="code hl_enumvalue" href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa509339aebb5fde34e466edef0fb65d6c">DIST_HORIZONTAL</a>; <span class="comment">// Valid when FUNC_DISTRIBUTE</span></div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>};</div>
+</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span> </div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span><span class="comment">// Initialize the Align UI system</span></div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_align_u_i.html#acb80e84c50f792a2dfe46ac6eae7dd27">Initialize</a>();</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span> </div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span><span class="comment">// Cleanup</span></div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_align_u_i.html#a209ecc48ea8fea86d4bdbdf7f4a1202f">Shutdown</a>();</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span> </div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span><span class="comment">// Show the align panel at specified position</span></div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_align_u_i.html#ad62865d9b4cdb82292086fe243432046">ShowPanel</a>(<span class="keywordtype">int</span> x, <span class="keywordtype">int</span> y);</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span> </div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span><span class="comment">// Hide the panel and return result</span></div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span><a class="code hl_struct" href="struct_align_u_i_1_1_align_result.html">AlignResult</a> <a class="code hl_function" href="namespace_align_u_i.html#a1cb3671f0e412909ca6e7398f78aad92">HidePanel</a>();</div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span> </div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span><span class="comment">// Check if panel is visible</span></div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_align_u_i.html#a7b12b692988e8a5638c71ed0a3ff0faa">IsVisible</a>();</div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span> </div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span><span class="comment">// Update hover state (call periodically with mouse position)</span></div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_align_u_i.html#a9a36c53ce3e806f9c232914071191776">UpdateHover</a>(<span class="keywordtype">int</span> mouseX, <span class="keywordtype">int</span> mouseY);</div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span> </div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span><span class="comment">// Get the result after panel closes</span></div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span><a class="code hl_struct" href="struct_align_u_i_1_1_align_result.html">AlignResult</a> <a class="code hl_function" href="namespace_align_u_i.html#ad75a9b88a69cc447ab5808c3c2d84d6e">GetResult</a>();</div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span> </div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span><span class="comment">// Get current function mode</span></div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span><a class="code hl_enumeration" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0">FunctionMode</a> <a class="code hl_function" href="namespace_align_u_i.html#abb9ea9317954fb253ffa0a86b8ba5625">GetFunctionMode</a>();</div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span> </div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span><span class="comment">// Get current reference mode</span></div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span><a class="code hl_enumeration" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091">ReferenceMode</a> <a class="code hl_function" href="namespace_align_u_i.html#a2f8b4f74e213f78f86436a73d8b10b95">GetReferenceMode</a>();</div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span> </div>
+<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span><span class="comment">// Set function mode</span></div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_align_u_i.html#a62f29b5113f14bada6b8ef09152d53cd">SetFunctionMode</a>(<a class="code hl_enumeration" href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0">FunctionMode</a> mode);</div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span> </div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span><span class="comment">// Set reference mode</span></div>
+<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_align_u_i.html#a0425a593e499db584e6d293eb1178da5">SetReferenceMode</a>(<a class="code hl_enumeration" href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091">ReferenceMode</a> mode);</div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span> </div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span>} <span class="comment">// namespace AlignUI</span></div>
+<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span> </div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span><span class="preprocessor">#endif </span><span class="comment">// ALIGNUI_H</span></div>
+<div class="ttc" id="anamespace_align_u_i_html"><div class="ttname"><a href="namespace_align_u_i.html">AlignUI</a></div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00729">AlignUI.cpp:729</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a0425a593e499db584e6d293eb1178da5"><div class="ttname"><a href="namespace_align_u_i.html#a0425a593e499db584e6d293eb1178da5">AlignUI::SetReferenceMode</a></div><div class="ttdeci">void SetReferenceMode(ReferenceMode mode)</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00741">AlignUI.cpp:741</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a1cb3671f0e412909ca6e7398f78aad92"><div class="ttname"><a href="namespace_align_u_i.html#a1cb3671f0e412909ca6e7398f78aad92">AlignUI::HidePanel</a></div><div class="ttdeci">AlignResult HidePanel()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00734">AlignUI.cpp:734</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a209ecc48ea8fea86d4bdbdf7f4a1202f"><div class="ttname"><a href="namespace_align_u_i.html#a209ecc48ea8fea86d4bdbdf7f4a1202f">AlignUI::Shutdown</a></div><div class="ttdeci">void Shutdown()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00732">AlignUI.cpp:732</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a2f8b4f74e213f78f86436a73d8b10b95"><div class="ttname"><a href="namespace_align_u_i.html#a2f8b4f74e213f78f86436a73d8b10b95">AlignUI::GetReferenceMode</a></div><div class="ttdeci">ReferenceMode GetReferenceMode()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00739">AlignUI.cpp:739</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a62f29b5113f14bada6b8ef09152d53cd"><div class="ttname"><a href="namespace_align_u_i.html#a62f29b5113f14bada6b8ef09152d53cd">AlignUI::SetFunctionMode</a></div><div class="ttdeci">void SetFunctionMode(FunctionMode mode)</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00740">AlignUI.cpp:740</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2be"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2be">AlignUI::AlignDirection</a></div><div class="ttdeci">AlignDirection</div><div class="ttdef"><b>Definition</b> <a href="#l00031">AlignUI.h:31</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2bea22274ca12c5b3915ccf73a961e6d89c8"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2bea22274ca12c5b3915ccf73a961e6d89c8">AlignUI::ALIGN_CENTER_H</a></div><div class="ttdeci">@ ALIGN_CENTER_H</div><div class="ttdef"><b>Definition</b> <a href="#l00033">AlignUI.h:33</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2beabe03d0419037fd0b187712152b6e8ea5"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beabe03d0419037fd0b187712152b6e8ea5">AlignUI::ALIGN_BOTTOM</a></div><div class="ttdeci">@ ALIGN_BOTTOM</div><div class="ttdef"><b>Definition</b> <a href="#l00037">AlignUI.h:37</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2beac2c89fbd3cc9aa4801c1d2ed34ffb483"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beac2c89fbd3cc9aa4801c1d2ed34ffb483">AlignUI::ALIGN_MIDDLE_V</a></div><div class="ttdeci">@ ALIGN_MIDDLE_V</div><div class="ttdef"><b>Definition</b> <a href="#l00036">AlignUI.h:36</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2beae3ff329af2e28ef946a6d310cb8b794f"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beae3ff329af2e28ef946a6d310cb8b794f">AlignUI::ALIGN_RIGHT</a></div><div class="ttdeci">@ ALIGN_RIGHT</div><div class="ttdef"><b>Definition</b> <a href="#l00034">AlignUI.h:34</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2beaef31cb97c94898ef7ef3d7783d80e91d"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaef31cb97c94898ef7ef3d7783d80e91d">AlignUI::ALIGN_LEFT</a></div><div class="ttdeci">@ ALIGN_LEFT</div><div class="ttdef"><b>Definition</b> <a href="#l00032">AlignUI.h:32</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a68a8320814108d2d76e7a5b6b8f5d2beaefcf9350a97475bbcbb3d75ef23f48d0"><div class="ttname"><a href="namespace_align_u_i.html#a68a8320814108d2d76e7a5b6b8f5d2beaefcf9350a97475bbcbb3d75ef23f48d0">AlignUI::ALIGN_TOP</a></div><div class="ttdeci">@ ALIGN_TOP</div><div class="ttdef"><b>Definition</b> <a href="#l00035">AlignUI.h:35</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a7b12b692988e8a5638c71ed0a3ff0faa"><div class="ttname"><a href="namespace_align_u_i.html#a7b12b692988e8a5638c71ed0a3ff0faa">AlignUI::IsVisible</a></div><div class="ttdeci">bool IsVisible()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00735">AlignUI.cpp:735</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a90e714793e31b16e444e78e483fbf46f"><div class="ttname"><a href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46f">AlignUI::DistributeDirection</a></div><div class="ttdeci">DistributeDirection</div><div class="ttdef"><b>Definition</b> <a href="#l00041">AlignUI.h:41</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a90e714793e31b16e444e78e483fbf46fa509339aebb5fde34e466edef0fb65d6c"><div class="ttname"><a href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa509339aebb5fde34e466edef0fb65d6c">AlignUI::DIST_HORIZONTAL</a></div><div class="ttdeci">@ DIST_HORIZONTAL</div><div class="ttdef"><b>Definition</b> <a href="#l00042">AlignUI.h:42</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a90e714793e31b16e444e78e483fbf46fa9e2dc2eae1b5821d8c234b323b087e55"><div class="ttname"><a href="namespace_align_u_i.html#a90e714793e31b16e444e78e483fbf46fa9e2dc2eae1b5821d8c234b323b087e55">AlignUI::DIST_VERTICAL</a></div><div class="ttdeci">@ DIST_VERTICAL</div><div class="ttdef"><b>Definition</b> <a href="#l00043">AlignUI.h:43</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_a9a36c53ce3e806f9c232914071191776"><div class="ttname"><a href="namespace_align_u_i.html#a9a36c53ce3e806f9c232914071191776">AlignUI::UpdateHover</a></div><div class="ttdeci">void UpdateHover(int mouseX, int mouseY)</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00736">AlignUI.cpp:736</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_ab9947a92b649779b98d0d2e1250941d0"><div class="ttname"><a href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0">AlignUI::FunctionMode</a></div><div class="ttdeci">FunctionMode</div><div class="ttdef"><b>Definition</b> <a href="#l00019">AlignUI.h:19</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_ab9947a92b649779b98d0d2e1250941d0ab6fb784b3450a3e2a5395e3ba135a295"><div class="ttname"><a href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ab6fb784b3450a3e2a5395e3ba135a295">AlignUI::FUNC_DISTRIBUTE</a></div><div class="ttdeci">@ FUNC_DISTRIBUTE</div><div class="ttdef"><b>Definition</b> <a href="#l00021">AlignUI.h:21</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_ab9947a92b649779b98d0d2e1250941d0ac8a90d8d12d5a8b06d77e4101533e00f"><div class="ttname"><a href="namespace_align_u_i.html#ab9947a92b649779b98d0d2e1250941d0ac8a90d8d12d5a8b06d77e4101533e00f">AlignUI::FUNC_ALIGN</a></div><div class="ttdeci">@ FUNC_ALIGN</div><div class="ttdef"><b>Definition</b> <a href="#l00020">AlignUI.h:20</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_abb9ea9317954fb253ffa0a86b8ba5625"><div class="ttname"><a href="namespace_align_u_i.html#abb9ea9317954fb253ffa0a86b8ba5625">AlignUI::GetFunctionMode</a></div><div class="ttdeci">FunctionMode GetFunctionMode()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00738">AlignUI.cpp:738</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_aca082b9227175651fc8035cc1e771091"><div class="ttname"><a href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091">AlignUI::ReferenceMode</a></div><div class="ttdeci">ReferenceMode</div><div class="ttdef"><b>Definition</b> <a href="#l00025">AlignUI.h:25</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_aca082b9227175651fc8035cc1e771091a1acaa2e2d8038dceb101375c22fc94af"><div class="ttname"><a href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a1acaa2e2d8038dceb101375c22fc94af">AlignUI::REF_COMPOSITION</a></div><div class="ttdeci">@ REF_COMPOSITION</div><div class="ttdef"><b>Definition</b> <a href="#l00027">AlignUI.h:27</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_aca082b9227175651fc8035cc1e771091a458708a277e6a44c884ff8dc716b1262"><div class="ttname"><a href="namespace_align_u_i.html#aca082b9227175651fc8035cc1e771091a458708a277e6a44c884ff8dc716b1262">AlignUI::REF_SELECTION</a></div><div class="ttdeci">@ REF_SELECTION</div><div class="ttdef"><b>Definition</b> <a href="#l00026">AlignUI.h:26</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_acb80e84c50f792a2dfe46ac6eae7dd27"><div class="ttname"><a href="namespace_align_u_i.html#acb80e84c50f792a2dfe46ac6eae7dd27">AlignUI::Initialize</a></div><div class="ttdeci">void Initialize()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00731">AlignUI.cpp:731</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_ad62865d9b4cdb82292086fe243432046"><div class="ttname"><a href="namespace_align_u_i.html#ad62865d9b4cdb82292086fe243432046">AlignUI::ShowPanel</a></div><div class="ttdeci">void ShowPanel(int x, int y)</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00733">AlignUI.cpp:733</a></div></div>
+<div class="ttc" id="anamespace_align_u_i_html_ad75a9b88a69cc447ab5808c3c2d84d6e"><div class="ttname"><a href="namespace_align_u_i.html#ad75a9b88a69cc447ab5808c3c2d84d6e">AlignUI::GetResult</a></div><div class="ttdeci">AlignResult GetResult()</div><div class="ttdef"><b>Definition</b> <a href="_align_u_i_8cpp_source.html#l00737">AlignUI.cpp:737</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html">AlignUI::AlignResult</a></div><div class="ttdef"><b>Definition</b> <a href="#l00047">AlignUI.h:47</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html_a2908c430c36ecfb8bebcd3f273391bab"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html#a2908c430c36ecfb8bebcd3f273391bab">AlignUI::AlignResult::distDir</a></div><div class="ttdeci">DistributeDirection distDir</div><div class="ttdef"><b>Definition</b> <a href="#l00053">AlignUI.h:53</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html_a34da546bdd8ce907ad02faa781c92233"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html#a34da546bdd8ce907ad02faa781c92233">AlignUI::AlignResult::refMode</a></div><div class="ttdeci">ReferenceMode refMode</div><div class="ttdef"><b>Definition</b> <a href="#l00051">AlignUI.h:51</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html_a67086289aea05b71bc1d29551956298c"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html#a67086289aea05b71bc1d29551956298c">AlignUI::AlignResult::alignDir</a></div><div class="ttdeci">AlignDirection alignDir</div><div class="ttdef"><b>Definition</b> <a href="#l00052">AlignUI.h:52</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html_a848135f3bf9e4ab4444ec2c82beec44e"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html#a848135f3bf9e4ab4444ec2c82beec44e">AlignUI::AlignResult::applied</a></div><div class="ttdeci">bool applied</div><div class="ttdef"><b>Definition</b> <a href="#l00049">AlignUI.h:49</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html_abf72fc9a80f3dd0b5a4464b3f02e13d9"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html#abf72fc9a80f3dd0b5a4464b3f02e13d9">AlignUI::AlignResult::funcMode</a></div><div class="ttdeci">FunctionMode funcMode</div><div class="ttdef"><b>Definition</b> <a href="#l00050">AlignUI.h:50</a></div></div>
+<div class="ttc" id="astruct_align_u_i_1_1_align_result_html_acf0b6b5c78ba19249e7056e3c5f19997"><div class="ttname"><a href="struct_align_u_i_1_1_align_result.html#acf0b6b5c78ba19249e7056e3c5f19997">AlignUI::AlignResult::cancelled</a></div><div class="ttdeci">bool cancelled</div><div class="ttdef"><b>Definition</b> <a href="#l00048">AlignUI.h:48</a></div></div>
+</div><!-- fragment --></div><!-- contents -->
+</div><!-- doc-content -->
+</div><!-- container -->
+<!-- start footer part -->
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a href="dir_df511e5bd85cec96854b39d5e1c27aa8.html">cpp</a></li><li class="navelem"><a href="dir_7e72c7cf48e3493f8206cd364e6bc9f6.html">src</a></li><li class="navelem"><a href="dir_4badd9e9bf767c80da8f797f4356e4b7.html">modules</a></li><li class="navelem"><a href="dir_fa300972cc19d1ddd1f79aa84fd76af8.html">align</a></li><li class="navelem"><a href="_align_u_i_8h.html">AlignUI.h</a></li>
+    <li class="footer">다음에 의해 생성됨 :  <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.15.0 </li>
+  </ul>
+</div>
+</body>
+</html>

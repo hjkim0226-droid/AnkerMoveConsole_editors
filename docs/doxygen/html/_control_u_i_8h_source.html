@@ -1,0 +1,294 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.15.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AE Anchor Radial Menu: cpp/src/modules/control/ControlUI.h 소스 파일</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript" src="cookie.js"></script>
+<link href="search/search.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="search/searchdata.js"></script>
+<script type="text/javascript" src="search/search.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">AE Anchor Radial Menu
+   </div>
+   <div id="projectbrief">After Effects Plugin - 앵커 포인트 라디얼 메뉴</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- 다음에 의해 생성됨 :  Doxygen 1.15.0 -->
+<script type="text/javascript">
+var searchBox = new SearchBox("searchBox", "search/",'.html');
+</script>
+<script type="text/javascript">
+$(function() { codefold.init(); });
+</script>
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+$(function() {
+  initMenu('',true,false,'search.php','검색',true);
+  $(function() { init_search(); });
+});
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(function(){initNavTree('_control_u_i_8h_source.html','',''); });
+</script>
+<div id="container">
+<div id="doc-content">
+<!-- window showing the filter options -->
+<div id="MSearchSelectWindow"
+     onmouseover="return searchBox.OnSearchSelectShow()"
+     onmouseout="return searchBox.OnSearchSelectHide()"
+     onkeydown="return searchBox.OnSearchSelectKey(event)">
+</div>
+
+<!-- iframe showing the search results (closed by default) -->
+<div id="MSearchResultsWindow">
+<div id="MSearchResults">
+<div class="SRPage">
+<div id="SRIndex">
+<div id="SRResults"></div>
+<div class="SRStatus" id="Loading">로딩중...</div>
+<div class="SRStatus" id="Searching">검색중...</div>
+<div class="SRStatus" id="NoMatches">일치하는것 없음</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="header">
+  <div class="headertitle"><div class="title">ControlUI.h</div></div>
+</div><!--header-->
+<div class="contents">
+<a href="_control_u_i_8h.html">이 파일의 문서화 페이지로 가기</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="comment">/*****************************************************************************</span></div>
+<div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="comment"> * ControlUI.h</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="comment"> * Native Windows UI for Anchor Snap - Control Module</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="comment"> * Provides effect search and quick apply functionality</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="comment"> * Mode 1: Search effects (default)</span></div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span><span class="comment"> * Mode 2: Layer effects list (when Effect Controls focused)</span></div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="comment"> *****************************************************************************/</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span> </div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span><span class="preprocessor">#ifndef CONTROLUI_H</span></div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="preprocessor">#define CONTROLUI_H</span></div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span> </div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespace_control_u_i.html">ControlUI</a> {</div>
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span> </div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="comment">// Panel modes</span></div>
+<div class="foldopen" id="foldopen00016" data-start="{" data-end="};">
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0b">   16</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0b">PanelMode</a> {</div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0ba22a195ee914f37c9d4caed0d58a8b16e">   17</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0ba22a195ee914f37c9d4caed0d58a8b16e">MODE_SEARCH</a> = 0,    <span class="comment">// Default: Search and add effects</span></div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0ba7f43f6867462f8f7c5c217e2c66878c9">   18</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0ba7f43f6867462f8f7c5c217e2c66878c9">MODE_EFFECTS</a> = 1    <span class="comment">// Effect Controls focused: Show layer effects</span></div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno">   19</span>};</div>
+</div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span> </div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span><span class="comment">// Search result item</span></div>
+<div class="foldopen" id="foldopen00022" data-start="{" data-end="};">
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_effect_item.html">   22</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_control_u_i_1_1_effect_item.html">EffectItem</a> {</div>
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_effect_item.html#a28e8649f016a9f5d0a8df78fd9cee35a">   23</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_control_u_i_1_1_effect_item.html#a28e8649f016a9f5d0a8df78fd9cee35a">name</a>[128];          <span class="comment">// Effect display name</span></div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_effect_item.html#ad066c1cc6fbb839b9b07664ae025f58c">   24</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_control_u_i_1_1_effect_item.html#ad066c1cc6fbb839b9b07664ae025f58c">matchName</a>[128];     <span class="comment">// Effect match name for applying</span></div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_effect_item.html#aeeb45a72cbed0f84cd53f0f27e005082">   25</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_control_u_i_1_1_effect_item.html#aeeb45a72cbed0f84cd53f0f27e005082">category</a>[64];       <span class="comment">// Effect category</span></div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_effect_item.html#a965b78a929b49f35b270f2c7541dbf72">   26</a></span>    <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_control_u_i_1_1_effect_item.html#a965b78a929b49f35b270f2c7541dbf72">index</a>;                  <span class="comment">// Index in results (or effect index on layer)</span></div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_effect_item.html#aba41a9cf4cb4e4da953c3cc6dfb80a6e">   27</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_control_u_i_1_1_effect_item.html#aba41a9cf4cb4e4da953c3cc6dfb80a6e">isLayerEffect</a>;         <span class="comment">// True if this is an existing effect on layer</span></div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>};</div>
+</div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span> </div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span><span class="comment">// Action for layer effects</span></div>
+<div class="foldopen" id="foldopen00031" data-start="{" data-end="};">
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40">   31</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40">EffectAction</a> {</div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a6c3bb354d8b301ea014c693b052019ed">   32</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a6c3bb354d8b301ea014c693b052019ed">ACTION_NONE</a> = 0,</div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a20111924dc41d3a255d8f244cb922da0">   33</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a20111924dc41d3a255d8f244cb922da0">ACTION_SELECT</a>,       <span class="comment">// Select effect in Effect Controls</span></div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a3367c25a3f155764b10ef5a4981b3dc0">   34</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a3367c25a3f155764b10ef5a4981b3dc0">ACTION_DELETE</a>,       <span class="comment">// Delete effect from layer</span></div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40afbf756df7cdfbe98f8683dcd13dce295">   35</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40afbf756df7cdfbe98f8683dcd13dce295">ACTION_DUPLICATE</a>,    <span class="comment">// Duplicate effect</span></div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a9864a26e633d837e8adbd029210fb0ea">   36</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a9864a26e633d837e8adbd029210fb0ea">ACTION_MOVE_UP</a>,      <span class="comment">// Move effect up</span></div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40ac7d55ae2dcdd090b97b65ee5562d854f">   37</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40ac7d55ae2dcdd090b97b65ee5562d854f">ACTION_MOVE_DOWN</a>,    <span class="comment">// Move effect down</span></div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a5cec416bbfccba05176c655bbd11cad8">   38</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a5cec416bbfccba05176c655bbd11cad8">ACTION_EXPAND</a>,       <span class="comment">// Expand effect (collapse others)</span></div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40aa3d66c4ca684e04e9ba7b9b1ed42099c">   39</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40aa3d66c4ca684e04e9ba7b9b1ed42099c">ACTION_APPLY_PRESET</a>, <span class="comment">// Apply preset from quick slot</span></div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a17b848b0c12949d73f0733cc48b4c692">   40</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a17b848b0c12949d73f0733cc48b4c692">ACTION_SAVE_PRESET</a>,  <span class="comment">// Save current effects to preset slot</span></div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a79e6de0104648bb20a220cd5a80f6f5e">   41</a></span>    <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a79e6de0104648bb20a220cd5a80f6f5e">ACTION_NEW_EC_WINDOW</a> <span class="comment">// Open new locked EC window</span></div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>};</div>
+</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span> </div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span><span class="comment">// Control panel result</span></div>
+<div class="foldopen" id="foldopen00045" data-start="{" data-end="};">
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html">   45</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_control_u_i_1_1_control_result.html">ControlResult</a> {</div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#a487efdefd7af813e6fc4c9f1155e822b">   46</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#a487efdefd7af813e6fc4c9f1155e822b">cancelled</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#aa2e80ecb676cf127c2b1064270c9a240">   47</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#aa2e80ecb676cf127c2b1064270c9a240">effectSelected</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#af8ed032995a7f75e1dd687cdb05f67d6">   48</a></span>    <a class="code hl_struct" href="struct_control_u_i_1_1_effect_item.html">EffectItem</a> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#af8ed032995a7f75e1dd687cdb05f67d6">selectedEffect</a>;</div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#a4b9f69f9d934eae0482717b6cd9b9249">   49</a></span>    <span class="keywordtype">wchar_t</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#a4b9f69f9d934eae0482717b6cd9b9249">searchQuery</a>[256];</div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#a302f51aeb0d10138d5c3dfbedc885442">   50</a></span>    <a class="code hl_enumeration" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40">EffectAction</a> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#a302f51aeb0d10138d5c3dfbedc885442">action</a> = <a class="code hl_enumvalue" href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a6c3bb354d8b301ea014c693b052019ed">ACTION_NONE</a>;</div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#a6aca4401bb4ee6b03a3ef9bd546c7482">   51</a></span>    <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#a6aca4401bb4ee6b03a3ef9bd546c7482">effectIndex</a> = -1;       <span class="comment">// For layer effect actions</span></div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#a7bca14f6d25374758e7fe5a6633cea37">   52</a></span>    <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#a7bca14f6d25374758e7fe5a6633cea37">presetSlotIndex</a> = -1;   <span class="comment">// For preset quick slot (0-5)</span></div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_result.html#a61607bf3a9a4b7e158e9871dfa47410c">   53</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_result.html#a61607bf3a9a4b7e158e9871dfa47410c">saveMode</a> = <span class="keyword">false</span>;      <span class="comment">// True when in save mode</span></div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>};</div>
+</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span> </div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span><span class="comment">// Control panel settings</span></div>
+<div class="foldopen" id="foldopen00057" data-start="{" data-end="};">
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_settings.html">   57</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_control_u_i_1_1_control_settings.html">ControlSettings</a> {</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_settings.html#a08a324ade84016f55e508b015a7b44dc">   58</a></span>    <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_settings.html#a08a324ade84016f55e508b015a7b44dc">maxResults</a> = 10;        <span class="comment">// Max search results to show</span></div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_settings.html#a26c747e08700762909071f7e69c93a38">   59</a></span>    <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_settings.html#a26c747e08700762909071f7e69c93a38">showCategories</a> = <span class="keyword">true</span>; <span class="comment">// Show effect categories</span></div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno"><a class="line" href="struct_control_u_i_1_1_control_settings.html#a7bbc8cd896a08b0c3e2476b2e68ad9dd">   60</a></span>    <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_control_u_i_1_1_control_settings.html#a7bbc8cd896a08b0c3e2476b2e68ad9dd">slotCount</a> = 6;          <span class="comment">// Number of quick slots</span></div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>};</div>
+</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span> </div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span><span class="comment">// Initialize the Control UI system</span></div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a60f65b6b26bb0ff92c75ac64eea4915e">Initialize</a>();</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span> </div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span><span class="comment">// Cleanup</span></div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a994f25fdd0427fe7c4f3fffa6175862a">Shutdown</a>();</div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span><span class="comment">// Set panel mode before showing</span></div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a5b4a9ef56f2a432238da9d86dbd6de0b">SetMode</a>(<a class="code hl_enumeration" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0b">PanelMode</a> mode);</div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span> </div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span><span class="comment">// Get current mode</span></div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span><a class="code hl_enumeration" href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0b">PanelMode</a> <a class="code hl_function" href="namespace_control_u_i.html#aae1fd6d52df6a2429f66b1a35cf01851">GetMode</a>();</div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span> </div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span><span class="comment">// Show the control panel at mouse position</span></div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a0f75f7819e8d17786318f6d1352bd4a3">ShowPanel</a>();</div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span> </div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span><span class="comment">// Show the control panel at specific position (for Effect Controls tracking)</span></div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a0e5701d2c231c83c60c900c5277a8bb5">ShowPanelAt</a>(<span class="keywordtype">int</span> x, <span class="keywordtype">int</span> y);</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span> </div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span><span class="comment">// Hide the control panel</span></div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a83c95289d96cc8c4f5334fac0fca85d2">HidePanel</a>();</div>
+<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span> </div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span><span class="comment">// Check if panel is visible</span></div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_control_u_i.html#a1f55f45f5667dc8683e439f2a467b02b">IsVisible</a>();</div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span> </div>
+<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span><span class="comment">// Get the result after panel closes</span></div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span><a class="code hl_struct" href="struct_control_u_i_1_1_control_result.html">ControlResult</a> <a class="code hl_function" href="namespace_control_u_i.html#a7f7154695b51cec668e9521723492eea">GetResult</a>();</div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span> </div>
+<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span><span class="comment">// Get settings reference</span></div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span><a class="code hl_struct" href="struct_control_u_i_1_1_control_settings.html">ControlSettings</a>&amp; <a class="code hl_function" href="namespace_control_u_i.html#a799e0fe42e6fa9c0dff4403299ac628c">GetSettings</a>();</div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span> </div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span><span class="comment">// Update search results (Mode 1)</span></div>
+<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a2985075caccaf920020b45ccebb0887a">UpdateSearch</a>(<span class="keyword">const</span> <span class="keywordtype">wchar_t</span>* query);</div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span> </div>
+<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span><span class="comment">// Set available effects list (from AE - localized names)</span></div>
+<div class="line"><a id="l00097" name="l00097"></a><span class="lineno">   97</span><span class="comment">// effectList format: &quot;displayName|matchName|category;displayName|matchName|category;...&quot;</span></div>
+<div class="line"><a id="l00098" name="l00098"></a><span class="lineno">   98</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#ad7880f323768e498bfd9cc622ba0d958">SetAvailableEffects</a>(<span class="keyword">const</span> <span class="keywordtype">wchar_t</span>* effectList);</div>
+<div class="line"><a id="l00099" name="l00099"></a><span class="lineno">   99</span> </div>
+<div class="line"><a id="l00100" name="l00100"></a><span class="lineno">  100</span><span class="comment">// Set layer effects list (Mode 2)</span></div>
+<div class="line"><a id="l00101" name="l00101"></a><span class="lineno">  101</span><span class="comment">// effectList format: &quot;name1|matchName1;name2|matchName2;...&quot;</span></div>
+<div class="line"><a id="l00102" name="l00102"></a><span class="lineno">  102</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a135b94c51f636b33ad2e36a5f5b3154a">SetLayerEffects</a>(<span class="keyword">const</span> <span class="keywordtype">wchar_t</span>* effectList);</div>
+<div class="line"><a id="l00103" name="l00103"></a><span class="lineno">  103</span> </div>
+<div class="line"><a id="l00104" name="l00104"></a><span class="lineno">  104</span><span class="comment">// Clear layer effects</span></div>
+<div class="line"><a id="l00105" name="l00105"></a><span class="lineno">  105</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a0c4b8841bed8bd68c4feb404c9b64540">ClearLayerEffects</a>();</div>
+<div class="line"><a id="l00106" name="l00106"></a><span class="lineno">  106</span> </div>
+<div class="line"><a id="l00107" name="l00107"></a><span class="lineno">  107</span><span class="comment">// Mark a preset slot as filled (call after saving preset)</span></div>
+<div class="line"><a id="l00108" name="l00108"></a><span class="lineno">  108</span><span class="comment">// slotIndex: 0-5 for the 6 preset slots</span></div>
+<div class="line"><a id="l00109" name="l00109"></a><span class="lineno">  109</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#a84b935c6c0607ed7c9780c0595245844">SetPresetSlotFilled</a>(<span class="keywordtype">int</span> slotIndex, <span class="keywordtype">bool</span> filled);</div>
+<div class="line"><a id="l00110" name="l00110"></a><span class="lineno">  110</span> </div>
+<div class="line"><a id="l00111" name="l00111"></a><span class="lineno">  111</span><span class="comment">// Check if a preset slot is filled</span></div>
+<div class="line"><a id="l00112" name="l00112"></a><span class="lineno">  112</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_control_u_i.html#acecb086a847947118455c9bf4bedf075">IsPresetSlotFilled</a>(<span class="keywordtype">int</span> slotIndex);</div>
+<div class="line"><a id="l00113" name="l00113"></a><span class="lineno">  113</span> </div>
+<div class="line"><a id="l00114" name="l00114"></a><span class="lineno">  114</span><span class="comment">// Set icon for a preset slot (0=None, 1=Color, 2=Blur, 3=Distort, 4=Star, 5=Lightning, 6=Magic)</span></div>
+<div class="line"><a id="l00115" name="l00115"></a><span class="lineno">  115</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#ae3425ae3e146040618fa0def8f037f9e">SetPresetSlotIcon</a>(<span class="keywordtype">int</span> slotIndex, <span class="keywordtype">int</span> iconType);</div>
+<div class="line"><a id="l00116" name="l00116"></a><span class="lineno">  116</span> </div>
+<div class="line"><a id="l00117" name="l00117"></a><span class="lineno">  117</span><span class="comment">// Get icon type for a preset slot</span></div>
+<div class="line"><a id="l00118" name="l00118"></a><span class="lineno">  118</span><span class="keywordtype">int</span> <a class="code hl_function" href="namespace_control_u_i.html#a5f03aabbdb22408773f8c612617b338e">GetPresetSlotIcon</a>(<span class="keywordtype">int</span> slotIndex);</div>
+<div class="line"><a id="l00119" name="l00119"></a><span class="lineno">  119</span> </div>
+<div class="line"><a id="l00120" name="l00120"></a><span class="lineno">  120</span><span class="comment">// Set layer info for header display</span></div>
+<div class="line"><a id="l00121" name="l00121"></a><span class="lineno">  121</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_control_u_i.html#af38664fcbdf293ee8f7e32447406b498">SetLayerInfo</a>(<span class="keyword">const</span> <span class="keywordtype">wchar_t</span>* layerName, <span class="keywordtype">int</span> labelColor);</div>
+<div class="line"><a id="l00122" name="l00122"></a><span class="lineno">  122</span> </div>
+<div class="line"><a id="l00123" name="l00123"></a><span class="lineno">  123</span>} <span class="comment">// namespace ControlUI</span></div>
+<div class="line"><a id="l00124" name="l00124"></a><span class="lineno">  124</span> </div>
+<div class="line"><a id="l00125" name="l00125"></a><span class="lineno">  125</span><span class="preprocessor">#endif </span><span class="comment">// CONTROLUI_H</span></div>
+<div class="ttc" id="anamespace_control_u_i_html"><div class="ttname"><a href="namespace_control_u_i.html">ControlUI</a></div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01754">ControlUI.cpp:1754</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a0c4b8841bed8bd68c4feb404c9b64540"><div class="ttname"><a href="namespace_control_u_i.html#a0c4b8841bed8bd68c4feb404c9b64540">ControlUI::ClearLayerEffects</a></div><div class="ttdeci">void ClearLayerEffects()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01769">ControlUI.cpp:1769</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a0e5701d2c231c83c60c900c5277a8bb5"><div class="ttname"><a href="namespace_control_u_i.html#a0e5701d2c231c83c60c900c5277a8bb5">ControlUI::ShowPanelAt</a></div><div class="ttdeci">void ShowPanelAt(int, int)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01761">ControlUI.cpp:1761</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a0f75f7819e8d17786318f6d1352bd4a3"><div class="ttname"><a href="namespace_control_u_i.html#a0f75f7819e8d17786318f6d1352bd4a3">ControlUI::ShowPanel</a></div><div class="ttdeci">void ShowPanel()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01760">ControlUI.cpp:1760</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a135b94c51f636b33ad2e36a5f5b3154a"><div class="ttname"><a href="namespace_control_u_i.html#a135b94c51f636b33ad2e36a5f5b3154a">ControlUI::SetLayerEffects</a></div><div class="ttdeci">void SetLayerEffects(const wchar_t *)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01768">ControlUI.cpp:1768</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a1f55f45f5667dc8683e439f2a467b02b"><div class="ttname"><a href="namespace_control_u_i.html#a1f55f45f5667dc8683e439f2a467b02b">ControlUI::IsVisible</a></div><div class="ttdeci">bool IsVisible()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01763">ControlUI.cpp:1763</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a2985075caccaf920020b45ccebb0887a"><div class="ttname"><a href="namespace_control_u_i.html#a2985075caccaf920020b45ccebb0887a">ControlUI::UpdateSearch</a></div><div class="ttdeci">void UpdateSearch(const wchar_t *)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01766">ControlUI.cpp:1766</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a5b4a9ef56f2a432238da9d86dbd6de0b"><div class="ttname"><a href="namespace_control_u_i.html#a5b4a9ef56f2a432238da9d86dbd6de0b">ControlUI::SetMode</a></div><div class="ttdeci">void SetMode(PanelMode)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01758">ControlUI.cpp:1758</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a5f03aabbdb22408773f8c612617b338e"><div class="ttname"><a href="namespace_control_u_i.html#a5f03aabbdb22408773f8c612617b338e">ControlUI::GetPresetSlotIcon</a></div><div class="ttdeci">int GetPresetSlotIcon(int)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01773">ControlUI.cpp:1773</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a5fbc03a8b167dd69bef0478dec225b0b"><div class="ttname"><a href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0b">ControlUI::PanelMode</a></div><div class="ttdeci">PanelMode</div><div class="ttdef"><b>Definition</b> <a href="#l00016">ControlUI.h:16</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a5fbc03a8b167dd69bef0478dec225b0ba22a195ee914f37c9d4caed0d58a8b16e"><div class="ttname"><a href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0ba22a195ee914f37c9d4caed0d58a8b16e">ControlUI::MODE_SEARCH</a></div><div class="ttdeci">@ MODE_SEARCH</div><div class="ttdef"><b>Definition</b> <a href="#l00017">ControlUI.h:17</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a5fbc03a8b167dd69bef0478dec225b0ba7f43f6867462f8f7c5c217e2c66878c9"><div class="ttname"><a href="namespace_control_u_i.html#a5fbc03a8b167dd69bef0478dec225b0ba7f43f6867462f8f7c5c217e2c66878c9">ControlUI::MODE_EFFECTS</a></div><div class="ttdeci">@ MODE_EFFECTS</div><div class="ttdef"><b>Definition</b> <a href="#l00018">ControlUI.h:18</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a60f65b6b26bb0ff92c75ac64eea4915e"><div class="ttname"><a href="namespace_control_u_i.html#a60f65b6b26bb0ff92c75ac64eea4915e">ControlUI::Initialize</a></div><div class="ttdeci">void Initialize()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01756">ControlUI.cpp:1756</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a799e0fe42e6fa9c0dff4403299ac628c"><div class="ttname"><a href="namespace_control_u_i.html#a799e0fe42e6fa9c0dff4403299ac628c">ControlUI::GetSettings</a></div><div class="ttdeci">ControlSettings &amp; GetSettings()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01765">ControlUI.cpp:1765</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a7f7154695b51cec668e9521723492eea"><div class="ttname"><a href="namespace_control_u_i.html#a7f7154695b51cec668e9521723492eea">ControlUI::GetResult</a></div><div class="ttdeci">ControlResult GetResult()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01764">ControlUI.cpp:1764</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a83c95289d96cc8c4f5334fac0fca85d2"><div class="ttname"><a href="namespace_control_u_i.html#a83c95289d96cc8c4f5334fac0fca85d2">ControlUI::HidePanel</a></div><div class="ttdeci">void HidePanel()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01762">ControlUI.cpp:1762</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a84b935c6c0607ed7c9780c0595245844"><div class="ttname"><a href="namespace_control_u_i.html#a84b935c6c0607ed7c9780c0595245844">ControlUI::SetPresetSlotFilled</a></div><div class="ttdeci">void SetPresetSlotFilled(int, bool)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01770">ControlUI.cpp:1770</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_a994f25fdd0427fe7c4f3fffa6175862a"><div class="ttname"><a href="namespace_control_u_i.html#a994f25fdd0427fe7c4f3fffa6175862a">ControlUI::Shutdown</a></div><div class="ttdeci">void Shutdown()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01757">ControlUI.cpp:1757</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_aae1fd6d52df6a2429f66b1a35cf01851"><div class="ttname"><a href="namespace_control_u_i.html#aae1fd6d52df6a2429f66b1a35cf01851">ControlUI::GetMode</a></div><div class="ttdeci">PanelMode GetMode()</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01759">ControlUI.cpp:1759</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_acecb086a847947118455c9bf4bedf075"><div class="ttname"><a href="namespace_control_u_i.html#acecb086a847947118455c9bf4bedf075">ControlUI::IsPresetSlotFilled</a></div><div class="ttdeci">bool IsPresetSlotFilled(int)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01771">ControlUI.cpp:1771</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_ad7880f323768e498bfd9cc622ba0d958"><div class="ttname"><a href="namespace_control_u_i.html#ad7880f323768e498bfd9cc622ba0d958">ControlUI::SetAvailableEffects</a></div><div class="ttdeci">void SetAvailableEffects(const wchar_t *)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01767">ControlUI.cpp:1767</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40">ControlUI::EffectAction</a></div><div class="ttdeci">EffectAction</div><div class="ttdef"><b>Definition</b> <a href="#l00031">ControlUI.h:31</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a17b848b0c12949d73f0733cc48b4c692"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a17b848b0c12949d73f0733cc48b4c692">ControlUI::ACTION_SAVE_PRESET</a></div><div class="ttdeci">@ ACTION_SAVE_PRESET</div><div class="ttdef"><b>Definition</b> <a href="#l00040">ControlUI.h:40</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a20111924dc41d3a255d8f244cb922da0"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a20111924dc41d3a255d8f244cb922da0">ControlUI::ACTION_SELECT</a></div><div class="ttdeci">@ ACTION_SELECT</div><div class="ttdef"><b>Definition</b> <a href="#l00033">ControlUI.h:33</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a3367c25a3f155764b10ef5a4981b3dc0"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a3367c25a3f155764b10ef5a4981b3dc0">ControlUI::ACTION_DELETE</a></div><div class="ttdeci">@ ACTION_DELETE</div><div class="ttdef"><b>Definition</b> <a href="#l00034">ControlUI.h:34</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a5cec416bbfccba05176c655bbd11cad8"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a5cec416bbfccba05176c655bbd11cad8">ControlUI::ACTION_EXPAND</a></div><div class="ttdeci">@ ACTION_EXPAND</div><div class="ttdef"><b>Definition</b> <a href="#l00038">ControlUI.h:38</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a6c3bb354d8b301ea014c693b052019ed"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a6c3bb354d8b301ea014c693b052019ed">ControlUI::ACTION_NONE</a></div><div class="ttdeci">@ ACTION_NONE</div><div class="ttdef"><b>Definition</b> <a href="#l00032">ControlUI.h:32</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a79e6de0104648bb20a220cd5a80f6f5e"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a79e6de0104648bb20a220cd5a80f6f5e">ControlUI::ACTION_NEW_EC_WINDOW</a></div><div class="ttdeci">@ ACTION_NEW_EC_WINDOW</div><div class="ttdef"><b>Definition</b> <a href="#l00041">ControlUI.h:41</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40a9864a26e633d837e8adbd029210fb0ea"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40a9864a26e633d837e8adbd029210fb0ea">ControlUI::ACTION_MOVE_UP</a></div><div class="ttdeci">@ ACTION_MOVE_UP</div><div class="ttdef"><b>Definition</b> <a href="#l00036">ControlUI.h:36</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40aa3d66c4ca684e04e9ba7b9b1ed42099c"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40aa3d66c4ca684e04e9ba7b9b1ed42099c">ControlUI::ACTION_APPLY_PRESET</a></div><div class="ttdeci">@ ACTION_APPLY_PRESET</div><div class="ttdef"><b>Definition</b> <a href="#l00039">ControlUI.h:39</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40ac7d55ae2dcdd090b97b65ee5562d854f"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40ac7d55ae2dcdd090b97b65ee5562d854f">ControlUI::ACTION_MOVE_DOWN</a></div><div class="ttdeci">@ ACTION_MOVE_DOWN</div><div class="ttdef"><b>Definition</b> <a href="#l00037">ControlUI.h:37</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_adad254b5c16d640278ccd172c116eb40afbf756df7cdfbe98f8683dcd13dce295"><div class="ttname"><a href="namespace_control_u_i.html#adad254b5c16d640278ccd172c116eb40afbf756df7cdfbe98f8683dcd13dce295">ControlUI::ACTION_DUPLICATE</a></div><div class="ttdeci">@ ACTION_DUPLICATE</div><div class="ttdef"><b>Definition</b> <a href="#l00035">ControlUI.h:35</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_ae3425ae3e146040618fa0def8f037f9e"><div class="ttname"><a href="namespace_control_u_i.html#ae3425ae3e146040618fa0def8f037f9e">ControlUI::SetPresetSlotIcon</a></div><div class="ttdeci">void SetPresetSlotIcon(int, int)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01772">ControlUI.cpp:1772</a></div></div>
+<div class="ttc" id="anamespace_control_u_i_html_af38664fcbdf293ee8f7e32447406b498"><div class="ttname"><a href="namespace_control_u_i.html#af38664fcbdf293ee8f7e32447406b498">ControlUI::SetLayerInfo</a></div><div class="ttdeci">void SetLayerInfo(const wchar_t *, int)</div><div class="ttdef"><b>Definition</b> <a href="_control_u_i_8cpp_source.html#l01774">ControlUI.cpp:1774</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html">ControlUI::ControlResult</a></div><div class="ttdef"><b>Definition</b> <a href="#l00045">ControlUI.h:45</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_a302f51aeb0d10138d5c3dfbedc885442"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#a302f51aeb0d10138d5c3dfbedc885442">ControlUI::ControlResult::action</a></div><div class="ttdeci">EffectAction action</div><div class="ttdef"><b>Definition</b> <a href="#l00050">ControlUI.h:50</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_a487efdefd7af813e6fc4c9f1155e822b"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#a487efdefd7af813e6fc4c9f1155e822b">ControlUI::ControlResult::cancelled</a></div><div class="ttdeci">bool cancelled</div><div class="ttdef"><b>Definition</b> <a href="#l00046">ControlUI.h:46</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_a4b9f69f9d934eae0482717b6cd9b9249"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#a4b9f69f9d934eae0482717b6cd9b9249">ControlUI::ControlResult::searchQuery</a></div><div class="ttdeci">wchar_t searchQuery[256]</div><div class="ttdef"><b>Definition</b> <a href="#l00049">ControlUI.h:49</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_a61607bf3a9a4b7e158e9871dfa47410c"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#a61607bf3a9a4b7e158e9871dfa47410c">ControlUI::ControlResult::saveMode</a></div><div class="ttdeci">bool saveMode</div><div class="ttdef"><b>Definition</b> <a href="#l00053">ControlUI.h:53</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_a6aca4401bb4ee6b03a3ef9bd546c7482"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#a6aca4401bb4ee6b03a3ef9bd546c7482">ControlUI::ControlResult::effectIndex</a></div><div class="ttdeci">int effectIndex</div><div class="ttdef"><b>Definition</b> <a href="#l00051">ControlUI.h:51</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_a7bca14f6d25374758e7fe5a6633cea37"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#a7bca14f6d25374758e7fe5a6633cea37">ControlUI::ControlResult::presetSlotIndex</a></div><div class="ttdeci">int presetSlotIndex</div><div class="ttdef"><b>Definition</b> <a href="#l00052">ControlUI.h:52</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_aa2e80ecb676cf127c2b1064270c9a240"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#aa2e80ecb676cf127c2b1064270c9a240">ControlUI::ControlResult::effectSelected</a></div><div class="ttdeci">bool effectSelected</div><div class="ttdef"><b>Definition</b> <a href="#l00047">ControlUI.h:47</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_result_html_af8ed032995a7f75e1dd687cdb05f67d6"><div class="ttname"><a href="struct_control_u_i_1_1_control_result.html#af8ed032995a7f75e1dd687cdb05f67d6">ControlUI::ControlResult::selectedEffect</a></div><div class="ttdeci">EffectItem selectedEffect</div><div class="ttdef"><b>Definition</b> <a href="#l00048">ControlUI.h:48</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_settings_html"><div class="ttname"><a href="struct_control_u_i_1_1_control_settings.html">ControlUI::ControlSettings</a></div><div class="ttdef"><b>Definition</b> <a href="#l00057">ControlUI.h:57</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_settings_html_a08a324ade84016f55e508b015a7b44dc"><div class="ttname"><a href="struct_control_u_i_1_1_control_settings.html#a08a324ade84016f55e508b015a7b44dc">ControlUI::ControlSettings::maxResults</a></div><div class="ttdeci">int maxResults</div><div class="ttdef"><b>Definition</b> <a href="#l00058">ControlUI.h:58</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_settings_html_a26c747e08700762909071f7e69c93a38"><div class="ttname"><a href="struct_control_u_i_1_1_control_settings.html#a26c747e08700762909071f7e69c93a38">ControlUI::ControlSettings::showCategories</a></div><div class="ttdeci">bool showCategories</div><div class="ttdef"><b>Definition</b> <a href="#l00059">ControlUI.h:59</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_control_settings_html_a7bbc8cd896a08b0c3e2476b2e68ad9dd"><div class="ttname"><a href="struct_control_u_i_1_1_control_settings.html#a7bbc8cd896a08b0c3e2476b2e68ad9dd">ControlUI::ControlSettings::slotCount</a></div><div class="ttdeci">int slotCount</div><div class="ttdef"><b>Definition</b> <a href="#l00060">ControlUI.h:60</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_effect_item_html"><div class="ttname"><a href="struct_control_u_i_1_1_effect_item.html">ControlUI::EffectItem</a></div><div class="ttdef"><b>Definition</b> <a href="#l00022">ControlUI.h:22</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_effect_item_html_a28e8649f016a9f5d0a8df78fd9cee35a"><div class="ttname"><a href="struct_control_u_i_1_1_effect_item.html#a28e8649f016a9f5d0a8df78fd9cee35a">ControlUI::EffectItem::name</a></div><div class="ttdeci">wchar_t name[128]</div><div class="ttdef"><b>Definition</b> <a href="#l00023">ControlUI.h:23</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_effect_item_html_a965b78a929b49f35b270f2c7541dbf72"><div class="ttname"><a href="struct_control_u_i_1_1_effect_item.html#a965b78a929b49f35b270f2c7541dbf72">ControlUI::EffectItem::index</a></div><div class="ttdeci">int index</div><div class="ttdef"><b>Definition</b> <a href="#l00026">ControlUI.h:26</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_effect_item_html_aba41a9cf4cb4e4da953c3cc6dfb80a6e"><div class="ttname"><a href="struct_control_u_i_1_1_effect_item.html#aba41a9cf4cb4e4da953c3cc6dfb80a6e">ControlUI::EffectItem::isLayerEffect</a></div><div class="ttdeci">bool isLayerEffect</div><div class="ttdef"><b>Definition</b> <a href="#l00027">ControlUI.h:27</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_effect_item_html_ad066c1cc6fbb839b9b07664ae025f58c"><div class="ttname"><a href="struct_control_u_i_1_1_effect_item.html#ad066c1cc6fbb839b9b07664ae025f58c">ControlUI::EffectItem::matchName</a></div><div class="ttdeci">wchar_t matchName[128]</div><div class="ttdef"><b>Definition</b> <a href="#l00024">ControlUI.h:24</a></div></div>
+<div class="ttc" id="astruct_control_u_i_1_1_effect_item_html_aeeb45a72cbed0f84cd53f0f27e005082"><div class="ttname"><a href="struct_control_u_i_1_1_effect_item.html#aeeb45a72cbed0f84cd53f0f27e005082">ControlUI::EffectItem::category</a></div><div class="ttdeci">wchar_t category[64]</div><div class="ttdef"><b>Definition</b> <a href="#l00025">ControlUI.h:25</a></div></div>
+</div><!-- fragment --></div><!-- contents -->
+</div><!-- doc-content -->
+</div><!-- container -->
+<!-- start footer part -->
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a href="dir_df511e5bd85cec96854b39d5e1c27aa8.html">cpp</a></li><li class="navelem"><a href="dir_7e72c7cf48e3493f8206cd364e6bc9f6.html">src</a></li><li class="navelem"><a href="dir_4badd9e9bf767c80da8f797f4356e4b7.html">modules</a></li><li class="navelem"><a href="dir_0b1964dec084c8ad1065dbb8ed1e6bb4.html">control</a></li><li class="navelem"><a href="_control_u_i_8h.html">ControlUI.h</a></li>
+    <li class="footer">다음에 의해 생성됨 :  <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.15.0 </li>
+  </ul>
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<map id="NativeUI::ShowGrid" name="NativeUI::ShowGrid">
+<area shape="rect" id="Node000001" title=" " alt="" coords="453,5,592,31"/>
+<area shape="rect" id="Node000002" href="$_snap_plugin_8cpp.html#a6cb9de088db788943fae2021834cefa4" title=" " alt="" coords="286,5,405,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="435,18,406,21,406,16,440,18"/>
+<area shape="rect" id="Node000003" href="$_snap_plugin_8cpp.html#a6d08fca2bd60bcf863b00515610f1237" title=" " alt="" coords="165,5,238,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="268,18,239,21,238,16,273,18"/>
+<area shape="rect" id="Node000004" href="$_snap_plugin_8cpp.html#a93ac7ff3ad6003dabd3b1a84dce8165a" title=" " alt="" coords="5,5,117,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="146,18,117,21,117,16,152,18"/>
+</map>

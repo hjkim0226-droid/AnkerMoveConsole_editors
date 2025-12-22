@@ -1,0 +1,259 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=11"/>
+<meta name="generator" content="Doxygen 1.15.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AE Anchor Radial Menu: cpp/src/modules/grid/GridUI.h 소스 파일</title>
+<link href="tabs.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="dynsections.js"></script>
+<script type="text/javascript" src="clipboard.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript" src="cookie.js"></script>
+<link href="search/search.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="search/searchdata.js"></script>
+<script type="text/javascript" src="search/search.js"></script>
+<link href="doxygen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="top"><!-- do not remove this div, it is closed by doxygen! -->
+<div id="titlearea">
+<table cellspacing="0" cellpadding="0">
+ <tbody>
+ <tr id="projectrow">
+  <td id="projectalign">
+   <div id="projectname">AE Anchor Radial Menu
+   </div>
+   <div id="projectbrief">After Effects Plugin - 앵커 포인트 라디얼 메뉴</div>
+  </td>
+ </tr>
+ </tbody>
+</table>
+</div>
+<!-- end header part -->
+<!-- 다음에 의해 생성됨 :  Doxygen 1.15.0 -->
+<script type="text/javascript">
+var searchBox = new SearchBox("searchBox", "search/",'.html');
+</script>
+<script type="text/javascript">
+$(function() { codefold.init(); });
+</script>
+<script type="text/javascript" src="menudata.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript">
+$(function() {
+  initMenu('',true,false,'search.php','검색',true);
+  $(function() { init_search(); });
+});
+</script>
+<div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(function(){initNavTree('_grid_u_i_8h_source.html','',''); });
+</script>
+<div id="container">
+<div id="doc-content">
+<!-- window showing the filter options -->
+<div id="MSearchSelectWindow"
+     onmouseover="return searchBox.OnSearchSelectShow()"
+     onmouseout="return searchBox.OnSearchSelectHide()"
+     onkeydown="return searchBox.OnSearchSelectKey(event)">
+</div>
+
+<!-- iframe showing the search results (closed by default) -->
+<div id="MSearchResultsWindow">
+<div id="MSearchResults">
+<div class="SRPage">
+<div id="SRIndex">
+<div id="SRResults"></div>
+<div class="SRStatus" id="Loading">로딩중...</div>
+<div class="SRStatus" id="Searching">검색중...</div>
+<div class="SRStatus" id="NoMatches">일치하는것 없음</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="header">
+  <div class="headertitle"><div class="title">GridUI.h</div></div>
+</div><!--header-->
+<div class="contents">
+<a href="_grid_u_i_8h.html">이 파일의 문서화 페이지로 가기</a><div class="fragment"><div class="line"><a id="l00001" name="l00001"></a><span class="lineno">    1</span><span class="comment">/*****************************************************************************</span></div>
+<div class="line"><a id="l00002" name="l00002"></a><span class="lineno">    2</span><span class="comment"> * GridUI.h</span></div>
+<div class="line"><a id="l00003" name="l00003"></a><span class="lineno">    3</span><span class="comment"> *</span></div>
+<div class="line"><a id="l00004" name="l00004"></a><span class="lineno">    4</span><span class="comment"> * Native Windows UI for Anchor Snap - Grid Module</span></div>
+<div class="line"><a id="l00005" name="l00005"></a><span class="lineno">    5</span><span class="comment"> * Provides a custom-drawn popup window for the grid interface</span></div>
+<div class="line"><a id="l00006" name="l00006"></a><span class="lineno">    6</span><span class="comment"> *****************************************************************************/</span></div>
+<div class="line"><a id="l00007" name="l00007"></a><span class="lineno">    7</span> </div>
+<div class="line"><a id="l00008" name="l00008"></a><span class="lineno">    8</span><span class="preprocessor">#ifndef GRIDUI_H</span></div>
+<div class="line"><a id="l00009" name="l00009"></a><span class="lineno">    9</span><span class="preprocessor">#define GRIDUI_H</span></div>
+<div class="line"><a id="l00010" name="l00010"></a><span class="lineno">   10</span> </div>
+<div class="line"><a id="l00011" name="l00011"></a><span class="lineno">   11</span><span class="keyword">namespace </span><a class="code hl_namespace" href="namespace_native_u_i.html">NativeUI</a> {</div>
+<div class="line"><a id="l00012" name="l00012"></a><span class="lineno">   12</span> </div>
+<div class="line"><a id="l00013" name="l00013"></a><span class="lineno">   13</span><span class="comment">// Grid configuration</span></div>
+<div class="foldopen" id="foldopen00014" data-start="{" data-end="};">
+<div class="line"><a id="l00014" name="l00014"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_config.html">   14</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_native_u_i_1_1_grid_config.html">GridConfig</a> {</div>
+<div class="line"><a id="l00015" name="l00015"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_config.html#af6ca3e70fe915904e46513c139caee23">   15</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_config.html#af6ca3e70fe915904e46513c139caee23">gridWidth</a> = 3;  <span class="comment">// Horizontal cells (3-7)</span></div>
+<div class="line"><a id="l00016" name="l00016"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_config.html#a2fbcceaa35fd77762f3d96a1bf2b641f">   16</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_config.html#a2fbcceaa35fd77762f3d96a1bf2b641f">gridHeight</a> = 3; <span class="comment">// Vertical cells (3-7)</span></div>
+<div class="line"><a id="l00017" name="l00017"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_config.html#aaf3f803061184b2ebebed643a514cdc3">   17</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_config.html#aaf3f803061184b2ebebed643a514cdc3">cellSize</a> = 40;  <span class="comment">// pixels per cell</span></div>
+<div class="line"><a id="l00018" name="l00018"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_config.html#a9469bff1db48811c440c98b3cbc57197">   18</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_config.html#a9469bff1db48811c440c98b3cbc57197">spacing</a> = 4;    <span class="comment">// pixels between cells (4px gap)</span></div>
+<div class="line"><a id="l00019" name="l00019"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_config.html#a2bbb1876a35e0ceaa6fc191838bd7883">   19</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_config.html#a2bbb1876a35e0ceaa6fc191838bd7883">margin</a> = 2;     <span class="comment">// window margin</span></div>
+<div class="line"><a id="l00020" name="l00020"></a><span class="lineno">   20</span>};</div>
+</div>
+<div class="line"><a id="l00021" name="l00021"></a><span class="lineno">   21</span> </div>
+<div class="line"><a id="l00022" name="l00022"></a><span class="lineno">   22</span><span class="comment">// Extended menu options (side panels)</span></div>
+<div class="foldopen" id="foldopen00023" data-start="{" data-end="};">
+<div class="line"><a id="l00023" name="l00023"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576">   23</a></span><span class="keyword">enum</span> <a class="code hl_enumeration" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576">ExtendedOption</a> {</div>
+<div class="line"><a id="l00024" name="l00024"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ab1bf3b84a73ad00357733480dec376d2">   24</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ab1bf3b84a73ad00357733480dec376d2">OPT_NONE</a> = 0, <span class="comment">// Normal grid selection</span></div>
+<div class="line"><a id="l00025" name="l00025"></a><span class="lineno">   25</span>  <span class="comment">// Left side: Custom anchor presets</span></div>
+<div class="line"><a id="l00026" name="l00026"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a38d801677f6dae22d09b0aff3d5bb3ff">   26</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a38d801677f6dae22d09b0aff3d5bb3ff">OPT_CUSTOM_1</a>, <span class="comment">// Custom anchor preset 1</span></div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a4f1d2cc703ee76e606ce97a5ba284043">   27</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a4f1d2cc703ee76e606ce97a5ba284043">OPT_CUSTOM_2</a>, <span class="comment">// Custom anchor preset 2</span></div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ae878915730976f7390aff41e65ea3f6e">   28</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ae878915730976f7390aff41e65ea3f6e">OPT_CUSTOM_3</a>, <span class="comment">// Custom anchor preset 3</span></div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>  <span class="comment">// Right side: Mode controls</span></div>
+<div class="line"><a id="l00030" name="l00030"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a265e68c1693691612f663fee6c960bf4">   30</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a265e68c1693691612f663fee6c960bf4">OPT_COMP_MODE</a>, <span class="comment">// Toggle Composition mode</span></div>
+<div class="line"><a id="l00031" name="l00031"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a2ddd5460f1411160f20e11008a1a07bc">   31</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a2ddd5460f1411160f20e11008a1a07bc">OPT_MASK_MODE</a>, <span class="comment">// Toggle Mask recognition</span></div>
+<div class="line"><a id="l00032" name="l00032"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a9511c439eb61977844589b3b3e43158e">   32</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a9511c439eb61977844589b3b3e43158e">OPT_SETTINGS</a>,  <span class="comment">// Open settings panel</span></div>
+<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span>  <span class="comment">// Bottom: Extended features</span></div>
+<div class="line"><a id="l00034" name="l00034"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a8f4522c460abbecc73bfb30dcec417d1">   34</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a8f4522c460abbecc73bfb30dcec417d1">OPT_COPY_ANCHOR</a>, <span class="comment">// Copy anchor ratio</span></div>
+<div class="line"><a id="l00035" name="l00035"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a3e1e2e1b8dd9c9bafca3b7ba510fdcca">   35</a></span>  <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a3e1e2e1b8dd9c9bafca3b7ba510fdcca">OPT_PASTE_ANCHOR</a> <span class="comment">// Paste anchor ratio</span></div>
+<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span>};</div>
+</div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span> </div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span><span class="comment">// Grid result</span></div>
+<div class="foldopen" id="foldopen00039" data-start="{" data-end="};">
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_result.html">   39</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_native_u_i_1_1_grid_result.html">GridResult</a> {</div>
+<div class="line"><a id="l00040" name="l00040"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_result.html#ae59f427eb8ab1ec3d4306845dd06729b">   40</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_result.html#ae59f427eb8ab1ec3d4306845dd06729b">gridX</a> = -1;</div>
+<div class="line"><a id="l00041" name="l00041"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_result.html#af315b92738ca01b1e0a10a07e09a3098">   41</a></span>  <span class="keywordtype">int</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_result.html#af315b92738ca01b1e0a10a07e09a3098">gridY</a> = -1;</div>
+<div class="line"><a id="l00042" name="l00042"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_result.html#af3c3b7656f163aaa54dab5de1ec55290">   42</a></span>  <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_result.html#af3c3b7656f163aaa54dab5de1ec55290">cancelled</a> = <span class="keyword">false</span>;</div>
+<div class="line"><a id="l00043" name="l00043"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_result.html#a002d3a16e88347bb79633fb67cbc4005">   43</a></span>  <a class="code hl_enumeration" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576">ExtendedOption</a> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_result.html#a002d3a16e88347bb79633fb67cbc4005">extendedOption</a> = <a class="code hl_enumvalue" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ab1bf3b84a73ad00357733480dec376d2">OPT_NONE</a>;</div>
+<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>};</div>
+</div>
+<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span><span class="comment">// Current mode settings</span></div>
+<div class="foldopen" id="foldopen00047" data-start="{" data-end="};">
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html">   47</a></span><span class="keyword">struct </span><a class="code hl_struct" href="struct_native_u_i_1_1_grid_settings.html">GridSettings</a> {</div>
+<div class="line"><a id="l00048" name="l00048"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#adfb5ea2776e595ea039d520373ed9e7b">   48</a></span>  <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#adfb5ea2776e595ea039d520373ed9e7b">useCompMode</a> = <span class="keyword">false</span>;       <span class="comment">// false = per-selection, true = whole comp</span></div>
+<div class="line"><a id="l00049" name="l00049"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#afdaa47013b9d6bac6e49ee02ca787106">   49</a></span>  <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#afdaa47013b9d6bac6e49ee02ca787106">useMaskRecognition</a> = <span class="keyword">true</span>; <span class="comment">// true = use mask bounds</span></div>
+<div class="line"><a id="l00050" name="l00050"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#a93497307905aea7f8b944d8230d4ac3f">   50</a></span>  <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#a93497307905aea7f8b944d8230d4ac3f">transparentMode</a> = <span class="keyword">false</span>;   <span class="comment">// transparent background</span></div>
+<div class="line"><a id="l00051" name="l00051"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#a6e73326a5d8a912b7861e6ca63cce052">   51</a></span>  <span class="keywordtype">bool</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#a6e73326a5d8a912b7861e6ca63cce052">settingsPanelOpen</a> = <span class="keyword">false</span>; <span class="comment">// true when CEP panel is visible</span></div>
+<div class="line"><a id="l00052" name="l00052"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#adaf1dbbc87d9b9c986de89b8e4049357">   52</a></span>  <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#adaf1dbbc87d9b9c986de89b8e4049357">gridOpacity</a> = 0.75f;      <span class="comment">// Grid background opacity</span></div>
+<div class="line"><a id="l00053" name="l00053"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#af4de015e2f6bd103442535dadc78d27b">   53</a></span>  <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#af4de015e2f6bd103442535dadc78d27b">cellOpacity</a> = 0.50f;      <span class="comment">// Cell background opacity</span></div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>  <span class="comment">// Custom anchor presets (x, y ratios 0-1)</span></div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#ad03ae0b1d1fc30830fb98e15df092e53">   55</a></span>  <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#ad03ae0b1d1fc30830fb98e15df092e53">customAnchor1X</a> = 0.0f, <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#a794de7caa191732b0ac258246c1f244f">customAnchor1Y</a> = 0.0f;</div>
+<div class="line"><a id="l00056" name="l00056"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#a623316fba5e75a17320f1b5daf289fd5">   56</a></span>  <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#a623316fba5e75a17320f1b5daf289fd5">customAnchor2X</a> = 0.5f, <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#a6c4c41c6f07096cf8080ab1ce3ad9a92">customAnchor2Y</a> = 0.0f;</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno"><a class="line" href="struct_native_u_i_1_1_grid_settings.html#a15c6f803bf3804ad335a35417ea90ba9">   57</a></span>  <span class="keywordtype">float</span> <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#a15c6f803bf3804ad335a35417ea90ba9">customAnchor3X</a> = 1.0f, <a class="code hl_variable" href="struct_native_u_i_1_1_grid_settings.html#ad112f25a33725c7e1a47e7b3a9bcbd37">customAnchor3Y</a> = 0.0f;</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>};</div>
+</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> </div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span><span class="comment">// Initialize native UI system</span></div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_native_u_i.html#a12f261af4a96af343a5c1e4faeb59271">Initialize</a>();</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span> </div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span><span class="comment">// Cleanup native UI system</span></div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#a53612d3ad117fcb6ca3ed72f8a0f47f2">Cleanup</a>();</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span> </div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span><span class="comment">// Show grid at mouse position</span></div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#a4e033ac277d2098e8f35d04903bc4a57">ShowGrid</a>(<span class="keywordtype">int</span> mouseX, <span class="keywordtype">int</span> mouseY, <span class="keyword">const</span> <a class="code hl_struct" href="struct_native_u_i_1_1_grid_config.html">GridConfig</a> &amp;config);</div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span><span class="comment">// Hide grid and get the result based on current mouse position</span></div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><a class="code hl_struct" href="struct_native_u_i_1_1_grid_result.html">GridResult</a> <a class="code hl_function" href="namespace_native_u_i.html#a9ae4b3ccd0504157ae8a195ee30424f5">HideGrid</a>(<span class="keywordtype">int</span> mouseX, <span class="keywordtype">int</span> mouseY);</div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span> </div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span><span class="comment">// Check if grid is currently visible</span></div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_native_u_i.html#a1bb15cc1970f690460909c614da5d415">IsGridVisible</a>();</div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span> </div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span><span class="comment">// Update hover state based on mouse position (call from IdleHook)</span></div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#addd4a162006da107763413a5ec6f15ee">UpdateHover</a>(<span class="keywordtype">int</span> mouseX, <span class="keywordtype">int</span> mouseY);</div>
+<div class="line"><a id="l00077" name="l00077"></a><span class="lineno">   77</span> </div>
+<div class="line"><a id="l00078" name="l00078"></a><span class="lineno">   78</span><span class="comment">// Get current hover cell</span></div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#a5b9711012167cf84ff4d9a2927d8faa7">GetHoverCell</a>(<span class="keywordtype">int</span> *outX, <span class="keywordtype">int</span> *outY);</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span> </div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span><span class="comment">// Get/Set settings</span></div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span><a class="code hl_struct" href="struct_native_u_i_1_1_grid_settings.html">GridSettings</a> &amp;<a class="code hl_function" href="namespace_native_u_i.html#a523b9f0311a532ee93b1d8ef5dec3f45">GetSettings</a>();</div>
+<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span> </div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span><span class="comment">// Clipboard anchor functions for Copy/Paste</span></div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#ae72553094c0928ee7277071d50ae0865">   85</a></span><span class="keywordtype">bool</span> <a class="code hl_function" href="namespace_native_u_i.html#ae72553094c0928ee7277071d50ae0865">HasClipboardAnchor</a>();</div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a8ad2b9aa0bc4b5f3280c982d8b43cafa">   86</a></span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#a8ad2b9aa0bc4b5f3280c982d8b43cafa">GetClipboardAnchor</a>(<span class="keywordtype">float</span> *outX, <span class="keywordtype">float</span> *outY);</div>
+<div class="line"><a id="l00087" name="l00087"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a709d2b278e8b45418cebfbfd95b17294">   87</a></span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#a709d2b278e8b45418cebfbfd95b17294">SetClipboardAnchor</a>(<span class="keywordtype">float</span> x, <span class="keywordtype">float</span> y);</div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span> </div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span><span class="comment">// Redraw the grid window (for mode toggle without closing)</span></div>
+<div class="line"><a id="l00090" name="l00090"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#a34bc62405f37dc7ed758e0a9b50e02e1">   90</a></span><span class="keywordtype">void</span> <a class="code hl_function" href="namespace_native_u_i.html#a34bc62405f37dc7ed758e0a9b50e02e1">InvalidateGrid</a>();</div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span> </div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span><span class="comment">// Get current hover extended option</span></div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno"><a class="line" href="namespace_native_u_i.html#ab13c31c94ab62f5f089b1595ecd5b961">   93</a></span><a class="code hl_enumeration" href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576">ExtendedOption</a> <a class="code hl_function" href="namespace_native_u_i.html#ab13c31c94ab62f5f089b1595ecd5b961">GetHoverExtOption</a>();</div>
+<div class="line"><a id="l00094" name="l00094"></a><span class="lineno">   94</span> </div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span>} <span class="comment">// namespace NativeUI</span></div>
+<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span> </div>
+<div class="line"><a id="l00097" name="l00097"></a><span class="lineno">   97</span><span class="preprocessor">#endif </span><span class="comment">// GRIDUI_H</span></div>
+<div class="ttc" id="anamespace_native_u_i_html"><div class="ttname"><a href="namespace_native_u_i.html">NativeUI</a></div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00943">GridUI.cpp:943</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576">NativeUI::ExtendedOption</a></div><div class="ttdeci">ExtendedOption</div><div class="ttdef"><b>Definition</b> <a href="#l00023">GridUI.h:23</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a265e68c1693691612f663fee6c960bf4"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a265e68c1693691612f663fee6c960bf4">NativeUI::OPT_COMP_MODE</a></div><div class="ttdeci">@ OPT_COMP_MODE</div><div class="ttdef"><b>Definition</b> <a href="#l00030">GridUI.h:30</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a2ddd5460f1411160f20e11008a1a07bc"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a2ddd5460f1411160f20e11008a1a07bc">NativeUI::OPT_MASK_MODE</a></div><div class="ttdeci">@ OPT_MASK_MODE</div><div class="ttdef"><b>Definition</b> <a href="#l00031">GridUI.h:31</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a38d801677f6dae22d09b0aff3d5bb3ff"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a38d801677f6dae22d09b0aff3d5bb3ff">NativeUI::OPT_CUSTOM_1</a></div><div class="ttdeci">@ OPT_CUSTOM_1</div><div class="ttdef"><b>Definition</b> <a href="#l00026">GridUI.h:26</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a3e1e2e1b8dd9c9bafca3b7ba510fdcca"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a3e1e2e1b8dd9c9bafca3b7ba510fdcca">NativeUI::OPT_PASTE_ANCHOR</a></div><div class="ttdeci">@ OPT_PASTE_ANCHOR</div><div class="ttdef"><b>Definition</b> <a href="#l00035">GridUI.h:35</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a4f1d2cc703ee76e606ce97a5ba284043"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a4f1d2cc703ee76e606ce97a5ba284043">NativeUI::OPT_CUSTOM_2</a></div><div class="ttdeci">@ OPT_CUSTOM_2</div><div class="ttdef"><b>Definition</b> <a href="#l00027">GridUI.h:27</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a8f4522c460abbecc73bfb30dcec417d1"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a8f4522c460abbecc73bfb30dcec417d1">NativeUI::OPT_COPY_ANCHOR</a></div><div class="ttdeci">@ OPT_COPY_ANCHOR</div><div class="ttdef"><b>Definition</b> <a href="#l00034">GridUI.h:34</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576a9511c439eb61977844589b3b3e43158e"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576a9511c439eb61977844589b3b3e43158e">NativeUI::OPT_SETTINGS</a></div><div class="ttdeci">@ OPT_SETTINGS</div><div class="ttdef"><b>Definition</b> <a href="#l00032">GridUI.h:32</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576ab1bf3b84a73ad00357733480dec376d2"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ab1bf3b84a73ad00357733480dec376d2">NativeUI::OPT_NONE</a></div><div class="ttdeci">@ OPT_NONE</div><div class="ttdef"><b>Definition</b> <a href="#l00024">GridUI.h:24</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a013a1d21d8d74521311b8102346ca576ae878915730976f7390aff41e65ea3f6e"><div class="ttname"><a href="namespace_native_u_i.html#a013a1d21d8d74521311b8102346ca576ae878915730976f7390aff41e65ea3f6e">NativeUI::OPT_CUSTOM_3</a></div><div class="ttdeci">@ OPT_CUSTOM_3</div><div class="ttdef"><b>Definition</b> <a href="#l00028">GridUI.h:28</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a12f261af4a96af343a5c1e4faeb59271"><div class="ttname"><a href="namespace_native_u_i.html#a12f261af4a96af343a5c1e4faeb59271">NativeUI::Initialize</a></div><div class="ttdeci">bool Initialize()</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00944">GridUI.cpp:944</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a1bb15cc1970f690460909c614da5d415"><div class="ttname"><a href="namespace_native_u_i.html#a1bb15cc1970f690460909c614da5d415">NativeUI::IsGridVisible</a></div><div class="ttdeci">bool IsGridVisible()</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00948">GridUI.cpp:948</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a34bc62405f37dc7ed758e0a9b50e02e1"><div class="ttname"><a href="namespace_native_u_i.html#a34bc62405f37dc7ed758e0a9b50e02e1">NativeUI::InvalidateGrid</a></div><div class="ttdeci">void InvalidateGrid()</div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a4e033ac277d2098e8f35d04903bc4a57"><div class="ttname"><a href="namespace_native_u_i.html#a4e033ac277d2098e8f35d04903bc4a57">NativeUI::ShowGrid</a></div><div class="ttdeci">void ShowGrid(int, int, const GridConfig &amp;)</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00946">GridUI.cpp:946</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a523b9f0311a532ee93b1d8ef5dec3f45"><div class="ttname"><a href="namespace_native_u_i.html#a523b9f0311a532ee93b1d8ef5dec3f45">NativeUI::GetSettings</a></div><div class="ttdeci">GridSettings &amp; GetSettings()</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00951">GridUI.cpp:951</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a53612d3ad117fcb6ca3ed72f8a0f47f2"><div class="ttname"><a href="namespace_native_u_i.html#a53612d3ad117fcb6ca3ed72f8a0f47f2">NativeUI::Cleanup</a></div><div class="ttdeci">void Cleanup()</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00945">GridUI.cpp:945</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a5b9711012167cf84ff4d9a2927d8faa7"><div class="ttname"><a href="namespace_native_u_i.html#a5b9711012167cf84ff4d9a2927d8faa7">NativeUI::GetHoverCell</a></div><div class="ttdeci">void GetHoverCell(int *, int *)</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00950">GridUI.cpp:950</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a709d2b278e8b45418cebfbfd95b17294"><div class="ttname"><a href="namespace_native_u_i.html#a709d2b278e8b45418cebfbfd95b17294">NativeUI::SetClipboardAnchor</a></div><div class="ttdeci">void SetClipboardAnchor(float x, float y)</div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a8ad2b9aa0bc4b5f3280c982d8b43cafa"><div class="ttname"><a href="namespace_native_u_i.html#a8ad2b9aa0bc4b5f3280c982d8b43cafa">NativeUI::GetClipboardAnchor</a></div><div class="ttdeci">void GetClipboardAnchor(float *outX, float *outY)</div></div>
+<div class="ttc" id="anamespace_native_u_i_html_a9ae4b3ccd0504157ae8a195ee30424f5"><div class="ttname"><a href="namespace_native_u_i.html#a9ae4b3ccd0504157ae8a195ee30424f5">NativeUI::HideGrid</a></div><div class="ttdeci">GridResult HideGrid(int, int)</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00947">GridUI.cpp:947</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_ab13c31c94ab62f5f089b1595ecd5b961"><div class="ttname"><a href="namespace_native_u_i.html#ab13c31c94ab62f5f089b1595ecd5b961">NativeUI::GetHoverExtOption</a></div><div class="ttdeci">ExtendedOption GetHoverExtOption()</div></div>
+<div class="ttc" id="anamespace_native_u_i_html_addd4a162006da107763413a5ec6f15ee"><div class="ttname"><a href="namespace_native_u_i.html#addd4a162006da107763413a5ec6f15ee">NativeUI::UpdateHover</a></div><div class="ttdeci">void UpdateHover(int, int)</div><div class="ttdef"><b>Definition</b> <a href="_grid_u_i_8cpp_source.html#l00949">GridUI.cpp:949</a></div></div>
+<div class="ttc" id="anamespace_native_u_i_html_ae72553094c0928ee7277071d50ae0865"><div class="ttname"><a href="namespace_native_u_i.html#ae72553094c0928ee7277071d50ae0865">NativeUI::HasClipboardAnchor</a></div><div class="ttdeci">bool HasClipboardAnchor()</div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_config_html"><div class="ttname"><a href="struct_native_u_i_1_1_grid_config.html">NativeUI::GridConfig</a></div><div class="ttdef"><b>Definition</b> <a href="#l00014">GridUI.h:14</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_config_html_a2bbb1876a35e0ceaa6fc191838bd7883"><div class="ttname"><a href="struct_native_u_i_1_1_grid_config.html#a2bbb1876a35e0ceaa6fc191838bd7883">NativeUI::GridConfig::margin</a></div><div class="ttdeci">int margin</div><div class="ttdef"><b>Definition</b> <a href="#l00019">GridUI.h:19</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_config_html_a2fbcceaa35fd77762f3d96a1bf2b641f"><div class="ttname"><a href="struct_native_u_i_1_1_grid_config.html#a2fbcceaa35fd77762f3d96a1bf2b641f">NativeUI::GridConfig::gridHeight</a></div><div class="ttdeci">int gridHeight</div><div class="ttdef"><b>Definition</b> <a href="#l00016">GridUI.h:16</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_config_html_a9469bff1db48811c440c98b3cbc57197"><div class="ttname"><a href="struct_native_u_i_1_1_grid_config.html#a9469bff1db48811c440c98b3cbc57197">NativeUI::GridConfig::spacing</a></div><div class="ttdeci">int spacing</div><div class="ttdef"><b>Definition</b> <a href="#l00018">GridUI.h:18</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_config_html_aaf3f803061184b2ebebed643a514cdc3"><div class="ttname"><a href="struct_native_u_i_1_1_grid_config.html#aaf3f803061184b2ebebed643a514cdc3">NativeUI::GridConfig::cellSize</a></div><div class="ttdeci">int cellSize</div><div class="ttdef"><b>Definition</b> <a href="#l00017">GridUI.h:17</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_config_html_af6ca3e70fe915904e46513c139caee23"><div class="ttname"><a href="struct_native_u_i_1_1_grid_config.html#af6ca3e70fe915904e46513c139caee23">NativeUI::GridConfig::gridWidth</a></div><div class="ttdeci">int gridWidth</div><div class="ttdef"><b>Definition</b> <a href="#l00015">GridUI.h:15</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_result_html"><div class="ttname"><a href="struct_native_u_i_1_1_grid_result.html">NativeUI::GridResult</a></div><div class="ttdef"><b>Definition</b> <a href="#l00039">GridUI.h:39</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_result_html_a002d3a16e88347bb79633fb67cbc4005"><div class="ttname"><a href="struct_native_u_i_1_1_grid_result.html#a002d3a16e88347bb79633fb67cbc4005">NativeUI::GridResult::extendedOption</a></div><div class="ttdeci">ExtendedOption extendedOption</div><div class="ttdef"><b>Definition</b> <a href="#l00043">GridUI.h:43</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_result_html_ae59f427eb8ab1ec3d4306845dd06729b"><div class="ttname"><a href="struct_native_u_i_1_1_grid_result.html#ae59f427eb8ab1ec3d4306845dd06729b">NativeUI::GridResult::gridX</a></div><div class="ttdeci">int gridX</div><div class="ttdef"><b>Definition</b> <a href="#l00040">GridUI.h:40</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_result_html_af315b92738ca01b1e0a10a07e09a3098"><div class="ttname"><a href="struct_native_u_i_1_1_grid_result.html#af315b92738ca01b1e0a10a07e09a3098">NativeUI::GridResult::gridY</a></div><div class="ttdeci">int gridY</div><div class="ttdef"><b>Definition</b> <a href="#l00041">GridUI.h:41</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_result_html_af3c3b7656f163aaa54dab5de1ec55290"><div class="ttname"><a href="struct_native_u_i_1_1_grid_result.html#af3c3b7656f163aaa54dab5de1ec55290">NativeUI::GridResult::cancelled</a></div><div class="ttdeci">bool cancelled</div><div class="ttdef"><b>Definition</b> <a href="#l00042">GridUI.h:42</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html">NativeUI::GridSettings</a></div><div class="ttdef"><b>Definition</b> <a href="#l00047">GridUI.h:47</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_a15c6f803bf3804ad335a35417ea90ba9"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#a15c6f803bf3804ad335a35417ea90ba9">NativeUI::GridSettings::customAnchor3X</a></div><div class="ttdeci">float customAnchor3X</div><div class="ttdef"><b>Definition</b> <a href="#l00057">GridUI.h:57</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_a623316fba5e75a17320f1b5daf289fd5"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#a623316fba5e75a17320f1b5daf289fd5">NativeUI::GridSettings::customAnchor2X</a></div><div class="ttdeci">float customAnchor2X</div><div class="ttdef"><b>Definition</b> <a href="#l00056">GridUI.h:56</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_a6c4c41c6f07096cf8080ab1ce3ad9a92"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#a6c4c41c6f07096cf8080ab1ce3ad9a92">NativeUI::GridSettings::customAnchor2Y</a></div><div class="ttdeci">float customAnchor2Y</div><div class="ttdef"><b>Definition</b> <a href="#l00056">GridUI.h:56</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_a6e73326a5d8a912b7861e6ca63cce052"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#a6e73326a5d8a912b7861e6ca63cce052">NativeUI::GridSettings::settingsPanelOpen</a></div><div class="ttdeci">bool settingsPanelOpen</div><div class="ttdef"><b>Definition</b> <a href="#l00051">GridUI.h:51</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_a794de7caa191732b0ac258246c1f244f"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#a794de7caa191732b0ac258246c1f244f">NativeUI::GridSettings::customAnchor1Y</a></div><div class="ttdeci">float customAnchor1Y</div><div class="ttdef"><b>Definition</b> <a href="#l00055">GridUI.h:55</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_a93497307905aea7f8b944d8230d4ac3f"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#a93497307905aea7f8b944d8230d4ac3f">NativeUI::GridSettings::transparentMode</a></div><div class="ttdeci">bool transparentMode</div><div class="ttdef"><b>Definition</b> <a href="#l00050">GridUI.h:50</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_ad03ae0b1d1fc30830fb98e15df092e53"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#ad03ae0b1d1fc30830fb98e15df092e53">NativeUI::GridSettings::customAnchor1X</a></div><div class="ttdeci">float customAnchor1X</div><div class="ttdef"><b>Definition</b> <a href="#l00055">GridUI.h:55</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_ad112f25a33725c7e1a47e7b3a9bcbd37"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#ad112f25a33725c7e1a47e7b3a9bcbd37">NativeUI::GridSettings::customAnchor3Y</a></div><div class="ttdeci">float customAnchor3Y</div><div class="ttdef"><b>Definition</b> <a href="#l00057">GridUI.h:57</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_adaf1dbbc87d9b9c986de89b8e4049357"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#adaf1dbbc87d9b9c986de89b8e4049357">NativeUI::GridSettings::gridOpacity</a></div><div class="ttdeci">float gridOpacity</div><div class="ttdef"><b>Definition</b> <a href="#l00052">GridUI.h:52</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_adfb5ea2776e595ea039d520373ed9e7b"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#adfb5ea2776e595ea039d520373ed9e7b">NativeUI::GridSettings::useCompMode</a></div><div class="ttdeci">bool useCompMode</div><div class="ttdef"><b>Definition</b> <a href="#l00048">GridUI.h:48</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_af4de015e2f6bd103442535dadc78d27b"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#af4de015e2f6bd103442535dadc78d27b">NativeUI::GridSettings::cellOpacity</a></div><div class="ttdeci">float cellOpacity</div><div class="ttdef"><b>Definition</b> <a href="#l00053">GridUI.h:53</a></div></div>
+<div class="ttc" id="astruct_native_u_i_1_1_grid_settings_html_afdaa47013b9d6bac6e49ee02ca787106"><div class="ttname"><a href="struct_native_u_i_1_1_grid_settings.html#afdaa47013b9d6bac6e49ee02ca787106">NativeUI::GridSettings::useMaskRecognition</a></div><div class="ttdeci">bool useMaskRecognition</div><div class="ttdef"><b>Definition</b> <a href="#l00049">GridUI.h:49</a></div></div>
+</div><!-- fragment --></div><!-- contents -->
+</div><!-- doc-content -->
+</div><!-- container -->
+<!-- start footer part -->
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a href="dir_df511e5bd85cec96854b39d5e1c27aa8.html">cpp</a></li><li class="navelem"><a href="dir_7e72c7cf48e3493f8206cd364e6bc9f6.html">src</a></li><li class="navelem"><a href="dir_4badd9e9bf767c80da8f797f4356e4b7.html">modules</a></li><li class="navelem"><a href="dir_2e746dd91380e9399da11f9930d4a337.html">grid</a></li><li class="navelem"><a href="_grid_u_i_8h.html">GridUI.h</a></li>
+    <li class="footer">다음에 의해 생성됨 :  <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.15.0 </li>
+  </ul>
+</div>
+</body>
+</html>

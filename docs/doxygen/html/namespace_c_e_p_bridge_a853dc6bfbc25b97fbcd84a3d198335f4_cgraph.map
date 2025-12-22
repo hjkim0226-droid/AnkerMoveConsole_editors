@@ -1,0 +1,7 @@
+<map id="CEPBridge::IsPanelActive" name="CEPBridge::IsPanelActive">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,181,31"/>
+<area shape="rect" id="Node000002" href="$namespace_c_e_p_bridge.html#a67e87e1daab1a76d4477bd62d463ebb4" title=" " alt="" coords="229,5,423,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="181,16,216,18,210,18,181,21"/>
+<area shape="rect" id="Node000003" href="$namespace_c_e_p_bridge.html#a38916a97a3117838a6795def2c7b69e2" title=" " alt="" coords="471,5,662,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="423,16,458,18,453,18,423,21"/>
+</map>
