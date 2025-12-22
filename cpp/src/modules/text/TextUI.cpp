@@ -104,11 +104,15 @@ static bool g_closeHover = false;
 static bool g_fillColorHover = false;
 static bool g_strokeColorHover = false;
 
-// Drag state
+// Drag state (value drag)
 static bool g_dragging = false;
 static ValueTarget g_dragTarget = TARGET_NONE;
 static int g_dragStartX = 0;
 static float g_dragStartValue = 0;
+
+// Window dragging state
+static bool g_windowDragging = false;
+static POINT g_windowDragOffset = {0, 0};
 
 // Edit state (inline editing)
 static bool g_editMode = false;
@@ -242,6 +246,7 @@ void ShowPanel(int x, int y) {
     // Reset state
     g_result = TextResult();
     g_dragging = false;
+    g_windowDragging = false;
     g_editMode = false;
     g_hoverTarget = TARGET_NONE;
 
@@ -450,7 +455,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -845,6 +850,19 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
+    // Header area (excluding buttons) - start window dragging
+    if (y < HEADER_HEIGHT && x < g_pinRect.left) {
+        g_windowDragging = true;
+        POINT cursorPos;
+        GetCursorPos(&cursorPos);
+        RECT wndRect;
+        GetWindowRect(g_hwnd, &wndRect);
+        g_windowDragOffset.x = cursorPos.x - wndRect.left;
+        g_windowDragOffset.y = cursorPos.y - wndRect.top;
+        SetCapture(g_hwnd);
+        return;
+    }
+
     // Color boxes
     if (PtInRect(&g_fillColorRect, pt)) {
         RECT wndRect;
@@ -883,6 +901,14 @@ static void HandleMouseDown(int x, int y) {
 }
 
 static void HandleMouseUp(int x, int y) {
+    // Window dragging
+    if (g_windowDragging) {
+        g_windowDragging = false;
+        ReleaseCapture();
+        return;
+    }
+
+    // Value dragging
     if (g_dragging) {
         g_dragging = false;
         g_dragTarget = TARGET_NONE;
@@ -892,6 +918,17 @@ static void HandleMouseUp(int x, int y) {
 }
 
 static void HandleMouseMove(int x, int y) {
+    // Window dragging (use raw screen coordinates)
+    if (g_windowDragging) {
+        POINT cursorPos;
+        GetCursorPos(&cursorPos);
+        SetWindowPos(g_hwnd, NULL,
+                     cursorPos.x - g_windowDragOffset.x,
+                     cursorPos.y - g_windowDragOffset.y,
+                     0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        return;
+    }
+
     if (!g_dragging) return;
 
     int deltaX = x - g_dragStartX;
