@@ -148,8 +148,8 @@ static void ConvertAEToBezier(
 
     // Bezier keyframe: use speed/influence to calculate control points
     // Clamp influence to valid range
-    outInfluence = max(0.1f, min(100.0f, outInfluence));
-    inInfluence = max(0.1f, min(100.0f, inInfluence));
+    outInfluence = max(0.01f, min(100.0f, outInfluence));
+    inInfluence = max(0.01f, min(100.0f, inInfluence));
 
     // Normalized speeds (relative to average)
     float normalizedOutSpeed = outSpeed / avgSpeed;
@@ -190,9 +190,9 @@ static void ConvertBezierToAE(
     outInfluence = curve.p0_x * 100.0f;
     inInfluence = (1.0f - curve.p1_x) * 100.0f;
 
-    // Clamp influence to valid range (AE requires 0.1-100)
-    outInfluence = max(0.1f, min(100.0f, outInfluence));
-    inInfluence = max(0.1f, min(100.0f, inInfluence));
+    // Clamp influence to valid range (0.01-100%)
+    outInfluence = max(0.01f, min(100.0f, outInfluence));
+    inInfluence = max(0.01f, min(100.0f, inInfluence));
 
     // Calculate normalized speeds from control points
     // normalizedOutSpeed = P1.y / P1.x (when P1.x != 0)
@@ -664,9 +664,9 @@ static void ParseSingleKeyframePair(const wchar_t* json, KeyframePairInfo& pair)
         val = max(minVal, min(maxVal, val));
     };
     sanitizeFloat(pair.info.outSpeed, 0.0f, 0.0f, 1000.0f);
-    sanitizeFloat(pair.info.outInfluence, 33.33f, 0.1f, 100.0f);
+    sanitizeFloat(pair.info.outInfluence, 33.33f, 0.01f, 100.0f);
     sanitizeFloat(pair.info.inSpeed, 0.0f, 0.0f, 1000.0f);
-    sanitizeFloat(pair.info.inInfluence, 33.33f, 0.1f, 100.0f);
+    sanitizeFloat(pair.info.inInfluence, 33.33f, 0.01f, 100.0f);
 
     // Extract keyframe types (1=linear, 2=bezier, 3=hold)
     int outTypeInt = (int)JsonGetFloat(json, L"outType", 2);
