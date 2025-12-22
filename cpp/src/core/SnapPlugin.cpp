@@ -62,7 +62,7 @@ static bool g_textVisible = false;
 static bool g_compVisible = false;
 
 // Forward declaration for ExecuteScript (defined later)
-A_Err ExecuteScript(const char *script, char *resultBuf, size_t bufSize);
+A_Err ExecuteScript(const char *script, char *resultBuf = nullptr, size_t bufSize = 0);
 
 /*****************************************************************************
  * IsTextInputFocused
@@ -517,8 +517,8 @@ void AEGP_SuiteHandler::MissingSuiteError() const {
  * ExecuteScript
  * Execute ExtendScript using AEGP_ExecuteScript, returns result string
  *****************************************************************************/
-A_Err ExecuteScript(const char *script, char *resultBuf = NULL,
-                    size_t bufSize = 0) {
+A_Err ExecuteScript(const char *script, char *resultBuf,
+                    size_t bufSize) {
   A_Err err = A_Err_NONE;
 
   try {

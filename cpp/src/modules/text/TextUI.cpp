@@ -67,6 +67,8 @@ static const Color COLOR_ALIGN_HOVER(255, 70, 100, 130);
 static const Color COLOR_ALIGN_ACTIVE(255, 74, 158, 255);
 static const Color COLOR_PIN_ACTIVE(255, 255, 200, 0);
 static const Color COLOR_CLOSE_HOVER(255, 200, 60, 60);
+static const Color COLOR_BORDER(255, 60, 60, 70);
+static const Color COLOR_HOVER(255, 60, 80, 100);
 
 // Drag sensitivity configuration
 struct DragConfig {
