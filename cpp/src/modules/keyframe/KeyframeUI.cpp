@@ -551,6 +551,21 @@ void ShowPanel(int screenX, int screenY) {
     g_pressedNavNext = false;
     g_currentPairIndex = 0;  // Start from first pair
 
+    // Position window - use monitor where mouse is located
+    int posX = screenX - scaledWidth / 2;
+    int posY = screenY - scaledHeight / 2;
+
+    POINT mousePoint = {screenX, screenY};
+    HMONITOR hMonitor = MonitorFromPoint(mousePoint, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {sizeof(mi)};
+    if (GetMonitorInfo(hMonitor, &mi)) {
+        RECT workArea = mi.rcWork;
+        if (posX < workArea.left) posX = workArea.left;
+        if (posY < workArea.top) posY = workArea.top;
+        if (posX + scaledWidth > workArea.right) posX = workArea.right - scaledWidth;
+        if (posY + scaledHeight > workArea.bottom) posY = workArea.bottom - scaledHeight;
+    }
+
     // Create or reposition window with scaled dimensions
     if (!g_hwnd) {
         g_hwnd = CreateWindowExW(
@@ -558,8 +573,7 @@ void ShowPanel(int screenX, int screenY) {
             KEYFRAME_CLASS_NAME,
             L"Keyframe Easing",
             WS_POPUP,
-            screenX - scaledWidth / 2,
-            screenY - scaledHeight / 2,
+            posX, posY,
             scaledWidth,
             scaledHeight,
             NULL, NULL,
@@ -569,8 +583,7 @@ void ShowPanel(int screenX, int screenY) {
         SetLayeredWindowAttributes(g_hwnd, 0, 245, LWA_ALPHA);
     } else {
         SetWindowPos(g_hwnd, HWND_TOPMOST,
-                     screenX - scaledWidth / 2,
-                     screenY - scaledHeight / 2,
+                     posX, posY,
                      scaledWidth, scaledHeight,
                      SWP_SHOWWINDOW);
     }

@@ -154,17 +154,20 @@ void ShowMenu(int x, int y) {
     int scaledWidth = Scaled(WINDOW_WIDTH);
     int scaledHeight = Scaled(WINDOW_HEIGHT);
 
-    // Position near mouse
-    RECT workArea;
-    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
-
+    // Position window - use monitor where mouse is located
     int posX = x - scaledWidth / 2;
     int posY = y - 10; // Slightly above cursor
 
-    if (posX < workArea.left) posX = workArea.left;
-    if (posY < workArea.top) posY = workArea.top;
-    if (posX + scaledWidth > workArea.right) posX = workArea.right - scaledWidth;
-    if (posY + scaledHeight > workArea.bottom) posY = workArea.bottom - scaledHeight;
+    POINT mousePoint = {x, y};
+    HMONITOR hMonitor = MonitorFromPoint(mousePoint, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {sizeof(mi)};
+    if (GetMonitorInfo(hMonitor, &mi)) {
+        RECT workArea = mi.rcWork;
+        if (posX < workArea.left) posX = workArea.left;
+        if (posY < workArea.top) posY = workArea.top;
+        if (posX + scaledWidth > workArea.right) posX = workArea.right - scaledWidth;
+        if (posY + scaledHeight > workArea.bottom) posY = workArea.bottom - scaledHeight;
+    }
 
     SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight, SWP_SHOWWINDOW);
     ShowWindow(g_hwnd, SW_SHOW);
