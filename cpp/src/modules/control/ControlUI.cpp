@@ -471,7 +471,7 @@ void ClearLayerEffects() {
 
 } // namespace ControlUI
 
-// Search implementation
+// Search implementation with priority: starts-with > contains
 void PerformSearch(const wchar_t* query) {
     g_searchResults.clear();
 
@@ -479,46 +479,70 @@ void PerformSearch(const wchar_t* query) {
     // Convert to lowercase for case-insensitive search
     std::transform(q.begin(), q.end(), q.begin(), ::towlower);
 
+    // Two lists: starts-with matches first, then contains matches
+    std::vector<ControlUI::EffectItem> startsWithMatches;
+    std::vector<ControlUI::EffectItem> containsMatches;
+
     int idx = 0;
+
+    // Helper lambda to check and categorize matches
+    auto checkAndAdd = [&](const wchar_t* name, const wchar_t* matchName, const wchar_t* category) {
+        std::wstring nameLower(name);
+        std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::towlower);
+
+        if (q.empty()) {
+            // Empty query: add all
+            ControlUI::EffectItem item;
+            wcscpy_s(item.name, name);
+            wcscpy_s(item.matchName, matchName);
+            wcscpy_s(item.category, category);
+            item.index = idx++;
+            item.isLayerEffect = false;
+            startsWithMatches.push_back(item);
+        } else {
+            size_t pos = nameLower.find(q);
+            if (pos == 0) {
+                // Starts with query - highest priority
+                ControlUI::EffectItem item;
+                wcscpy_s(item.name, name);
+                wcscpy_s(item.matchName, matchName);
+                wcscpy_s(item.category, category);
+                item.index = idx++;
+                item.isLayerEffect = false;
+                startsWithMatches.push_back(item);
+            } else if (pos != std::wstring::npos) {
+                // Contains query - lower priority
+                ControlUI::EffectItem item;
+                wcscpy_s(item.name, name);
+                wcscpy_s(item.matchName, matchName);
+                wcscpy_s(item.category, category);
+                item.index = idx++;
+                item.isLayerEffect = false;
+                containsMatches.push_back(item);
+            }
+        }
+    };
 
     // Use dynamic effects list if available, otherwise fallback to built-in
     if (!g_availableEffects.empty()) {
-        // Search in dynamic list (localized names from AE)
         for (const auto& effect : g_availableEffects) {
-            std::wstring name(effect.name);
-            std::wstring nameLower = name;
-            std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::towlower);
-
-            if (q.empty() || nameLower.find(q) != std::wstring::npos) {
-                ControlUI::EffectItem item;
-                wcscpy_s(item.name, effect.name);
-                wcscpy_s(item.matchName, effect.matchName);
-                wcscpy_s(item.category, effect.category);
-                item.index = idx++;
-                item.isLayerEffect = false;
-                g_searchResults.push_back(item);
-
-                if (g_searchResults.size() >= 20) break;
-            }
+            checkAndAdd(effect.name, effect.matchName, effect.category);
         }
     } else {
-        // Fallback to built-in effects list
         for (int i = 0; BUILTIN_EFFECTS[i][0] != NULL; i++) {
-            std::wstring name(BUILTIN_EFFECTS[i][0]);
-            std::wstring nameLower = name;
-            std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::towlower);
+            checkAndAdd(BUILTIN_EFFECTS[i][0], BUILTIN_EFFECTS[i][1], BUILTIN_EFFECTS[i][2]);
+        }
+    }
 
-            if (q.empty() || nameLower.find(q) != std::wstring::npos) {
-                ControlUI::EffectItem item;
-                wcscpy_s(item.name, BUILTIN_EFFECTS[i][0]);
-                wcscpy_s(item.matchName, BUILTIN_EFFECTS[i][1]);
-                wcscpy_s(item.category, BUILTIN_EFFECTS[i][2]);
-                item.index = idx++;
-                item.isLayerEffect = false;
-                g_searchResults.push_back(item);
-
-                if (g_searchResults.size() >= 20) break;
-            }
+    // Combine: starts-with first, then contains
+    for (const auto& item : startsWithMatches) {
+        g_searchResults.push_back(item);
+        if (g_searchResults.size() >= 20) break;
+    }
+    if (g_searchResults.size() < 20) {
+        for (const auto& item : containsMatches) {
+            g_searchResults.push_back(item);
+            if (g_searchResults.size() >= 20) break;
         }
     }
 
