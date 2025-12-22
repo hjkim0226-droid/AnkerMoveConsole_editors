@@ -20,6 +20,11 @@ extern float GetModuleScaleFactor(const char* moduleName);
 extern void ApplyTextPropertyValue(const char* propName, float value);
 extern void ApplyTextColorValue(bool stroke, float r, float g, float b);
 extern void ApplyTextJustificationValue(int just);
+extern void GetFontsList(wchar_t* outBuffer, size_t bufSize);
+extern void ApplyTextFont(const char* postScriptName);
+
+#include <vector>
+#include <algorithm>
 
 namespace TextUI {
 
@@ -131,6 +136,44 @@ static bool g_colorPickerForStroke = false;
 static float g_pickerColor[3] = {1, 1, 1};
 static int g_pickerHue = 0;
 
+// Font dropdown state
+struct FontInfo {
+    std::wstring familyName;
+    std::wstring styleName;
+    std::wstring postScriptName;
+    std::wstring displayName;  // "familyName styleName"
+};
+static std::vector<FontInfo> g_allFonts;
+static std::vector<FontInfo*> g_filteredFonts;
+static bool g_fontsLoaded = false;
+static bool g_fontDropdownOpen = false;
+static std::wstring g_fontSearchText;
+static int g_fontScrollOffset = 0;
+static int g_fontHoverIndex = -1;
+static RECT g_fontDropdownRect;
+static RECT g_fontButtonRect;
+static const int FONT_ITEM_HEIGHT = 24;
+static const int FONT_DROPDOWN_MAX_ITEMS = 8;
+
+// Text preset state
+struct TextPreset {
+    std::wstring name;
+    std::wstring font;
+    float fontSize;
+    float tracking;
+    float leading;
+    float strokeWidth;
+    float fillColor[3];
+    float strokeColor[3];
+    bool applyFill;
+    bool applyStroke;
+    int justify;
+};
+static std::vector<TextPreset> g_textPresets;
+static bool g_presetDropdownOpen = false;
+static int g_presetHoverIndex = -1;
+static RECT g_presetButtonRect;
+
 // Forward declarations
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -159,6 +202,14 @@ static void ApplyTextProperty(const char* propName, float value);
 static void ApplyTextColor(bool stroke, float r, float g, float b);
 static void ApplyJustification(Justification just);
 static std::wstring FormatValue(ValueTarget target, float value);
+static void LoadFonts();
+static void FilterFonts(const std::wstring& search);
+static void DrawFontDropdown(Graphics& g);
+static void DrawPresetSection(Graphics& g, int& y);
+static void SavePreset(const std::wstring& name);
+static void ApplyPreset(int index);
+static void LoadPresets();
+static void SavePresetsToFile();
 
 /*****************************************************************************
  * Initialize
@@ -349,6 +400,34 @@ void UpdateHover(int mouseX, int mouseY) {
         needsRepaint = true;
     }
 
+    // Check font button hover
+    int newFontHover = -1;
+    if (PtInRect(&g_fontButtonRect, pt)) {
+        newFontHover = -2;  // -2 means button hover
+    } else if (g_fontDropdownOpen && PtInRect(&g_fontDropdownRect, pt)) {
+        // Calculate which font is being hovered
+        int searchH = 28;
+        int listY = g_fontDropdownRect.top + searchH;
+        if (localY >= listY) {
+            newFontHover = g_fontScrollOffset + (localY - listY) / FONT_ITEM_HEIGHT;
+            if (newFontHover >= (int)g_filteredFonts.size()) newFontHover = -1;
+        }
+    }
+    if (newFontHover != g_fontHoverIndex) {
+        g_fontHoverIndex = newFontHover;
+        needsRepaint = true;
+    }
+
+    // Check preset button hover
+    int newPresetHover = -1;
+    if (PtInRect(&g_presetButtonRect, pt)) {
+        newPresetHover = -2;
+    }
+    if (newPresetHover != g_presetHoverIndex) {
+        g_presetHoverIndex = newPresetHover;
+        needsRepaint = true;
+    }
+
     if (needsRepaint) {
         InvalidateRect(g_hwnd, NULL, FALSE);
     }
@@ -457,8 +536,19 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         HandleChar((wchar_t)wParam);
         return 0;
 
+    case WM_MOUSEWHEEL:
+        if (g_fontDropdownOpen) {
+            int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            int scrollAmount = (delta > 0) ? -3 : 3;
+            int maxScroll = max(0, (int)g_filteredFonts.size() - FONT_DROPDOWN_MAX_ITEMS);
+            g_fontScrollOffset = max(0, min(maxScroll, g_fontScrollOffset + scrollAmount));
+            InvalidateRect(g_hwnd, NULL, FALSE);
+            return 0;
+        }
+        break;
+
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -517,6 +607,9 @@ static void Draw(HDC hdc) {
     DrawColorSection(g, y);
     DrawValueSection(g, y);
     DrawAlignSection(g, y);
+
+    // Draw font dropdown if open (on top of everything)
+    DrawFontDropdown(g);
 }
 
 /*****************************************************************************
@@ -582,11 +675,43 @@ static void DrawFontSection(Graphics& g, int& y) {
     g.DrawString(L"Font", -1, &labelFont, PointF(10, (REAL)y), &labelBrush);
     y += 16;
 
-    // Font family display (simplified - no dropdown in v1)
-    SolidBrush valueBgBrush(COLOR_VALUE_BG);
-    g.FillRectangle(&valueBgBrush, 10, y, 200, VALUE_BOX_HEIGHT);
-    g.DrawString(g_textInfo.font[0] ? g_textInfo.font : L"(Select text layer)",
-                 -1, &valueFont, PointF(14, (REAL)(y + 4)), &textBrush);
+    // Font dropdown button
+    bool fontHover = (g_fontHoverIndex == -2);  // -2 means hovering over button
+    SolidBrush valueBgBrush(fontHover ? COLOR_VALUE_HOVER : COLOR_VALUE_BG);
+    g_fontButtonRect = {10, y, WINDOW_WIDTH - 50, y + VALUE_BOX_HEIGHT};
+    g.FillRectangle(&valueBgBrush, g_fontButtonRect.left, g_fontButtonRect.top,
+                    g_fontButtonRect.right - g_fontButtonRect.left, VALUE_BOX_HEIGHT);
+
+    // Display current font
+    std::wstring displayFont = g_textInfo.font[0] ? g_textInfo.font : L"(Select text layer)";
+    RectF fontTextRect((REAL)g_fontButtonRect.left + 4, (REAL)y + 3,
+                       (REAL)(g_fontButtonRect.right - g_fontButtonRect.left - 20), (REAL)VALUE_BOX_HEIGHT - 6);
+    StringFormat sf;
+    sf.SetTrimming(StringTrimmingEllipsisCharacter);
+    g.DrawString(displayFont.c_str(), -1, &valueFont, fontTextRect, &sf, &textBrush);
+
+    // Dropdown arrow
+    Pen arrowPen(COLOR_TEXT, 1.5f);
+    int arrowX = g_fontButtonRect.right - 14;
+    int arrowY = y + VALUE_BOX_HEIGHT / 2;
+    g.DrawLine(&arrowPen, arrowX - 4, arrowY - 2, arrowX, arrowY + 2);
+    g.DrawLine(&arrowPen, arrowX, arrowY + 2, arrowX + 4, arrowY - 2);
+
+    // Preset button (right side)
+    g_presetButtonRect = {WINDOW_WIDTH - 40, y, WINDOW_WIDTH - 10, y + VALUE_BOX_HEIGHT};
+    bool presetHover = (g_presetHoverIndex == -2);
+    SolidBrush presetBrush(presetHover ? COLOR_ALIGN_HOVER : COLOR_ALIGN_BG);
+    g.FillRectangle(&presetBrush, g_presetButtonRect.left, g_presetButtonRect.top, 30, VALUE_BOX_HEIGHT);
+
+    // Preset icon (star)
+    Pen starPen(COLOR_TEXT, 1.0f);
+    int starX = g_presetButtonRect.left + 15;
+    int starY = g_presetButtonRect.top + VALUE_BOX_HEIGHT / 2;
+    // Simple star shape
+    g.DrawLine(&starPen, starX, starY - 6, starX, starY + 6);
+    g.DrawLine(&starPen, starX - 6, starY, starX + 6, starY);
+    g.DrawLine(&starPen, starX - 4, starY - 4, starX + 4, starY + 4);
+    g.DrawLine(&starPen, starX + 4, starY - 4, starX - 4, starY + 4);
 
     y += SECTION_HEIGHT + 4;
 }
@@ -866,6 +991,56 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
+    // Font dropdown handling
+    if (g_fontDropdownOpen) {
+        // Check if clicking inside dropdown
+        if (PtInRect(&g_fontDropdownRect, pt)) {
+            // Calculate which font item was clicked
+            int searchH = 28;
+            int listY = g_fontDropdownRect.top + searchH;
+            if (y >= listY) {
+                int clickedIdx = g_fontScrollOffset + (y - listY) / FONT_ITEM_HEIGHT;
+                if (clickedIdx >= 0 && clickedIdx < (int)g_filteredFonts.size()) {
+                    // Apply font
+                    FontInfo* fi = g_filteredFonts[clickedIdx];
+                    char psName[256];
+                    WideCharToMultiByte(CP_UTF8, 0, fi->postScriptName.c_str(), -1, psName, sizeof(psName), NULL, NULL);
+                    ApplyTextFont(psName);
+                    wcscpy_s(g_textInfo.font, 128, fi->familyName.c_str());
+                    g_fontDropdownOpen = false;
+                    g_fontSearchText.clear();
+                    g_result.applied = true;
+                    InvalidateRect(g_hwnd, NULL, FALSE);
+                }
+            }
+            return;
+        } else {
+            // Click outside dropdown - close it
+            g_fontDropdownOpen = false;
+            g_fontSearchText.clear();
+            InvalidateRect(g_hwnd, NULL, FALSE);
+            // Don't return - continue processing other clicks
+        }
+    }
+
+    // Font dropdown button
+    if (PtInRect(&g_fontButtonRect, pt)) {
+        if (!g_fontsLoaded) LoadFonts();
+        g_fontDropdownOpen = !g_fontDropdownOpen;
+        g_fontSearchText.clear();
+        FilterFonts(L"");
+        InvalidateRect(g_hwnd, NULL, FALSE);
+        return;
+    }
+
+    // Preset button (TODO: implement preset dropdown)
+    if (PtInRect(&g_presetButtonRect, pt)) {
+        // For now, save current as preset
+        SavePreset(L"Preset " + std::to_wstring(g_textPresets.size() + 1));
+        InvalidateRect(g_hwnd, NULL, FALSE);
+        return;
+    }
+
     // Color boxes
     if (PtInRect(&g_fillColorRect, pt)) {
         RECT wndRect;
@@ -1016,6 +1191,51 @@ static void ExitEditMode(bool apply) {
  * Keyboard handlers
  *****************************************************************************/
 static void HandleKeyDown(WPARAM key) {
+    // Font dropdown navigation
+    if (g_fontDropdownOpen) {
+        switch (key) {
+        case VK_UP:
+            if (g_fontHoverIndex > 0) {
+                g_fontHoverIndex--;
+                if (g_fontHoverIndex < g_fontScrollOffset) {
+                    g_fontScrollOffset = g_fontHoverIndex;
+                }
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+            return;
+        case VK_DOWN:
+            if (g_fontHoverIndex < (int)g_filteredFonts.size() - 1) {
+                g_fontHoverIndex++;
+                if (g_fontHoverIndex >= g_fontScrollOffset + FONT_DROPDOWN_MAX_ITEMS) {
+                    g_fontScrollOffset = g_fontHoverIndex - FONT_DROPDOWN_MAX_ITEMS + 1;
+                }
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            } else if (g_fontHoverIndex == -1 && !g_filteredFonts.empty()) {
+                g_fontHoverIndex = 0;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+            return;
+        case VK_RETURN:
+            if (g_fontHoverIndex >= 0 && g_fontHoverIndex < (int)g_filteredFonts.size()) {
+                FontInfo* fi = g_filteredFonts[g_fontHoverIndex];
+                char psName[256];
+                WideCharToMultiByte(CP_UTF8, 0, fi->postScriptName.c_str(), -1, psName, sizeof(psName), NULL, NULL);
+                ApplyTextFont(psName);
+                wcscpy_s(g_textInfo.font, 128, fi->familyName.c_str());
+                g_fontDropdownOpen = false;
+                g_fontSearchText.clear();
+                g_result.applied = true;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+            return;
+        case VK_ESCAPE:
+            g_fontDropdownOpen = false;
+            g_fontSearchText.clear();
+            InvalidateRect(g_hwnd, NULL, FALSE);
+            return;
+        }
+    }
+
     if (!g_editMode) {
         if (key == VK_ESCAPE) {
             g_result.cancelled = true;
@@ -1045,6 +1265,26 @@ static void HandleKeyDown(WPARAM key) {
 }
 
 static void HandleChar(wchar_t ch) {
+    // Font search input
+    if (g_fontDropdownOpen) {
+        if (ch == 8) {  // Backspace
+            if (!g_fontSearchText.empty()) {
+                g_fontSearchText.pop_back();
+                FilterFonts(g_fontSearchText);
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
+        } else if (ch == 27) {  // Escape
+            g_fontDropdownOpen = false;
+            g_fontSearchText.clear();
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        } else if (ch >= 32) {  // Printable character
+            g_fontSearchText += ch;
+            FilterFonts(g_fontSearchText);
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        }
+        return;
+    }
+
     if (!g_editMode) return;
 
     // Only allow digits, minus, and decimal point
@@ -1143,6 +1383,226 @@ static void ApplyJustification(Justification just) {
     // Call the external function to apply via ExtendScript
     ApplyTextJustificationValue((int)just);
     g_result.applied = true;
+}
+
+/*****************************************************************************
+ * Font Loading and Filtering
+ *****************************************************************************/
+static void LoadFonts() {
+    if (g_fontsLoaded) return;
+
+    wchar_t* buffer = new wchar_t[65536];
+    if (!buffer) return;
+    memset(buffer, 0, 65536 * sizeof(wchar_t));
+
+    GetFontsList(buffer, 65536);
+
+    if (buffer[0] == L'\0') {
+        delete[] buffer;
+        return;
+    }
+
+    // Parse "familyName|styleName|postScriptName;..."
+    g_allFonts.clear();
+    std::wstring data(buffer);
+    delete[] buffer;
+
+    size_t pos = 0;
+    while (pos < data.length()) {
+        size_t end = data.find(L';', pos);
+        if (end == std::wstring::npos) end = data.length();
+
+        std::wstring entry = data.substr(pos, end - pos);
+        if (!entry.empty()) {
+            size_t p1 = entry.find(L'|');
+            size_t p2 = entry.find(L'|', p1 + 1);
+            if (p1 != std::wstring::npos && p2 != std::wstring::npos) {
+                FontInfo fi;
+                fi.familyName = entry.substr(0, p1);
+                fi.styleName = entry.substr(p1 + 1, p2 - p1 - 1);
+                fi.postScriptName = entry.substr(p2 + 1);
+                fi.displayName = fi.familyName + L" " + fi.styleName;
+                g_allFonts.push_back(fi);
+            }
+        }
+        pos = end + 1;
+    }
+
+    g_fontsLoaded = true;
+    FilterFonts(L"");
+}
+
+static void FilterFonts(const std::wstring& search) {
+    g_filteredFonts.clear();
+    g_fontScrollOffset = 0;
+
+    std::wstring searchLower = search;
+    for (auto& c : searchLower) c = towlower(c);
+
+    for (auto& font : g_allFonts) {
+        if (search.empty()) {
+            g_filteredFonts.push_back(&font);
+        } else {
+            std::wstring displayLower = font.displayName;
+            for (auto& c : displayLower) c = towlower(c);
+            if (displayLower.find(searchLower) != std::wstring::npos) {
+                g_filteredFonts.push_back(&font);
+            }
+        }
+    }
+}
+
+static void DrawFontDropdown(Graphics& g) {
+    if (!g_fontDropdownOpen) return;
+
+    FontFamily fontFamily(L"Segoe UI");
+    Font searchFont(&fontFamily, 11, FontStyleRegular, UnitPixel);
+    Font itemFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    SolidBrush bgBrush(Color(255, 35, 35, 42));
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush dimBrush(COLOR_TEXT_DIM);
+    Pen borderPen(COLOR_BORDER, 1.0f);
+
+    // Dropdown position (below font button)
+    int dropX = g_fontButtonRect.left;
+    int dropY = g_fontButtonRect.bottom + 2;
+    int dropW = g_fontButtonRect.right - g_fontButtonRect.left;
+    int searchH = 28;
+    int listH = min((int)g_filteredFonts.size(), FONT_DROPDOWN_MAX_ITEMS) * FONT_ITEM_HEIGHT;
+    if (listH < FONT_ITEM_HEIGHT) listH = FONT_ITEM_HEIGHT;
+    int dropH = searchH + listH;
+
+    g_fontDropdownRect = {dropX, dropY, dropX + dropW, dropY + dropH};
+
+    // Background
+    g.FillRectangle(&bgBrush, dropX, dropY, dropW, dropH);
+    g.DrawRectangle(&borderPen, dropX, dropY, dropW - 1, dropH - 1);
+
+    // Search box
+    SolidBrush searchBgBrush(COLOR_VALUE_BG);
+    g.FillRectangle(&searchBgBrush, dropX + 4, dropY + 4, dropW - 8, searchH - 8);
+
+    std::wstring searchDisplay = g_fontSearchText.empty() ? L"Search fonts..." : g_fontSearchText;
+    SolidBrush& searchTextBrush = g_fontSearchText.empty() ? dimBrush : textBrush;
+    g.DrawString(searchDisplay.c_str(), -1, &searchFont, PointF((REAL)(dropX + 8), (REAL)(dropY + 6)), &searchTextBrush);
+
+    // Font list
+    int listY = dropY + searchH;
+    int visibleCount = min((int)g_filteredFonts.size() - g_fontScrollOffset, FONT_DROPDOWN_MAX_ITEMS);
+
+    for (int i = 0; i < visibleCount; i++) {
+        int idx = g_fontScrollOffset + i;
+        if (idx >= (int)g_filteredFonts.size()) break;
+
+        FontInfo* fi = g_filteredFonts[idx];
+        int itemY = listY + i * FONT_ITEM_HEIGHT;
+
+        // Hover highlight
+        if (idx == g_fontHoverIndex) {
+            SolidBrush hoverBrush(COLOR_HOVER);
+            g.FillRectangle(&hoverBrush, dropX + 2, itemY, dropW - 4, FONT_ITEM_HEIGHT);
+        }
+
+        // Font name (use the font itself for preview if possible)
+        g.DrawString(fi->displayName.c_str(), -1, &itemFont,
+                     PointF((REAL)(dropX + 8), (REAL)(itemY + 4)), &textBrush);
+    }
+
+    // Scroll indicator if needed
+    if (g_filteredFonts.size() > FONT_DROPDOWN_MAX_ITEMS) {
+        int scrollMax = (int)g_filteredFonts.size() - FONT_DROPDOWN_MAX_ITEMS;
+        float scrollRatio = (float)g_fontScrollOffset / scrollMax;
+        int scrollBarH = listH * FONT_DROPDOWN_MAX_ITEMS / (int)g_filteredFonts.size();
+        int scrollBarY = listY + (int)((listH - scrollBarH) * scrollRatio);
+
+        SolidBrush scrollBrush(Color(128, 100, 100, 120));
+        g.FillRectangle(&scrollBrush, dropX + dropW - 6, scrollBarY, 4, scrollBarH);
+    }
+}
+
+/*****************************************************************************
+ * Text Preset Functions
+ *****************************************************************************/
+static void LoadPresets() {
+    // TODO: Load from file ~/.ae-anchor/text-presets.json
+    g_textPresets.clear();
+}
+
+static void SavePresetsToFile() {
+    // TODO: Save to file ~/.ae-anchor/text-presets.json
+}
+
+static void SavePreset(const std::wstring& name) {
+    TextPreset preset;
+    preset.name = name;
+    wcscpy_s((wchar_t*)preset.font.c_str(), 128, g_textInfo.font);
+    preset.font = g_textInfo.font;
+    preset.fontSize = g_textInfo.fontSize;
+    preset.tracking = g_textInfo.tracking;
+    preset.leading = g_textInfo.leading;
+    preset.strokeWidth = g_textInfo.strokeWidth;
+    preset.fillColor[0] = g_textInfo.fillColor[0];
+    preset.fillColor[1] = g_textInfo.fillColor[1];
+    preset.fillColor[2] = g_textInfo.fillColor[2];
+    preset.strokeColor[0] = g_textInfo.strokeColor[0];
+    preset.strokeColor[1] = g_textInfo.strokeColor[1];
+    preset.strokeColor[2] = g_textInfo.strokeColor[2];
+    preset.applyFill = g_textInfo.applyFill;
+    preset.applyStroke = g_textInfo.applyStroke;
+    preset.justify = (int)g_textInfo.justify;
+
+    g_textPresets.push_back(preset);
+    SavePresetsToFile();
+}
+
+static void ApplyPreset(int index) {
+    if (index < 0 || index >= (int)g_textPresets.size()) return;
+
+    TextPreset& p = g_textPresets[index];
+
+    // Apply font
+    char psName[256];
+    WideCharToMultiByte(CP_UTF8, 0, p.font.c_str(), -1, psName, sizeof(psName), NULL, NULL);
+    ApplyTextFont(psName);
+    wcscpy_s(g_textInfo.font, 128, p.font.c_str());
+
+    // Apply other properties
+    ApplyTextPropertyValue("fontSize", p.fontSize);
+    g_textInfo.fontSize = p.fontSize;
+
+    ApplyTextPropertyValue("tracking", p.tracking);
+    g_textInfo.tracking = p.tracking;
+
+    ApplyTextPropertyValue("leading", p.leading);
+    g_textInfo.leading = p.leading;
+
+    ApplyTextPropertyValue("strokeWidth", p.strokeWidth);
+    g_textInfo.strokeWidth = p.strokeWidth;
+
+    if (p.applyFill) {
+        ApplyTextColorValue(false, p.fillColor[0], p.fillColor[1], p.fillColor[2]);
+        g_textInfo.fillColor[0] = p.fillColor[0];
+        g_textInfo.fillColor[1] = p.fillColor[1];
+        g_textInfo.fillColor[2] = p.fillColor[2];
+    }
+
+    if (p.applyStroke) {
+        ApplyTextColorValue(true, p.strokeColor[0], p.strokeColor[1], p.strokeColor[2]);
+        g_textInfo.strokeColor[0] = p.strokeColor[0];
+        g_textInfo.strokeColor[1] = p.strokeColor[1];
+        g_textInfo.strokeColor[2] = p.strokeColor[2];
+    }
+
+    ApplyTextJustificationValue(p.justify);
+    g_textInfo.justify = (Justification)p.justify;
+
+    g_result.applied = true;
+    InvalidateRect(g_hwnd, NULL, FALSE);
+}
+
+static void DrawPresetSection(Graphics& g, int& y) {
+    // Presets are shown via the star button in font section
+    // This function is for future expansion
 }
 
 /*****************************************************************************

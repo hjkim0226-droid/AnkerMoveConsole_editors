@@ -319,6 +319,8 @@ void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'
 void ApplyTextPropertyValue(const char* propName, float value) {}
 void ApplyTextColorValue(bool stroke, float r, float g, float b) {}
 void ApplyTextJustificationValue(int just) {}
+void GetFontsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
+void ApplyTextFont(const char* postScriptName) {}
 #endif
 
 /*****************************************************************************
@@ -405,6 +407,68 @@ void ApplyTextJustificationValue(int just) {
     "}catch(e){}"
     "})();",
     justNames[just]);
+  ExecuteScript(script);
+}
+
+/*****************************************************************************
+ * GetFontsList
+ * Get list of all available fonts from AE
+ * Returns: "familyName|styleName|postScriptName;..."
+ *****************************************************************************/
+void GetFontsList(wchar_t* outBuffer, size_t bufSize) {
+  outBuffer[0] = L'\0';
+
+  // Use heap allocation to avoid stack overflow
+  char* resultBuf = new char[131072];  // 128KB for fonts
+  if (!resultBuf) return;
+  memset(resultBuf, 0, 131072);
+
+  ExecuteScript(
+      "(function(){"
+      "try{"
+      "var fonts=app.fonts.allFonts;"
+      "var r=[];"
+      "for(var i=0;i<fonts.length;i++){"
+      "var fam=fonts[i];"
+      "for(var j=0;j<fam.length;j++){"
+      "var f=fam[j];"
+      "if(f.isSubstitute)continue;"
+      "r.push(f.familyName+'|'+f.styleName+'|'+f.postScriptName);"
+      "}"
+      "}"
+      "return r.join(';');"
+      "}catch(e){return '';}"
+      "})();",
+      resultBuf, 131072);
+
+  if (resultBuf[0] != '\0' && strncmp(resultBuf, "Error", 5) != 0) {
+    MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, outBuffer, (int)bufSize);
+  }
+  delete[] resultBuf;
+}
+
+/*****************************************************************************
+ * ApplyTextFont
+ * Apply a font to the selected text layer by PostScript name
+ *****************************************************************************/
+void ApplyTextFont(const char* postScriptName) {
+  char script[1024];
+  snprintf(script, sizeof(script),
+    "(function(){"
+    "try{"
+    "var c=app.project.activeItem;"
+    "if(!c||!(c instanceof CompItem))return;"
+    "var sel=c.selectedLayers;"
+    "for(var i=0;i<sel.length;i++){"
+    "if(!(sel[i] instanceof TextLayer))continue;"
+    "var txt=sel[i].text.sourceText;"
+    "var doc=txt.value;"
+    "doc.font='%s';"
+    "txt.setValue(doc);"
+    "}"
+    "}catch(e){}"
+    "})();",
+    postScriptName);
   ExecuteScript(script);
 }
 #endif
