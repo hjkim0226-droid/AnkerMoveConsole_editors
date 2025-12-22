@@ -219,9 +219,9 @@ static void ConvertBezierToAE(
     outSpeed = normalizedOutSpeed * safeAvgSpeed;
     inSpeed = normalizedInSpeed * safeAvgSpeed;
 
-    // Clamp speeds to prevent NaN/inf in script (reasonable range: 0-10000)
-    outSpeed = max(0.0f, min(10000.0f, outSpeed));
-    inSpeed = max(0.0f, min(10000.0f, inSpeed));
+    // Clamp speeds to prevent NaN/inf in script (reasonable range: 0-1000)
+    outSpeed = max(0.0f, min(1000.0f, outSpeed));
+    inSpeed = max(0.0f, min(1000.0f, inSpeed));
 
     // Final NaN and infinity check
     // Finite numbers satisfy: (x - x == 0) and (x == x)
@@ -663,9 +663,9 @@ static void ParseSingleKeyframePair(const wchar_t* json, KeyframePairInfo& pair)
         if (val != val || (val - val) != 0.0f) val = defaultVal;  // NaN/inf check
         val = max(minVal, min(maxVal, val));
     };
-    sanitizeFloat(pair.info.outSpeed, 0.0f, 0.0f, 10000.0f);
+    sanitizeFloat(pair.info.outSpeed, 0.0f, 0.0f, 1000.0f);
     sanitizeFloat(pair.info.outInfluence, 33.33f, 0.1f, 100.0f);
-    sanitizeFloat(pair.info.inSpeed, 0.0f, 0.0f, 10000.0f);
+    sanitizeFloat(pair.info.inSpeed, 0.0f, 0.0f, 1000.0f);
     sanitizeFloat(pair.info.inInfluence, 33.33f, 0.1f, 100.0f);
 
     // Extract keyframe types (1=linear, 2=bezier, 3=hold)
@@ -690,7 +690,7 @@ static void ParseSingleKeyframePair(const wchar_t* json, KeyframePairInfo& pair)
     if (pair.avgSpeed != pair.avgSpeed || (pair.avgSpeed - pair.avgSpeed) != 0.0f) {
         pair.avgSpeed = 1.0f;  // Default to 1.0 for invalid values
     }
-    pair.avgSpeed = max(0.0f, min(10000.0f, pair.avgSpeed));
+    pair.avgSpeed = max(0.0f, min(1000.0f, pair.avgSpeed));
 
     // Convert AE easing to bezier control points
     ConvertAEToBezier(
