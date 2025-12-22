@@ -1,0 +1,9 @@
+{
+  "name": "flowchart-generator",
+  "version": "1.0.0",
+  "description": "코드베이스를 분석하여 Mermaid 흐름도를 생성하는 플러그인",
+  "author": "kimhyunjoong",
+  "skills": ["skills/*.md"],
+  "commands": ["commands/*.md"],
+  "agents": ["agents/*.md"]
+}

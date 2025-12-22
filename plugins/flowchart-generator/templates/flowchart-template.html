@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{PROJECT_NAME}} - 흐름도</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            padding: 40px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #4fc3f7;
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(79, 195, 247, 0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+        h2 {
+            color: #81c784;
+            margin-top: 50px;
+            border-bottom: 2px solid #81c784;
+            padding-bottom: 10px;
+            font-size: 1.5rem;
+        }
+        .mermaid {
+            background: #252542;
+            padding: 30px;
+            border-radius: 16px;
+            margin: 20px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            overflow-x: auto;
+        }
+        .legend {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .legend-title {
+            width: 100%;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        .legend-color.input { background: #2196f3; }
+        .legend-color.process { background: #4caf50; }
+        .legend-color.output { background: #ff9800; }
+        .legend-color.error { background: #666; }
+
+        .file-ref {
+            background: rgba(255, 183, 77, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 3px solid #ffb74d;
+        }
+        .code {
+            color: #4fc3f7;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            background: rgba(79, 195, 247, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .file {
+            color: #ffb74d;
+            font-family: 'Fira Code', 'Consolas', monospace;
+        }
+
+        .toc {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+        .toc-title {
+            font-weight: bold;
+            color: #4fc3f7;
+            margin-bottom: 15px;
+        }
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .toc-list a {
+            color: #81c784;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            display: block;
+            transition: background 0.2s;
+        }
+        .toc-list a:hover {
+            background: rgba(129, 199, 132, 0.1);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 20px; }
+            h1 { font-size: 1.8rem; }
+            .legend { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ICON}} {{PROJECT_NAME}}</h1>
+    <p class="subtitle">Generated with Flowchart Generator Plugin</p>
+
+    <div class="legend">
+        <div class="legend-title">범례 (Legend)</div>
+        <div class="legend-item">
+            <div class="legend-color input"></div>
+            <span>입력 (Input)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color process"></div>
+            <span>처리 (Process)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color output"></div>
+            <span>출력 (Output)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color error"></div>
+            <span>무시/에러 (Ignore)</span>
+        </div>
+    </div>
+
+    <nav class="toc">
+        <div class="toc-title">📑 목차</div>
+        <ul class="toc-list">
+            {{TOC_ITEMS}}
+        </ul>
+    </nav>
+
+    {{DIAGRAMS}}
+
+    <footer>
+        <p>Generated by <strong>Flowchart Generator</strong> Plugin for Claude Code</p>
+        <p>{{GENERATED_DATE}}</p>
+    </footer>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            },
+            themeVariables: {
+                primaryColor: '#4fc3f7',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#4fc3f7',
+                lineColor: '#81c784',
+                secondaryColor: '#252542',
+                tertiaryColor: '#1a1a2e'
+            }
+        });
+    </script>
+</body>
+</html>
