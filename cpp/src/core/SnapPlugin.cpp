@@ -2161,11 +2161,68 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       break;
 
     case DMenuUI::ACTION_COMP:
-      // Show comp editor panel
+      // Show layer editor panel (was comp editor)
       if (g_compVisible) {
         CompUI::HidePanel();
         g_compVisible = false;
       } else {
+        // Get selected layer info via ExtendScript
+        // LayerType enum values: 0=NONE, 1=TEXT, 2=SHAPE, 3=SOLID, 4=NULL, 5=FOOTAGE, 6=CAMERA, 7=LIGHT, 8=ADJUSTMENT, 9=PRECOMP
+        char layerResult[2048] = {0};
+        ExecuteScript(
+          "(function(){"
+          "var c=app.project.activeItem;"
+          "if(!c||!(c instanceof CompItem))return '';"
+          "var layers=c.selectedLayers;"
+          "if(layers.length===0)return '';"
+          "var layer=layers[0];"
+          "var type=0;"  // Default: NONE
+          "if(layer instanceof TextLayer)type=1;"
+          "else if(layer instanceof ShapeLayer)type=2;"
+          "else if(layer instanceof CameraLayer)type=6;"
+          "else if(layer instanceof LightLayer)type=7;"
+          "else if(layer instanceof AVLayer){"
+          "  if(layer.nullLayer)type=4;"
+          "  else if(layer.adjustmentLayer)type=8;"
+          "  else if(layer.source instanceof CompItem)type=9;"
+          "  else if(layer.source instanceof SolidSource)type=3;"
+          "  else type=5;"  // Footage
+          "}"
+          "var hasParent=layer.parent!==null;"
+          "var parentIdx=hasParent?layer.parent.index:0;"
+          "var isSeq=false,hasTimeRemap=false;"
+          "if(type===5&&layer.source instanceof FootageItem){"
+          "  isSeq=layer.source.mainSource.isStill===false;"
+          "  hasTimeRemap=layer.timeRemapEnabled;"
+          "}"
+          "var solidColor=0;"
+          "if(type===3&&layer.source instanceof SolidSource){"
+          "  var col=layer.source.color;"
+          "  solidColor=Math.round(col[0]*255)*65536+Math.round(col[1]*255)*256+Math.round(col[2]*255);"
+          "}"
+          "return JSON.stringify({"
+          "  name:layer.name,"
+          "  type:type,"
+          "  index:layer.index,"
+          "  hasParent:hasParent,"
+          "  parentIndex:parentIdx,"
+          "  isSelected:true,"
+          "  solidColor:solidColor,"
+          "  isSequence:isSeq,"
+          "  hasTimeRemap:hasTimeRemap"
+          "});"
+          "})()",
+          layerResult, sizeof(layerResult));
+
+        // Convert to wide string and set layer info
+        if (layerResult[0] != '\0') {
+          wchar_t wResult[2048];
+          MultiByteToWideChar(CP_UTF8, 0, layerResult, -1, wResult, 2048);
+          CompUI::SetLayerInfo(wResult);
+        } else {
+          CompUI::SetLayerInfo(L"");  // No layer selected
+        }
+
         CompUI::ShowPanel(mouseX, mouseY);
         g_compVisible = true;
       }
@@ -2337,31 +2394,269 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     TextUI::UpdateHover(mouseX, mouseY);
   }
 
-  // Check if Comp panel closed and process result
+  // Check if Layer panel closed and process result
   if (g_compVisible && !CompUI::IsVisible()) {
     g_compVisible = false;
     CompUI::CompResult result = CompUI::GetResult();
 
     if (result.applied) {
+      char script[4096];
       char resultBuf[512];
-      const char* script = nullptr;
 
       switch (result.action) {
-      case CompUI::ACTION_AUTO_CROP:
-        script = "autoCropComp()";
+      // Text layer actions
+      case CompUI::ACTION_TEXT_ANIMATOR_TYPEWRITER:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof TextLayer))return;"
+          "app.beginUndoGroup('Add Typewriter');"
+          "var tp=layer.Text.property('ADBE Text Animators');"
+          "var anim=tp.addProperty('ADBE Text Animator');"
+          "anim.name='Typewriter';"
+          "var sel=anim.property('ADBE Text Selectors').addProperty('ADBE Text Selector');"
+          "var range=sel.property('ADBE Text Percent Start');"
+          "range.setValueAtTime(0,100);range.setValueAtTime(c.duration*0.8,0);"
+          "var props=anim.property('ADBE Text Animator Properties');"
+          "props.addProperty('ADBE Text Opacity');props.property('ADBE Text Opacity').setValue(0);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
         break;
-      case CompUI::ACTION_DUPLICATE:
-        script = "duplicateCompFull()";
+
+      case CompUI::ACTION_TEXT_ANIMATOR_FADE:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof TextLayer))return;"
+          "app.beginUndoGroup('Add Fade In');"
+          "var tp=layer.Text.property('ADBE Text Animators');"
+          "var anim=tp.addProperty('ADBE Text Animator');"
+          "anim.name='Fade In';"
+          "var sel=anim.property('ADBE Text Selectors').addProperty('ADBE Text Selector');"
+          "var range=sel.property('ADBE Text Percent Start');"
+          "range.setValueAtTime(0,100);range.setValueAtTime(c.duration*0.5,0);"
+          "var props=anim.property('ADBE Text Animator Properties');"
+          "props.addProperty('ADBE Text Opacity');props.property('ADBE Text Opacity').setValue(0);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
         break;
-      case CompUI::ACTION_FIT_DURATION:
-        script = "extendCompDuration()";
+
+      case CompUI::ACTION_TEXT_ANIMATOR_SCALE:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof TextLayer))return;"
+          "app.beginUndoGroup('Add Scale');"
+          "var tp=layer.Text.property('ADBE Text Animators');"
+          "var anim=tp.addProperty('ADBE Text Animator');"
+          "anim.name='Scale In';"
+          "var sel=anim.property('ADBE Text Selectors').addProperty('ADBE Text Selector');"
+          "var range=sel.property('ADBE Text Percent Start');"
+          "range.setValueAtTime(0,100);range.setValueAtTime(c.duration*0.5,0);"
+          "var props=anim.property('ADBE Text Animator Properties');"
+          "props.addProperty('ADBE Text Scale');props.property('ADBE Text Scale').setValue([0,0]);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
         break;
+
+      case CompUI::ACTION_TEXT_ANIMATOR_BLUR:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof TextLayer))return;"
+          "app.beginUndoGroup('Add Blur');"
+          "var tp=layer.Text.property('ADBE Text Animators');"
+          "var anim=tp.addProperty('ADBE Text Animator');"
+          "anim.name='Blur In';"
+          "var sel=anim.property('ADBE Text Selectors').addProperty('ADBE Text Selector');"
+          "var range=sel.property('ADBE Text Percent Start');"
+          "range.setValueAtTime(0,100);range.setValueAtTime(c.duration*0.5,0);"
+          "var props=anim.property('ADBE Text Animator Properties');"
+          "props.addProperty('ADBE Text Blur');props.property('ADBE Text Blur').setValue(20);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_TEXT_ANIMATOR_TRACKING:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof TextLayer))return;"
+          "app.beginUndoGroup('Add Tracking');"
+          "var tp=layer.Text.property('ADBE Text Animators');"
+          "var anim=tp.addProperty('ADBE Text Animator');"
+          "anim.name='Tracking';"
+          "var sel=anim.property('ADBE Text Selectors').addProperty('ADBE Text Selector');"
+          "var range=sel.property('ADBE Text Percent Start');"
+          "range.setValueAtTime(0,100);range.setValueAtTime(c.duration*0.5,0);"
+          "var props=anim.property('ADBE Text Animator Properties');"
+          "props.addProperty('ADBE Text Tracking Amount');props.property('ADBE Text Tracking Amount').setValue(50);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      // Shape layer actions
+      case CompUI::ACTION_SHAPE_TRIM_PATH:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof ShapeLayer))return;"
+          "app.beginUndoGroup('Add Trim Paths');"
+          "var contents=layer.property('ADBE Root Vectors Group');"
+          "var trim=contents.addProperty('ADBE Vector Filter - Trim');"
+          "trim.property('ADBE Vector Trim End').setValueAtTime(0,0);"
+          "trim.property('ADBE Vector Trim End').setValueAtTime(c.duration*0.5,100);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_SHAPE_REPEATER:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof ShapeLayer))return;"
+          "app.beginUndoGroup('Add Repeater');"
+          "var contents=layer.property('ADBE Root Vectors Group');"
+          "var rep=contents.addProperty('ADBE Vector Filter - Repeater');"
+          "rep.property('ADBE Vector Repeater Copies').setValue(5);"
+          "rep.property('ADBE Vector Repeater Transform').property('ADBE Vector Repeater Position').setValue([100,0]);"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_SHAPE_WIGGLE_PATH:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof ShapeLayer))return;"
+          "app.beginUndoGroup('Add Wiggle Paths');"
+          "var contents=layer.property('ADBE Root Vectors Group');"
+          "var wig=contents.addProperty('ADBE Vector Filter - Wiggler');"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_SHAPE_WIGGLE_TRANSFORM:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer||!(layer instanceof ShapeLayer))return;"
+          "app.beginUndoGroup('Add Wiggle Transform');"
+          "var contents=layer.property('ADBE Root Vectors Group');"
+          "var wig=contents.addProperty('ADBE Vector Filter - Wig-Zag');"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      // Solid layer actions
+      case CompUI::ACTION_SOLID_CHANGE_COLOR:
+        // TODO: Open color picker
+        break;
+
+      case CompUI::ACTION_SOLID_FIT_TO_COMP:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer)return;"
+          "if(!(layer.source instanceof SolidSource))return;"
+          "app.beginUndoGroup('Fit Solid to Comp');"
+          "layer.source.mainSource.width=c.width;"
+          "layer.source.mainSource.height=c.height;"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      // Footage layer actions
+      case CompUI::ACTION_FOOTAGE_LOOP_CYCLE:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer)return;"
+          "app.beginUndoGroup('Add Loop Cycle');"
+          "layer.timeRemapEnabled=true;"
+          "layer.timeRemap.expression='loopOut(\"cycle\")';"
+          "layer.outPoint=c.duration;"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_FOOTAGE_LOOP_PINGPONG:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer)return;"
+          "app.beginUndoGroup('Add Loop Ping Pong');"
+          "layer.timeRemapEnabled=true;"
+          "layer.timeRemap.expression='loopOut(\"pingpong\")';"
+          "layer.outPoint=c.duration;"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_FOOTAGE_LAST_FRAME_HOLD:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer)return;"
+          "app.beginUndoGroup('Last Frame Hold');"
+          "layer.timeRemapEnabled=true;"
+          "var dur=layer.source.duration;"
+          "layer.timeRemap.setValueAtTime(dur,dur-c.frameDuration);"
+          "layer.outPoint=c.duration;"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      // Common actions
+      case CompUI::ACTION_RESET_TRANSFORM:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer)return;"
+          "app.beginUndoGroup('Reset Transform');"
+          "var hasParent=layer.parent!==null;"
+          "var oldParent=layer.parent;"
+          "if(hasParent)layer.parent=null;"
+          "layer.position.setValue([c.width/2,c.height/2]);"
+          "layer.scale.setValue([100,100]);"
+          "layer.rotation.setValue(0);"
+          "if(hasParent)layer.parent=oldParent;"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
+      case CompUI::ACTION_RESET_POSITION:
+        snprintf(script, sizeof(script),
+          "(function(){"
+          "var c=app.project.activeItem;if(!c)return;"
+          "var layer=c.selectedLayers[0];if(!layer)return;"
+          "app.beginUndoGroup('Reset Position');"
+          "var hasParent=layer.parent!==null;"
+          "var oldParent=layer.parent;"
+          "if(hasParent)layer.parent=null;"
+          "layer.position.setValue([c.width/2,c.height/2,0]);"
+          "if(hasParent)layer.parent=oldParent;"
+          "app.endUndoGroup();"
+          "})()");
+        ExecuteScript(script, resultBuf, sizeof(resultBuf));
+        break;
+
       default:
         break;
-      }
-
-      if (script) {
-        ExecuteScript(script, resultBuf, sizeof(resultBuf));
       }
     }
   }

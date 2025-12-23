@@ -1,8 +1,9 @@
 /*****************************************************************************
- * CompUI.cpp
+ * CompUI.cpp (Layer Module)
  *
- * Native Windows UI implementation for Composition Editor Module
- * Uses Win32 + GDI+ with WS_EX_NOACTIVATE
+ * Native Windows UI implementation for Layer Editor Module
+ * Displays layer-type specific actions
+ * Uses Win32 + GDI+
  *****************************************************************************/
 
 #include "CompUI.h"
@@ -12,6 +13,7 @@
 #include <windowsx.h>
 #include <string>
 #include <cmath>
+#include <vector>
 
 using namespace Gdiplus;
 
@@ -22,7 +24,10 @@ namespace CompUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 280;
-static const int WINDOW_HEIGHT = 160;
+static const int HEADER_HEIGHT = 32;
+static const int BUTTON_HEIGHT = 36;
+static const int BUTTON_MARGIN = 8;
+static const int PADDING = 8;
 
 // Scale factor for this module (set in ShowPanel)
 static float g_scaleFactor = 1.0f;
@@ -36,11 +41,6 @@ inline int InverseScaled(int screenValue) {
     return (int)(screenValue / g_scaleFactor);
 }
 
-static const int HEADER_HEIGHT = 32;
-static const int BUTTON_HEIGHT = 36;
-static const int BUTTON_MARGIN = 8;
-static const int PADDING = 8;
-
 // Colors (following UI guidelines)
 static const Color COLOR_BG(240, 28, 28, 32);
 static const Color COLOR_HEADER_BG(255, 40, 40, 48);
@@ -52,32 +52,89 @@ static const Color COLOR_TEXT_DIM(255, 140, 140, 140);
 static const Color COLOR_BORDER(255, 60, 60, 70);
 static const Color COLOR_PIN_ACTIVE(255, 255, 200, 0);
 
+// Layer type colors
+static const Color COLOR_TEXT_LAYER(255, 255, 180, 80);    // Orange-yellow
+static const Color COLOR_SHAPE_LAYER(255, 80, 180, 255);   // Blue
+static const Color COLOR_SOLID_LAYER(255, 180, 180, 180);  // Gray
+static const Color COLOR_NULL_LAYER(255, 255, 80, 80);     // Red
+static const Color COLOR_FOOTAGE_LAYER(255, 80, 255, 180); // Green
+static const Color COLOR_CAMERA_LAYER(255, 200, 150, 255); // Purple
+static const Color COLOR_LIGHT_LAYER(255, 255, 255, 150);  // Yellow-white
+
 // Button info
 struct ButtonInfo {
     const wchar_t* label;
     const wchar_t* shortcut;
     const wchar_t* description;
-    CompAction action;
+    LayerAction action;
 };
 
-static const ButtonInfo BUTTONS[] = {
-    {L"Auto Crop", L"1", L"Fit comp to layer bounds", ACTION_AUTO_CROP},
-    {L"Duplicate", L"2", L"Full comp duplication", ACTION_DUPLICATE},
-    {L"Fit Duration", L"3", L"Fit to layer duration", ACTION_FIT_DURATION},
+// Buttons for each layer type
+static const ButtonInfo TEXT_BUTTONS[] = {
+    {L"Typewriter", L"1", L"Animate text typing", ACTION_TEXT_ANIMATOR_TYPEWRITER},
+    {L"Fade In", L"2", L"Fade in characters", ACTION_TEXT_ANIMATOR_FADE},
+    {L"Scale", L"3", L"Scale characters", ACTION_TEXT_ANIMATOR_SCALE},
+    {L"Blur", L"4", L"Blur characters", ACTION_TEXT_ANIMATOR_BLUR},
+    {L"Tracking", L"5", L"Animate tracking", ACTION_TEXT_ANIMATOR_TRACKING},
 };
-static const int NUM_BUTTONS = sizeof(BUTTONS) / sizeof(BUTTONS[0]);
+static const int NUM_TEXT_BUTTONS = 5;
+
+static const ButtonInfo SHAPE_BUTTONS[] = {
+    {L"Trim Path", L"1", L"Add trim paths", ACTION_SHAPE_TRIM_PATH},
+    {L"Repeater", L"2", L"Add repeater", ACTION_SHAPE_REPEATER},
+    {L"Wiggle Path", L"3", L"Add wiggle paths", ACTION_SHAPE_WIGGLE_PATH},
+    {L"Wiggle Transform", L"4", L"Add wiggle transform", ACTION_SHAPE_WIGGLE_TRANSFORM},
+};
+static const int NUM_SHAPE_BUTTONS = 4;
+
+static const ButtonInfo SOLID_BUTTONS[] = {
+    {L"Change Color", L"1", L"Change solid color", ACTION_SOLID_CHANGE_COLOR},
+    {L"Fit to Comp", L"2", L"Match comp dimensions", ACTION_SOLID_FIT_TO_COMP},
+    {L"Reset Transform", L"3", L"Reset pos/scale/rot", ACTION_RESET_TRANSFORM},
+};
+static const int NUM_SOLID_BUTTONS = 3;
+
+static const ButtonInfo NULL_BUTTONS[] = {
+    {L"Reset Transform", L"1", L"Reset pos/scale/rot (parent-aware)", ACTION_RESET_TRANSFORM},
+};
+static const int NUM_NULL_BUTTONS = 1;
+
+static const ButtonInfo FOOTAGE_BUTTONS[] = {
+    {L"Loop (Cycle)", L"1", L"Loop with cycle", ACTION_FOOTAGE_LOOP_CYCLE},
+    {L"Loop (Ping Pong)", L"2", L"Loop back and forth", ACTION_FOOTAGE_LOOP_PINGPONG},
+    {L"Last Frame Hold", L"3", L"Freeze last frame", ACTION_FOOTAGE_LAST_FRAME_HOLD},
+    {L"Reset Transform", L"4", L"Reset pos/scale/rot", ACTION_RESET_TRANSFORM},
+};
+static const int NUM_FOOTAGE_BUTTONS = 4;
+
+static const ButtonInfo CAMERA_BUTTONS[] = {
+    {L"Reset Position", L"1", L"Reset camera position", ACTION_RESET_POSITION},
+};
+static const int NUM_CAMERA_BUTTONS = 1;
+
+static const ButtonInfo LIGHT_BUTTONS[] = {
+    {L"Reset Position", L"1", L"Reset light position", ACTION_RESET_POSITION},
+};
+static const int NUM_LIGHT_BUTTONS = 1;
+
+static const ButtonInfo NONE_BUTTONS[] = {
+    // Empty - no layer selected
+};
+static const int NUM_NONE_BUTTONS = 0;
 
 // Global state
 static HWND g_hwnd = NULL;
 static bool g_visible = false;
 static ULONG_PTR g_gdiplusToken = 0;
-static CompInfo g_compInfo = {};
+static LayerInfo g_layerInfo = {};
 static CompResult g_result;
 static bool g_keepPanelOpen = false;
 
-// Button rectangles
-static RECT g_buttonRects[5];
+// Button rectangles (dynamic based on layer type)
+static RECT g_buttonRects[10];
 static RECT g_pinRect;
+static int g_numButtons = 0;
+static const ButtonInfo* g_currentButtons = nullptr;
 
 // Hover state
 static int g_hoverButton = -1;
@@ -96,7 +153,11 @@ static void DrawButton(Graphics& g, RECT& rect, int index, bool hover);
 static int HitTestButton(int x, int y);
 static void HandleMouseDown(int x, int y);
 static void HandleKeyDown(WPARAM key);
-static void ExecuteAction(CompAction action);
+static void ExecuteAction(LayerAction action);
+static void UpdateButtonsForLayerType();
+static int CalculateWindowHeight();
+static Color GetLayerTypeColor();
+static const wchar_t* GetLayerTypeName();
 
 /*****************************************************************************
  * Initialize
@@ -131,9 +192,9 @@ void Initialize() {
     g_hwnd = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         L"CompUIWindow",
-        L"Comp Editor",
+        L"Layer Editor",
         WS_POPUP,
-        0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+        0, 0, WINDOW_WIDTH, 200,  // Height will be adjusted
         NULL, NULL, GetModuleHandle(NULL), NULL
     );
 
@@ -161,6 +222,94 @@ void Shutdown() {
 }
 
 /*****************************************************************************
+ * UpdateButtonsForLayerType
+ *****************************************************************************/
+static void UpdateButtonsForLayerType() {
+    switch (g_layerInfo.type) {
+    case LAYER_TEXT:
+        g_currentButtons = TEXT_BUTTONS;
+        g_numButtons = NUM_TEXT_BUTTONS;
+        break;
+    case LAYER_SHAPE:
+        g_currentButtons = SHAPE_BUTTONS;
+        g_numButtons = NUM_SHAPE_BUTTONS;
+        break;
+    case LAYER_SOLID:
+    case LAYER_ADJUSTMENT:
+        g_currentButtons = SOLID_BUTTONS;
+        g_numButtons = NUM_SOLID_BUTTONS;
+        break;
+    case LAYER_NULL:
+        g_currentButtons = NULL_BUTTONS;
+        g_numButtons = NUM_NULL_BUTTONS;
+        break;
+    case LAYER_FOOTAGE:
+    case LAYER_PRECOMP:
+        g_currentButtons = FOOTAGE_BUTTONS;
+        g_numButtons = NUM_FOOTAGE_BUTTONS;
+        break;
+    case LAYER_CAMERA:
+        g_currentButtons = CAMERA_BUTTONS;
+        g_numButtons = NUM_CAMERA_BUTTONS;
+        break;
+    case LAYER_LIGHT:
+        g_currentButtons = LIGHT_BUTTONS;
+        g_numButtons = NUM_LIGHT_BUTTONS;
+        break;
+    default:
+        g_currentButtons = NONE_BUTTONS;
+        g_numButtons = NUM_NONE_BUTTONS;
+        break;
+    }
+}
+
+/*****************************************************************************
+ * CalculateWindowHeight
+ *****************************************************************************/
+static int CalculateWindowHeight() {
+    if (g_numButtons == 0) {
+        return HEADER_HEIGHT + BUTTON_MARGIN + 40;  // "No layer selected" message
+    }
+    return HEADER_HEIGHT + BUTTON_MARGIN + g_numButtons * (BUTTON_HEIGHT + 4) + BUTTON_MARGIN;
+}
+
+/*****************************************************************************
+ * GetLayerTypeColor
+ *****************************************************************************/
+static Color GetLayerTypeColor() {
+    switch (g_layerInfo.type) {
+    case LAYER_TEXT: return COLOR_TEXT_LAYER;
+    case LAYER_SHAPE: return COLOR_SHAPE_LAYER;
+    case LAYER_SOLID:
+    case LAYER_ADJUSTMENT: return COLOR_SOLID_LAYER;
+    case LAYER_NULL: return COLOR_NULL_LAYER;
+    case LAYER_FOOTAGE:
+    case LAYER_PRECOMP: return COLOR_FOOTAGE_LAYER;
+    case LAYER_CAMERA: return COLOR_CAMERA_LAYER;
+    case LAYER_LIGHT: return COLOR_LIGHT_LAYER;
+    default: return COLOR_TEXT_DIM;
+    }
+}
+
+/*****************************************************************************
+ * GetLayerTypeName
+ *****************************************************************************/
+static const wchar_t* GetLayerTypeName() {
+    switch (g_layerInfo.type) {
+    case LAYER_TEXT: return L"Text";
+    case LAYER_SHAPE: return L"Shape";
+    case LAYER_SOLID: return L"Solid";
+    case LAYER_ADJUSTMENT: return L"Adjustment";
+    case LAYER_NULL: return L"Null";
+    case LAYER_FOOTAGE: return L"Footage";
+    case LAYER_PRECOMP: return L"Pre-comp";
+    case LAYER_CAMERA: return L"Camera";
+    case LAYER_LIGHT: return L"Light";
+    default: return L"No Layer";
+    }
+}
+
+/*****************************************************************************
  * ShowPanel
  *****************************************************************************/
 void ShowPanel(int x, int y) {
@@ -170,10 +319,17 @@ void ShowPanel(int x, int y) {
     g_result = CompResult();
     g_hoverButton = -1;
 
+    // Update buttons based on layer type
+    UpdateButtonsForLayerType();
+
     // Get scale factor from settings
     g_scaleFactor = GetModuleScaleFactor("comp");
     int scaledWidth = Scaled(WINDOW_WIDTH);
-    int scaledHeight = Scaled(WINDOW_HEIGHT);
+    int windowHeight = CalculateWindowHeight();
+    int scaledHeight = Scaled(windowHeight);
+
+    // Store layer type in result
+    g_result.layerType = g_layerInfo.type;
 
     // Position window - use monitor where mouse is located
     int posX = x - scaledWidth / 2;
@@ -220,7 +376,6 @@ void UpdateHover(int mouseX, int mouseY) {
 
     RECT wndRect;
     GetWindowRect(g_hwnd, &wndRect);
-    // Convert to local coords and inverse scale for hit testing
     int localX = InverseScaled(mouseX - wndRect.left);
     int localY = InverseScaled(mouseY - wndRect.top);
 
@@ -248,22 +403,39 @@ void UpdateHover(int mouseX, int mouseY) {
 
 CompResult GetResult() { return g_result; }
 
-CompAction GetSelectedAction() { return g_result.action; }
+LayerAction GetSelectedAction() { return g_result.action; }
+
+LayerType GetCurrentLayerType() { return g_layerInfo.type; }
 
 /*****************************************************************************
- * SetCompInfo - Parse JSON from ExtendScript
+ * SetLayerInfo - Parse JSON from ExtendScript
  *****************************************************************************/
-void SetCompInfo(const wchar_t* jsonInfo) {
-    if (!jsonInfo || jsonInfo[0] == L'\0') return;
+void SetLayerInfo(const wchar_t* jsonInfo) {
+    if (!jsonInfo || jsonInfo[0] == L'\0') {
+        // No layer selected
+        g_layerInfo = LayerInfo();
+        g_layerInfo.type = LAYER_NONE;
+        return;
+    }
 
     std::wstring json(jsonInfo);
 
-    auto getFloat = [&json](const wchar_t* key) -> float {
+    auto getInt = [&json](const wchar_t* key) -> int {
         std::wstring search = std::wstring(L"\"") + key + L"\":";
         size_t pos = json.find(search);
         if (pos == std::wstring::npos) return 0;
         pos += search.length();
-        return (float)_wtof(json.c_str() + pos);
+        return _wtoi(json.c_str() + pos);
+    };
+
+    auto getBool = [&json](const wchar_t* key) -> bool {
+        std::wstring search = std::wstring(L"\"") + key + L"\":";
+        size_t pos = json.find(search);
+        if (pos == std::wstring::npos) return false;
+        pos += search.length();
+        // Skip whitespace
+        while (pos < json.length() && (json[pos] == L' ' || json[pos] == L'\t')) pos++;
+        return json.substr(pos, 4) == L"true";
     };
 
     auto getString = [&json](const wchar_t* key, wchar_t* out, int maxLen) {
@@ -279,13 +451,15 @@ void SetCompInfo(const wchar_t* jsonInfo) {
         out[len] = L'\0';
     };
 
-    getString(L"name", g_compInfo.name, 256);
-    g_compInfo.width = getFloat(L"width");
-    g_compInfo.height = getFloat(L"height");
-    g_compInfo.duration = getFloat(L"duration");
-    g_compInfo.frameRate = getFloat(L"frameRate");
-    g_compInfo.workAreaStart = getFloat(L"workAreaStart");
-    g_compInfo.workAreaEnd = getFloat(L"workAreaEnd");
+    getString(L"name", g_layerInfo.name, 256);
+    g_layerInfo.type = (LayerType)getInt(L"type");
+    g_layerInfo.index = getInt(L"index");
+    g_layerInfo.hasParent = getBool(L"hasParent");
+    g_layerInfo.parentIndex = getInt(L"parentIndex");
+    g_layerInfo.isSelected = getBool(L"isSelected");
+    g_layerInfo.solidColor = (unsigned int)getInt(L"solidColor");
+    g_layerInfo.isSequence = getBool(L"isSequence");
+    g_layerInfo.hasTimeRemap = getBool(L"hasTimeRemap");
 
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
@@ -299,16 +473,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
-        // Double buffering - use scaled dimensions
-        int scaledWidth = Scaled(WINDOW_WIDTH);
-        int scaledHeight = Scaled(WINDOW_HEIGHT);
+        // Double buffering
+        RECT rect;
+        GetClientRect(hwnd, &rect);
         HDC memDC = CreateCompatibleDC(hdc);
-        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, scaledWidth, scaledHeight);
+        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
         HGDIOBJ oldBitmap = SelectObject(memDC, memBitmap);
 
         Draw(memDC);
 
-        BitBlt(hdc, 0, 0, scaledWidth, scaledHeight, memDC, 0, 0, SRCCOPY);
+        BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
 
         SelectObject(memDC, oldBitmap);
         DeleteObject(memBitmap);
@@ -322,12 +496,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return MA_NOACTIVATE;
 
     case WM_LBUTTONDOWN: {
-        // Inverse scale mouse coordinates for hit testing
         int x = InverseScaled(GET_X_LPARAM(lParam));
         int y = InverseScaled(GET_Y_LPARAM(lParam));
 
         // Check header drag
-        if (y >= PADDING && y < PADDING + HEADER_HEIGHT && x < g_pinRect.left) {
+        if (y >= 0 && y < HEADER_HEIGHT && x < g_pinRect.left) {
             g_windowDragging = true;
             RECT wndRect;
             GetWindowRect(hwnd, &wndRect);
@@ -371,10 +544,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
-        } else if (ch >= L'1' && ch <= L'0' + NUM_BUTTONS) {
+        } else if (ch >= L'1' && ch <= L'9' && g_currentButtons) {
             int index = ch - L'1';
-            if (index >= 0 && index < NUM_BUTTONS) {
-                ExecuteAction(BUTTONS[index].action);
+            if (index >= 0 && index < g_numButtons) {
+                ExecuteAction(g_currentButtons[index].action);
             }
         }
         return 0;
@@ -404,16 +577,18 @@ static void Draw(HDC hdc) {
     g.SetSmoothingMode(SmoothingModeAntiAlias);
     g.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
-    // Apply scale transform - all drawing uses base dimensions
+    // Apply scale transform
     g.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
+    int windowHeight = CalculateWindowHeight();
 
     // Background
     SolidBrush bgBrush(COLOR_BG);
-    g.FillRectangle(&bgBrush, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    g.FillRectangle(&bgBrush, 0, 0, WINDOW_WIDTH, windowHeight);
 
     // Border
     Pen borderPen(COLOR_BORDER, 1);
-    g.DrawRectangle(&borderPen, 0, 0, WINDOW_WIDTH - 1, WINDOW_HEIGHT - 1);
+    g.DrawRectangle(&borderPen, 0, 0, WINDOW_WIDTH - 1, windowHeight - 1);
 
     DrawHeader(g);
     DrawButtons(g);
@@ -428,20 +603,27 @@ static void DrawHeader(Graphics& g) {
 
     FontFamily fontFamily(L"Segoe UI");
     Font titleFont(&fontFamily, 11, FontStyleBold, UnitPixel);
-    Font compFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    Font layerFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
     SolidBrush textBrush(COLOR_TEXT);
     SolidBrush dimBrush(COLOR_TEXT_DIM);
 
-    // Title
-    g.DrawString(L"Comp Editor", -1, &titleFont, PointF(10, 8), &textBrush);
+    // Layer type with color indicator
+    Color typeColor = GetLayerTypeColor();
+    SolidBrush typeBrush(typeColor);
 
-    // Comp name (if available)
-    if (g_compInfo.name[0] != L'\0') {
-        RectF compRect(100, 8, 130, 20);
+    // Type indicator circle
+    g.FillEllipse(&typeBrush, 10.0f, 10.0f, 12.0f, 12.0f);
+
+    // Layer type name
+    g.DrawString(GetLayerTypeName(), -1, &titleFont, PointF(28, 8), &textBrush);
+
+    // Layer name (if available)
+    if (g_layerInfo.name[0] != L'\0') {
+        RectF nameRect(100, 8, 130, 20);
         StringFormat sf;
         sf.SetAlignment(StringAlignmentFar);
         sf.SetTrimming(StringTrimmingEllipsisCharacter);
-        g.DrawString(g_compInfo.name, -1, &compFont, compRect, &sf, &dimBrush);
+        g.DrawString(g_layerInfo.name, -1, &layerFont, nameRect, &sf, &dimBrush);
     }
 
     // Pin button
@@ -465,7 +647,19 @@ static void DrawHeader(Graphics& g) {
 static void DrawButtons(Graphics& g) {
     int y = HEADER_HEIGHT + BUTTON_MARGIN;
 
-    for (int i = 0; i < NUM_BUTTONS; i++) {
+    if (g_numButtons == 0) {
+        // No layer selected message
+        FontFamily fontFamily(L"Segoe UI");
+        Font msgFont(&fontFamily, 11, FontStyleRegular, UnitPixel);
+        SolidBrush dimBrush(COLOR_TEXT_DIM);
+        StringFormat sf;
+        sf.SetAlignment(StringAlignmentCenter);
+        RectF msgRect(0, (REAL)y, (REAL)WINDOW_WIDTH, 30);
+        g.DrawString(L"No layer selected", -1, &msgFont, msgRect, &sf, &dimBrush);
+        return;
+    }
+
+    for (int i = 0; i < g_numButtons; i++) {
         g_buttonRects[i] = {
             BUTTON_MARGIN,
             y,
@@ -481,7 +675,8 @@ static void DrawButtons(Graphics& g) {
  * DrawButton
  *****************************************************************************/
 static void DrawButton(Graphics& g, RECT& rect, int index, bool hover) {
-    const ButtonInfo& btn = BUTTONS[index];
+    if (!g_currentButtons || index >= g_numButtons) return;
+    const ButtonInfo& btn = g_currentButtons[index];
 
     // Background
     Color bgColor = hover ? COLOR_BUTTON_HOVER : COLOR_BUTTON_BG;
@@ -522,7 +717,7 @@ static void DrawButton(Graphics& g, RECT& rect, int index, bool hover) {
  *****************************************************************************/
 static int HitTestButton(int x, int y) {
     POINT pt = {x, y};
-    for (int i = 0; i < NUM_BUTTONS; i++) {
+    for (int i = 0; i < g_numButtons; i++) {
         if (PtInRect(&g_buttonRects[i], pt)) return i;
     }
     return -1;
@@ -543,8 +738,8 @@ static void HandleMouseDown(int x, int y) {
 
     // Buttons
     int hit = HitTestButton(x, y);
-    if (hit >= 0 && hit < NUM_BUTTONS) {
-        ExecuteAction(BUTTONS[hit].action);
+    if (hit >= 0 && hit < g_numButtons && g_currentButtons) {
+        ExecuteAction(g_currentButtons[hit].action);
     }
 }
 
@@ -562,9 +757,10 @@ static void HandleKeyDown(WPARAM key) {
 /*****************************************************************************
  * ExecuteAction
  *****************************************************************************/
-static void ExecuteAction(CompAction action) {
+static void ExecuteAction(LayerAction action) {
     g_result.action = action;
     g_result.applied = true;
+    g_result.layerType = g_layerInfo.type;
 
     if (!g_keepPanelOpen) {
         ShowWindow(g_hwnd, SW_HIDE);
@@ -585,8 +781,9 @@ CompResult HidePanel() { return CompResult(); }
 bool IsVisible() { return false; }
 void UpdateHover(int mouseX, int mouseY) { (void)mouseX; (void)mouseY; }
 CompResult GetResult() { return CompResult(); }
-void SetCompInfo(const wchar_t* jsonInfo) { (void)jsonInfo; }
-CompAction GetSelectedAction() { return ACTION_NONE; }
+void SetLayerInfo(const wchar_t* jsonInfo) { (void)jsonInfo; }
+LayerAction GetSelectedAction() { return ACTION_NONE; }
+LayerType GetCurrentLayerType() { return LAYER_UNKNOWN; }
 
 } // namespace CompUI
 
