@@ -58,8 +58,8 @@ static bool g_alignVisible = false;
 // Text module state
 static bool g_textVisible = false;
 
-// Comp module state
-static bool g_compVisible = false;
+// Layer module state (D → C)
+static bool g_layerVisible = false;
 
 // Forward declaration for ExecuteScript (defined later)
 A_Err ExecuteScript(const char *script, char *resultBuf = nullptr, size_t bufSize = 0);
@@ -2179,11 +2179,11 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       }
       break;
 
-    case DMenuUI::ACTION_COMP:
-      // Show layer editor panel (was comp editor)
-      if (g_compVisible) {
+    case DMenuUI::ACTION_COMP:  // ACTION_COMP triggers Layer module
+      // Show layer editor panel
+      if (g_layerVisible) {
         CompUI::HidePanel();
-        g_compVisible = false;
+        g_layerVisible = false;
       } else {
         // Get selected layer info via ExtendScript
         // LayerType enum values: 0=NONE, 1=TEXT, 2=SHAPE, 3=SOLID, 4=NULL, 5=FOOTAGE, 6=CAMERA, 7=LIGHT, 8=ADJUSTMENT, 9=PRECOMP
@@ -2243,7 +2243,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         }
 
         CompUI::ShowPanel(mouseX, mouseY);
-        g_compVisible = true;
+        g_layerVisible = true;
       }
       break;
 
@@ -2414,8 +2414,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   }
 
   // Check if Layer panel closed and process result
-  if (g_compVisible && !CompUI::IsVisible()) {
-    g_compVisible = false;
+  if (g_layerVisible && !CompUI::IsVisible()) {
+    g_layerVisible = false;
     CompUI::CompResult result = CompUI::GetResult();
 
     if (result.applied) {
@@ -2680,8 +2680,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     }
   }
 
-  // Update hover while comp panel is visible
-  if (g_compVisible && CompUI::IsVisible()) {
+  // Update hover while layer panel is visible
+  if (g_layerVisible && CompUI::IsVisible()) {
     int mouseX = 0, mouseY = 0;
     KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
     CompUI::UpdateHover(mouseX, mouseY);

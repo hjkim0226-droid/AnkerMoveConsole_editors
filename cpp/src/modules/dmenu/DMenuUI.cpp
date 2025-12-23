@@ -62,7 +62,7 @@ static const MenuItem MENU_ITEMS[] = {
     { L'A', L"Align", ACTION_ALIGN },
     { L'T', L"Text", ACTION_TEXT },
     { L'K', L"Keyframe", ACTION_KEYFRAME },
-    { L'C', L"Comp", ACTION_COMP }
+    { L'C', L"Layer", ACTION_COMP }  // ACTION_COMP triggers Layer module
 };
 static const int MENU_ITEM_COUNT = 4;
 
