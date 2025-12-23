@@ -348,21 +348,8 @@ void ShowPanel(int x, int y) {
     SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight,
                  SWP_SHOWWINDOW);
     ShowWindow(g_hwnd, SW_SHOW);
-
-    // Force foreground focus (needed because AE owns foreground)
-    HWND fgWnd = GetForegroundWindow();
-    DWORD fgThread = GetWindowThreadProcessId(fgWnd, NULL);
-    DWORD myThread = GetCurrentThreadId();
-    if (fgThread != myThread) {
-        AttachThreadInput(myThread, fgThread, TRUE);
-        SetForegroundWindow(g_hwnd);
-        SetFocus(g_hwnd);
-        AttachThreadInput(myThread, fgThread, FALSE);
-    } else {
-        SetForegroundWindow(g_hwnd);
-        SetFocus(g_hwnd);
-    }
-
+    SetForegroundWindow(g_hwnd);
+    SetFocus(g_hwnd);
     InvalidateRect(g_hwnd, NULL, TRUE);
     g_visible = true;
 }
