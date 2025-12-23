@@ -1296,6 +1296,33 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         case WM_KEYDOWN: {
+            // Forward Ctrl+Z (Undo) or Ctrl+Shift+Z (Redo) to AE
+            if ((GetKeyState(VK_CONTROL) & 0x8000) && wParam == 'Z') {
+                bool isRedo = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+                // Find AE window and send keystroke
+                HWND aeWnd = NULL;
+                HWND hw = GetTopWindow(NULL);
+                while (hw) {
+                    wchar_t title[256] = {0};
+                    GetWindowTextW(hw, title, 256);
+                    if (wcsstr(title, L"After Effects") != NULL) { aeWnd = hw; break; }
+                    hw = GetNextWindow(hw, GW_HWNDNEXT);
+                }
+                if (aeWnd) {
+                    SetForegroundWindow(aeWnd);
+                    keybd_event(VK_CONTROL, 0, 0, 0);
+                    if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
+                    keybd_event('Z', 0, 0, 0);
+                    keybd_event('Z', 0, KEYEVENTF_KEYUP, 0);
+                    if (isRedo) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+                    Sleep(30);
+                    SetForegroundWindow(hwnd);
+                    SetFocus(hwnd);
+                }
+                return 0;
+            }
+
             // Reset cursor blink on any key
             g_cursorVisible = true;
 

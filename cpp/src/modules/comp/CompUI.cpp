@@ -745,6 +745,39 @@ static void HandleMouseDown(int x, int y) {
 }
 
 /*****************************************************************************
+ * ForwardUndoRedoToAE - Send Undo/Redo to After Effects
+ * Undo: Ctrl+Z, Redo: Ctrl+Shift+Z (AE style)
+ *****************************************************************************/
+static void ForwardUndoRedoToAE(bool isRedo) {
+    // Find AE main window
+    HWND aeWnd = NULL;
+    HWND hwnd = GetTopWindow(NULL);
+    while (hwnd) {
+        wchar_t title[256] = {0};
+        GetWindowTextW(hwnd, title, 256);
+        if (wcsstr(title, L"After Effects") != NULL) {
+            aeWnd = hwnd;
+            break;
+        }
+        hwnd = GetNextWindow(hwnd, GW_HWNDNEXT);
+    }
+
+    if (aeWnd) {
+        SetForegroundWindow(aeWnd);
+        keybd_event(VK_CONTROL, 0, 0, 0);
+        if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
+        keybd_event('Z', 0, 0, 0);
+        keybd_event('Z', 0, KEYEVENTF_KEYUP, 0);
+        if (isRedo) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+
+        Sleep(30);
+        SetForegroundWindow(g_hwnd);
+        SetFocus(g_hwnd);
+    }
+}
+
+/*****************************************************************************
  * HandleKeyDown
  *****************************************************************************/
 static void HandleKeyDown(WPARAM key) {
@@ -752,6 +785,11 @@ static void HandleKeyDown(WPARAM key) {
         g_result.cancelled = true;
         ShowWindow(g_hwnd, SW_HIDE);
         g_visible = false;
+    }
+    // Forward Ctrl+Z (Undo) or Ctrl+Shift+Z (Redo) to AE
+    else if ((GetKeyState(VK_CONTROL) & 0x8000) && key == 'Z') {
+        bool isRedo = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+        ForwardUndoRedoToAE(isRedo);
     }
 }
 
