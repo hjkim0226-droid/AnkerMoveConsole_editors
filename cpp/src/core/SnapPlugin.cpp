@@ -95,7 +95,7 @@ bool IsTextInputFocused() {
   HWND focused = gti.hwndFocus;
   if (!focused) return false;
 
-  char className[64] = {0};
+  char className[256] = {0};
   GetClassNameA(focused, className, sizeof(className));
 
   // Common text input class names
@@ -104,6 +104,25 @@ bool IsTextInputFocused() {
       _strnicmp(className, "RICHEDIT", 8) == 0 ||
       _strnicmp(className, "Scintilla", 9) == 0) {
     return true;
+  }
+
+  // Adobe/AE specific text controls
+  if (strstr(className, "TextField") != NULL ||
+      strstr(className, "TextInput") != NULL ||
+      strstr(className, "Afx") != NULL) {  // Adobe uses MFC (Afx) controls
+    return true;
+  }
+
+  // Method 4: Check if parent window is a text editing dialog
+  // AE uses custom dialogs for text layer editing
+  char parentClass[256] = {0};
+  HWND parent = GetParent(focused);
+  if (parent) {
+    GetClassNameA(parent, parentClass, sizeof(parentClass));
+    if (strstr(parentClass, "Afx") != NULL ||
+        strstr(parentClass, "Edit") != NULL) {
+      return true;
+    }
   }
 
   return false;
@@ -2185,19 +2204,19 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
           "  if(layer.nullLayer)type=4;"
           "  else if(layer.adjustmentLayer)type=8;"
           "  else if(layer.source instanceof CompItem)type=9;"
-          "  else if(layer.source instanceof SolidSource)type=3;"
+          "  else if(layer.source&&layer.source.mainSource instanceof SolidSource)type=3;"
           "  else type=5;"  // Footage
           "}"
           "var hasParent=layer.parent!==null;"
           "var parentIdx=hasParent?layer.parent.index:0;"
           "var isSeq=false,hasTimeRemap=false;"
-          "if(type===5&&layer.source instanceof FootageItem){"
-          "  isSeq=layer.source.mainSource.isStill===false;"
+          "if(type===5&&layer.source&&layer.source.mainSource){"
+          "  isSeq=!layer.source.mainSource.isStill;"
           "  hasTimeRemap=layer.timeRemapEnabled;"
           "}"
           "var solidColor=0;"
-          "if(type===3&&layer.source instanceof SolidSource){"
-          "  var col=layer.source.color;"
+          "if(type===3&&layer.source&&layer.source.mainSource instanceof SolidSource){"
+          "  var col=layer.source.mainSource.color;"
           "  solidColor=Math.round(col[0]*255)*65536+Math.round(col[1]*255)*256+Math.round(col[2]*255);"
           "}"
           "return JSON.stringify({"
