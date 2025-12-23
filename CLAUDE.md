@@ -70,8 +70,8 @@ cep/                    # CEP Panel (Settings UI)
 | **창 이동** | ✅ 헤더 드래그 | ❌ 없음 |
 | **ESC 닫기** | ✅ 필수 | ✅ 필수 |
 
-**도구 모듈**: Grid, Control, Keyframe, Align, Text
-**팝업 메뉴**: DMenu
+**도구 모듈**: Control, Keyframe, Align, Text
+**팝업 메뉴**: Grid, DMenu
 
 ### 공통 상수 (표준)
 ```cpp

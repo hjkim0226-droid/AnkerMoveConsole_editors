@@ -233,6 +233,20 @@ void ShowGrid(int mouseX, int mouseY, const GridConfig &config) {
   g_windowX = mouseX - gridCenterX;
   g_windowY = mouseY - gridCenterY;
 
+  // Apply monitor bounds
+  POINT mousePoint = {mouseX, mouseY};
+  HMONITOR hMonitor = MonitorFromPoint(mousePoint, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO mi = {sizeof(mi)};
+  if (GetMonitorInfo(hMonitor, &mi)) {
+    RECT workArea = mi.rcWork;
+    if (g_windowX < workArea.left) g_windowX = workArea.left;
+    if (g_windowY < workArea.top) g_windowY = workArea.top;
+    if (g_windowX + g_windowWidth > workArea.right)
+      g_windowX = workArea.right - g_windowWidth;
+    if (g_windowY + g_windowHeight > workArea.bottom)
+      g_windowY = workArea.bottom - g_windowHeight;
+  }
+
   // Apply grid opacity setting (0-100 -> 0-255)
   BYTE alpha = (BYTE)(g_settings.gridOpacity * 255 / 100);
   if (alpha < 100)
@@ -927,6 +941,17 @@ static LRESULT CALLBACK GridWndProc(HWND hwnd, UINT msg, WPARAM wParam,
     POINT pt;
     GetCursorPos(&pt);
     NativeUI::UpdateHover(pt.x, pt.y);
+    return 0;
+  }
+
+  case WM_KEYDOWN: {
+    if (wParam == VK_ESCAPE) {
+      // ESC to close grid (cancelled)
+      g_hoverCellX = -1;
+      g_hoverCellY = -1;
+      g_hoverExtOption = NativeUI::OPT_NONE;
+      ShowWindow(hwnd, SW_HIDE);
+    }
     return 0;
   }
 

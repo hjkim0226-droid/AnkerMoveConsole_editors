@@ -291,7 +291,24 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        Draw(hdc);
+
+        // Double buffering
+        RECT rect;
+        GetClientRect(hwnd, &rect);
+        HDC memDC = CreateCompatibleDC(hdc);
+        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+        HGDIOBJ oldBitmap = SelectObject(memDC, memBitmap);
+
+        Draw(memDC);
+
+        // Copy to screen
+        BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
+
+        // Cleanup
+        SelectObject(memDC, oldBitmap);
+        DeleteObject(memBitmap);
+        DeleteDC(memDC);
+
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -327,6 +344,30 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_DESTROY:
         g_visible = false;
         return 0;
+
+    case WM_NCHITTEST: {
+        // Allow dragging from header area (excluding buttons)
+        POINT pt = { (int)(short)LOWORD(lParam), (int)(short)HIWORD(lParam) };
+        ScreenToClient(hwnd, &pt);
+        pt.x = InverseScaled(pt.x);
+        pt.y = InverseScaled(pt.y);
+
+        // Header area (excluding buttons)
+        if (pt.y >= 0 && pt.y < HEADER_HEIGHT) {
+            // Pin button (right side)
+            int pinBtnX = WINDOW_WIDTH - 8 - 20;
+            if (pt.x >= pinBtnX && pt.x <= WINDOW_WIDTH - 8) {
+                return HTCLIENT;  // Pin button - clickable
+            }
+            // Mode buttons (left side)
+            if (pt.x <= 120) {
+                return HTCLIENT;  // Mode buttons - clickable
+            }
+            // Rest of header - draggable
+            return HTCAPTION;
+        }
+        return HTCLIENT;
+    }
     }
 
     return DefWindowProc(hwnd, msg, wParam, lParam);

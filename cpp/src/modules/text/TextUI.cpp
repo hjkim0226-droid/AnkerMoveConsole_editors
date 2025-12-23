@@ -538,7 +538,24 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        Draw(hdc);
+
+        // Double buffering
+        RECT rect;
+        GetClientRect(hwnd, &rect);
+        HDC memDC = CreateCompatibleDC(hdc);
+        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+        HGDIOBJ oldBitmap = SelectObject(memDC, memBitmap);
+
+        Draw(memDC);
+
+        // Copy to screen
+        BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
+
+        // Cleanup
+        SelectObject(memDC, oldBitmap);
+        DeleteObject(memBitmap);
+        DeleteDC(memDC);
+
         EndPaint(hwnd, &ps);
         return 0;
     }
