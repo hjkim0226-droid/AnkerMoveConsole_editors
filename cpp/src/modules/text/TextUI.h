@@ -11,9 +11,8 @@
  * - Color picker for Fill/Stroke
  * - Font family/style dropdown
  * - Paragraph alignment buttons
- *
- * Key mechanism: WS_EX_NOACTIVATE for drag mode (preserves AE text input),
- * temporarily removed for edit mode (allows keyboard input)
+ * - Pin button to keep panel open
+ * - ESC or click outside to close
  *****************************************************************************/
 
 #ifndef TEXTUI_H

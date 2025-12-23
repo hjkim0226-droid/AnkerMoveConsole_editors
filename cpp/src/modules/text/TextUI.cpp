@@ -2,7 +2,7 @@
  * TextUI.cpp
  *
  * Native Windows UI implementation for Text Options Module
- * Uses Win32 + GDI+ with WS_EX_NOACTIVATE for non-focus drag operations
+ * Uses Win32 + GDI+ for text layer property editing
  *****************************************************************************/
 
 #include "TextUI.h"
@@ -252,9 +252,9 @@ void Initialize() {
         return;
     }
 
-    // Create main window (initially hidden)
+    // Create main window (initially hidden) - NO WS_EX_NOACTIVATE, we need focus
     g_hwnd = CreateWindowExW(
-        WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
         L"TextUIWindow",
         L"Text Options",
         WS_POPUP,
@@ -335,8 +335,10 @@ void ShowPanel(int x, int y) {
     }
 
     SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight,
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    ShowWindow(g_hwnd, SW_SHOWNA);
+                 SWP_SHOWWINDOW);
+    ShowWindow(g_hwnd, SW_SHOW);
+    SetForegroundWindow(g_hwnd);
+    SetFocus(g_hwnd);
     InvalidateRect(g_hwnd, NULL, TRUE);
     g_visible = true;
 }
@@ -1279,10 +1281,6 @@ static void EnterEditMode(ValueTarget target) {
     g_editCursorPos = (int)g_editText.length();
     g_editSelectAll = true;
 
-    // Remove WS_EX_NOACTIVATE to receive keyboard focus
-    LONG exStyle = GetWindowLong(g_hwnd, GWL_EXSTYLE);
-    SetWindowLong(g_hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_NOACTIVATE);
-
     SetFocus(g_hwnd);
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
@@ -1303,10 +1301,6 @@ static void ExitEditMode(bool apply) {
     g_editMode = false;
     g_editTarget = TARGET_NONE;
     g_editText.clear();
-
-    // Restore WS_EX_NOACTIVATE
-    LONG exStyle = GetWindowLong(g_hwnd, GWL_EXSTYLE);
-    SetWindowLong(g_hwnd, GWL_EXSTYLE, exStyle | WS_EX_NOACTIVATE);
 
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
