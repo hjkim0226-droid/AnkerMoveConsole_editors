@@ -193,8 +193,10 @@ void ShowPanel(int x, int y) {
     }
 
     SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight,
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    ShowWindow(g_hwnd, SW_SHOWNA);
+                 SWP_SHOWWINDOW);
+    ShowWindow(g_hwnd, SW_SHOW);
+    SetForegroundWindow(g_hwnd);
+    SetFocus(g_hwnd);
     InvalidateRect(g_hwnd, NULL, TRUE);
     g_visible = true;
 }

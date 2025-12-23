@@ -187,9 +187,9 @@ void Initialize() {
         return;
     }
 
-    // Create window (initially hidden)
+    // Create window (initially hidden) - NO WS_EX_NOACTIVATE, we need focus
     g_hwnd = CreateWindowExW(
-        WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+        WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
         L"CompUIWindow",
         L"Layer Editor",
         WS_POPUP,
@@ -346,8 +346,10 @@ void ShowPanel(int x, int y) {
     }
 
     SetWindowPos(g_hwnd, HWND_TOPMOST, posX, posY, scaledWidth, scaledHeight,
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    ShowWindow(g_hwnd, SW_SHOWNA);
+                 SWP_SHOWWINDOW);
+    ShowWindow(g_hwnd, SW_SHOW);
+    SetForegroundWindow(g_hwnd);
+    SetFocus(g_hwnd);
     InvalidateRect(g_hwnd, NULL, TRUE);
     g_visible = true;
 }
