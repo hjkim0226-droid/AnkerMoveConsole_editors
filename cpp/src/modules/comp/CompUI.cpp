@@ -117,9 +117,8 @@ static const ButtonInfo LIGHT_BUTTONS[] = {
 };
 static const int NUM_LIGHT_BUTTONS = 1;
 
-static const ButtonInfo NONE_BUTTONS[] = {
-    // Empty - no layer selected
-};
+// No buttons for "no layer selected" - use nullptr
+static const ButtonInfo* NONE_BUTTONS = nullptr;
 static const int NUM_NONE_BUTTONS = 0;
 
 // Global state
