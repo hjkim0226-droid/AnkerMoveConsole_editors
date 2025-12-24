@@ -28,9 +28,9 @@ extern void ApplyTextFont(const char* postScriptName);
 
 namespace TextUI {
 
-// Window dimensions
-static const int WINDOW_WIDTH = 340;
-static const int WINDOW_HEIGHT = 260;
+// Window dimensions - Compact layout
+static const int WINDOW_WIDTH = 310;
+static const int WINDOW_HEIGHT = 195;
 
 // Scale factor for this module (set in ShowPanel)
 static float g_scaleFactor = 1.0f;
@@ -44,12 +44,29 @@ inline int InverseScaled(int screenValue) {
     return (int)(screenValue / g_scaleFactor);
 }
 
-static const int HEADER_HEIGHT = 32;
+// Layout constants - Compact design
+static const int HEADER_HEIGHT = 28;
+static const int ROW_HEIGHT = 24;
+static const int ROW_SPACING = 6;
+static const int PADDING = 8;
+static const int LABEL_WIDTH = 32;
+
+// Value boxes - 3 columns (Size, Tracking, Leading)
+static const int VALUE_COL_WIDTH = 90;  // 3 columns fit in ~290px
+static const int VALUE_BOX_HEIGHT = 38; // Includes label
+static const int VALUE_INNER_HEIGHT = 20;
+
+// Color section
+static const int COLOR_BOX_SIZE = 20;
+
+// Align buttons
+static const int ALIGN_BTN_SIZE = 26;
+static const int ALIGN_GAP = 4;
+static const int ALIGN_GROUP_GAP = 12;  // Gap between L/C/R and Justify groups
+
+// Legacy constants for compatibility
 static const int SECTION_HEIGHT = 28;
 static const int VALUE_BOX_WIDTH = 100;
-static const int VALUE_BOX_HEIGHT = 22;
-static const int COLOR_BOX_SIZE = 24;
-static const int ALIGN_BTN_SIZE = 28;
 
 // Colors
 static const Color COLOR_BG(240, 28, 28, 32);
@@ -682,57 +699,76 @@ static void Draw(HDC hdc) {
 }
 
 /*****************************************************************************
- * DrawHeader
+ * DrawHeader - Compact header with title + layer name + pin + preset
  *****************************************************************************/
 static void DrawHeader(Graphics& g) {
     SolidBrush headerBrush(COLOR_HEADER_BG);
     g.FillRectangle(&headerBrush, 0, 0, WINDOW_WIDTH, HEADER_HEIGHT);
 
     FontFamily fontFamily(L"Segoe UI");
-    Font titleFont(&fontFamily, 11, FontStyleBold, UnitPixel);
-    Font layerFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    Font titleFont(&fontFamily, 10, FontStyleBold, UnitPixel);
+    Font layerFont(&fontFamily, 9, FontStyleRegular, UnitPixel);
     SolidBrush textBrush(COLOR_TEXT);
     SolidBrush dimBrush(COLOR_TEXT_DIM);
 
-    // Title
-    g.DrawString(L"Text Options", -1, &titleFont, PointF(10, 8), &textBrush);
+    // Title "TEXT"
+    g.DrawString(L"TEXT", -1, &titleFont, PointF(PADDING, 7), &textBrush);
 
-    // Layer name
+    // Separator dash
+    g.DrawString(L"\u2014", -1, &layerFont, PointF(40, 8), &dimBrush);
+
+    // Layer name (truncated)
     if (g_textInfo.layerName[0] != L'\0') {
-        RectF layerRect(120, 8, 140, 20);
+        RectF layerRect(52, 8, 130, 16);
         StringFormat sf;
-        sf.SetAlignment(StringAlignmentFar);
         sf.SetTrimming(StringTrimmingEllipsisCharacter);
         g.DrawString(g_textInfo.layerName, -1, &layerFont, layerRect, &sf, &dimBrush);
     }
 
+    int btnSize = 18;
+    int btnY = (HEADER_HEIGHT - btnSize) / 2;
+
+    // Preset button (star) - moved to header
+    g_presetButtonRect = {WINDOW_WIDTH - 72, btnY, WINDOW_WIDTH - 72 + btnSize, btnY + btnSize};
+    bool presetHover = (g_presetHoverIndex == -2);
+    SolidBrush presetBrush(presetHover ? COLOR_ALIGN_HOVER : Color(0, 0, 0, 0));  // Transparent unless hover
+    g.FillRectangle(&presetBrush, g_presetButtonRect.left, g_presetButtonRect.top, btnSize, btnSize);
+
+    // Star icon
+    Pen starPen(presetHover ? Color(255, 255, 200, 0) : COLOR_TEXT_DIM, 1.0f);
+    int starX = g_presetButtonRect.left + btnSize / 2;
+    int starY = g_presetButtonRect.top + btnSize / 2;
+    g.DrawLine(&starPen, starX, starY - 5, starX, starY + 5);
+    g.DrawLine(&starPen, starX - 5, starY, starX + 5, starY);
+    g.DrawLine(&starPen, starX - 3, starY - 3, starX + 3, starY + 3);
+    g.DrawLine(&starPen, starX + 3, starY - 3, starX - 3, starY + 3);
+
     // Pin button
-    int btnY = (HEADER_HEIGHT - 20) / 2;
-    g_pinRect = {WINDOW_WIDTH - 54, btnY, WINDOW_WIDTH - 34, btnY + 20};
+    g_pinRect = {WINDOW_WIDTH - 48, btnY, WINDOW_WIDTH - 48 + btnSize, btnY + btnSize};
     Color pinColor = g_keepPanelOpen ? COLOR_PIN_ACTIVE :
-                     (g_pinHover ? COLOR_ALIGN_HOVER : COLOR_ALIGN_BG);
+                     (g_pinHover ? COLOR_ALIGN_HOVER : Color(0, 0, 0, 0));
     SolidBrush pinBrush(pinColor);
-    g.FillRectangle(&pinBrush, g_pinRect.left, g_pinRect.top, 20, 20);
+    g.FillRectangle(&pinBrush, g_pinRect.left, g_pinRect.top, btnSize, btnSize);
 
-    Pen pinPen(g_keepPanelOpen ? Color(255, 40, 40, 40) : COLOR_TEXT, 1.5f);
-    int px = g_pinRect.left + 10, py = g_pinRect.top + 10;
-    g.DrawLine(&pinPen, px - 4, py - 4, px + 4, py + 4);
-    g.DrawEllipse(&pinPen, px - 3, py - 6, 6, 6);
+    Pen pinPen(g_keepPanelOpen ? Color(255, 40, 40, 40) : (g_pinHover ? COLOR_TEXT : COLOR_TEXT_DIM), 1.2f);
+    int px = g_pinRect.left + btnSize / 2, py = g_pinRect.top + btnSize / 2;
+    g.DrawLine(&pinPen, px - 3, py - 3, px + 3, py + 3);
+    g.DrawEllipse(&pinPen, (REAL)(px - 2), (REAL)(py - 5), 5.0f, 5.0f);
 
-    // Close button
-    g_closeRect = {WINDOW_WIDTH - 28, btnY, WINDOW_WIDTH - 8, btnY + 20};
-    Color closeColor = g_closeHover ? COLOR_CLOSE_HOVER : COLOR_ALIGN_BG;
+    // Close button (X)
+    g_closeRect = {WINDOW_WIDTH - 24, btnY, WINDOW_WIDTH - 24 + btnSize, btnY + btnSize};
+    Color closeColor = g_closeHover ? COLOR_CLOSE_HOVER : Color(0, 0, 0, 0);
     SolidBrush closeBrush(closeColor);
-    g.FillRectangle(&closeBrush, g_closeRect.left, g_closeRect.top, 20, 20);
+    g.FillRectangle(&closeBrush, g_closeRect.left, g_closeRect.top, btnSize, btnSize);
 
-    Pen closePen(COLOR_TEXT, 1.5f);
-    int cx = g_closeRect.left + 10, cy = g_closeRect.top + 10;
+    Pen closePen(g_closeHover ? COLOR_TEXT : COLOR_TEXT_DIM, 1.2f);
+    int cx = g_closeRect.left + btnSize / 2, cy = g_closeRect.top + btnSize / 2;
     g.DrawLine(&closePen, cx - 4, cy - 4, cx + 4, cy + 4);
     g.DrawLine(&closePen, cx + 4, cy - 4, cx - 4, cy + 4);
 }
 
 /*****************************************************************************
- * DrawFontSection
+ * DrawFontSection - Compact: "Font" label inline with dropdown
  *****************************************************************************/
 static void DrawFontSection(Graphics& g, int& y) {
     FontFamily fontFamily(L"Segoe UI");
@@ -741,133 +777,135 @@ static void DrawFontSection(Graphics& g, int& y) {
     SolidBrush labelBrush(COLOR_SECTION_LABEL);
     SolidBrush textBrush(COLOR_TEXT);
 
-    g.DrawString(L"Font", -1, &labelFont, PointF(10, (REAL)y), &labelBrush);
-    y += 16;
+    // "Font" label inline
+    g.DrawString(L"Font", -1, &labelFont, PointF((REAL)PADDING, (REAL)(y + 4)), &labelBrush);
 
-    // Font dropdown button
-    bool fontHover = (g_fontHoverIndex == -2);  // -2 means hovering over button
+    // Font dropdown button (after label)
+    int dropdownX = PADDING + 32;
+    bool fontHover = (g_fontHoverIndex == -2);
     SolidBrush valueBgBrush(fontHover ? COLOR_VALUE_HOVER : COLOR_VALUE_BG);
-    g_fontButtonRect = {10, y, WINDOW_WIDTH - 50, y + VALUE_BOX_HEIGHT};
+    g_fontButtonRect = {dropdownX, y, WINDOW_WIDTH - PADDING, y + ROW_HEIGHT};
     g.FillRectangle(&valueBgBrush, g_fontButtonRect.left, g_fontButtonRect.top,
-                    g_fontButtonRect.right - g_fontButtonRect.left, VALUE_BOX_HEIGHT);
+                    g_fontButtonRect.right - g_fontButtonRect.left, ROW_HEIGHT);
 
     // Display current font
     std::wstring displayFont = g_textInfo.font[0] ? g_textInfo.font : L"(Select text layer)";
-    RectF fontTextRect((REAL)g_fontButtonRect.left + 4, (REAL)y + 3,
-                       (REAL)(g_fontButtonRect.right - g_fontButtonRect.left - 20), (REAL)VALUE_BOX_HEIGHT - 6);
+    RectF fontTextRect((REAL)g_fontButtonRect.left + 6, (REAL)y + 4,
+                       (REAL)(g_fontButtonRect.right - g_fontButtonRect.left - 24), (REAL)ROW_HEIGHT - 8);
     StringFormat sf;
     sf.SetTrimming(StringTrimmingEllipsisCharacter);
     g.DrawString(displayFont.c_str(), -1, &valueFont, fontTextRect, &sf, &textBrush);
 
     // Dropdown arrow
     Pen arrowPen(COLOR_TEXT, 1.5f);
-    int arrowX = g_fontButtonRect.right - 14;
-    int arrowY = y + VALUE_BOX_HEIGHT / 2;
-    g.DrawLine(&arrowPen, arrowX - 4, arrowY - 2, arrowX, arrowY + 2);
-    g.DrawLine(&arrowPen, arrowX, arrowY + 2, arrowX + 4, arrowY - 2);
+    int arrowX = g_fontButtonRect.right - 12;
+    int arrowY = y + ROW_HEIGHT / 2;
+    g.DrawLine(&arrowPen, arrowX - 3, arrowY - 2, arrowX, arrowY + 1);
+    g.DrawLine(&arrowPen, arrowX, arrowY + 1, arrowX + 3, arrowY - 2);
 
-    // Preset button (right side)
-    g_presetButtonRect = {WINDOW_WIDTH - 40, y, WINDOW_WIDTH - 10, y + VALUE_BOX_HEIGHT};
-    bool presetHover = (g_presetHoverIndex == -2);
-    SolidBrush presetBrush(presetHover ? COLOR_ALIGN_HOVER : COLOR_ALIGN_BG);
-    g.FillRectangle(&presetBrush, g_presetButtonRect.left, g_presetButtonRect.top, 30, VALUE_BOX_HEIGHT);
-
-    // Preset icon (star)
-    Pen starPen(COLOR_TEXT, 1.0f);
-    int starX = g_presetButtonRect.left + 15;
-    int starY = g_presetButtonRect.top + VALUE_BOX_HEIGHT / 2;
-    // Simple star shape
-    g.DrawLine(&starPen, starX, starY - 6, starX, starY + 6);
-    g.DrawLine(&starPen, starX - 6, starY, starX + 6, starY);
-    g.DrawLine(&starPen, starX - 4, starY - 4, starX + 4, starY + 4);
-    g.DrawLine(&starPen, starX + 4, starY - 4, starX - 4, starY + 4);
-
-    y += SECTION_HEIGHT + 4;
+    y += ROW_HEIGHT + ROW_SPACING;
 }
 
 /*****************************************************************************
- * DrawColorSection
+ * DrawColorSection - Compact: Fill [■] Stroke [■] [Width]
  *****************************************************************************/
 static void DrawColorSection(Graphics& g, int& y) {
     FontFamily fontFamily(L"Segoe UI");
     Font labelFont(&fontFamily, 9, FontStyleRegular, UnitPixel);
-    Font valueFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
     SolidBrush labelBrush(COLOR_SECTION_LABEL);
     SolidBrush textBrush(COLOR_TEXT);
 
-    g.DrawString(L"Color", -1, &labelFont, PointF(10, (REAL)y), &labelBrush);
-    y += 16;
+    int boxY = y;
+    int x = PADDING;
 
-    // Fill color
-    g.DrawString(L"Fill", -1, &valueFont, PointF(10, (REAL)(y + 4)), &textBrush);
-    g_fillColorRect = {50, y, 50 + COLOR_BOX_SIZE, y + COLOR_BOX_SIZE};
+    // Fill label + color box
+    g.DrawString(L"Fill", -1, &labelFont, PointF((REAL)x, (REAL)(boxY + 3)), &labelBrush);
+    x += 22;
+    g_fillColorRect = {x, boxY, x + COLOR_BOX_SIZE, boxY + COLOR_BOX_SIZE};
     DrawColorBox(g, g_fillColorRect, g_textInfo.fillColor, g_textInfo.applyFill, g_fillColorHover);
+    x += COLOR_BOX_SIZE + 12;
 
-    // Stroke color
-    g.DrawString(L"Stroke", -1, &valueFont, PointF(90, (REAL)(y + 4)), &textBrush);
-    g_strokeColorRect = {140, y, 140 + COLOR_BOX_SIZE, y + COLOR_BOX_SIZE};
+    // Stroke label + color box
+    g.DrawString(L"Stroke", -1, &labelFont, PointF((REAL)x, (REAL)(boxY + 3)), &labelBrush);
+    x += 38;
+    g_strokeColorRect = {x, boxY, x + COLOR_BOX_SIZE, boxY + COLOR_BOX_SIZE};
     DrawColorBox(g, g_strokeColorRect, g_textInfo.strokeColor, g_textInfo.applyStroke, g_strokeColorHover);
+    x += COLOR_BOX_SIZE + 12;
 
-    // Stroke width
-    g.DrawString(L"Width", -1, &valueFont, PointF(180, (REAL)(y + 4)), &textBrush);
-    g_strokeWidthRect = {220, y, 220 + 70, y + VALUE_BOX_HEIGHT};
+    // Stroke width value box
+    int widthBoxWidth = WINDOW_WIDTH - PADDING - x;
+    g_strokeWidthRect = {x, boxY, x + widthBoxWidth, boxY + COLOR_BOX_SIZE};
     DrawValueBox(g, g_strokeWidthRect, TARGET_STROKE_WIDTH, g_textInfo.strokeWidth, L"px");
 
-    y += SECTION_HEIGHT + 4;
+    y += COLOR_BOX_SIZE + ROW_SPACING;
 }
 
 /*****************************************************************************
- * DrawValueSection
+ * DrawValueSection - Compact: 3 columns (Size, Tracking, Leading)
  *****************************************************************************/
 static void DrawValueSection(Graphics& g, int& y) {
     FontFamily fontFamily(L"Segoe UI");
-    Font labelFont(&fontFamily, 9, FontStyleRegular, UnitPixel);
+    Font labelFont(&fontFamily, 8, FontStyleRegular, UnitPixel);
     Font valueFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
     SolidBrush labelBrush(COLOR_SECTION_LABEL);
     SolidBrush textBrush(COLOR_TEXT);
 
-    // Size
-    g.DrawString(L"Size", -1, &valueFont, PointF(10, (REAL)(y + 4)), &textBrush);
-    g_sizeRect = {50, y, 50 + VALUE_BOX_WIDTH, y + VALUE_BOX_HEIGHT};
+    // 3 columns layout
+    int colWidth = (WINDOW_WIDTH - PADDING * 2 - 8) / 3;  // 8px gap total
+    int boxHeight = VALUE_INNER_HEIGHT;
+
+    // Column 1: Size
+    int col1X = PADDING;
+    g.DrawString(L"Size", -1, &labelFont, PointF((REAL)col1X, (REAL)y), &labelBrush);
+    g_sizeRect = {col1X, y + 12, col1X + colWidth, y + 12 + boxHeight};
     DrawValueBox(g, g_sizeRect, TARGET_SIZE, g_textInfo.fontSize, L"pt");
 
-    // Tracking
-    g.DrawString(L"Tracking", -1, &valueFont, PointF(170, (REAL)(y + 4)), &textBrush);
-    g_trackingRect = {230, y, 230 + VALUE_BOX_WIDTH, y + VALUE_BOX_HEIGHT};
+    // Column 2: Tracking
+    int col2X = col1X + colWidth + 4;
+    g.DrawString(L"Tracking", -1, &labelFont, PointF((REAL)col2X, (REAL)y), &labelBrush);
+    g_trackingRect = {col2X, y + 12, col2X + colWidth, y + 12 + boxHeight};
     DrawValueBox(g, g_trackingRect, TARGET_TRACKING, g_textInfo.tracking, L"");
 
-    y += SECTION_HEIGHT + 4;
-
-    // Leading
-    g.DrawString(L"Leading", -1, &valueFont, PointF(10, (REAL)(y + 4)), &textBrush);
-    g_leadingRect = {70, y, 70 + VALUE_BOX_WIDTH, y + VALUE_BOX_HEIGHT};
+    // Column 3: Leading
+    int col3X = col2X + colWidth + 4;
+    g.DrawString(L"Leading", -1, &labelFont, PointF((REAL)col3X, (REAL)y), &labelBrush);
+    g_leadingRect = {col3X, y + 12, col3X + colWidth, y + 12 + boxHeight};
     DrawValueBox(g, g_leadingRect, TARGET_LEADING, g_textInfo.leading, L"");
 
-    y += SECTION_HEIGHT + 8;
+    y += 12 + boxHeight + ROW_SPACING;
 }
 
 /*****************************************************************************
- * DrawAlignSection
+ * DrawAlignSection - Compact: Two groups [L|C|R] and [JL|JC|JR|JF]
  *****************************************************************************/
 static void DrawAlignSection(Graphics& g, int& y) {
-    FontFamily fontFamily(L"Segoe UI");
-    Font labelFont(&fontFamily, 9, FontStyleRegular, UnitPixel);
-    SolidBrush labelBrush(COLOR_SECTION_LABEL);
+    // Two button groups: alignment (L/C/R) and justify (JL/JC/JR/JF)
+    // No label - icons are self-explanatory
 
-    g.DrawString(L"Align", -1, &labelFont, PointF(10, (REAL)y), &labelBrush);
-    y += 16;
+    int x = PADDING;
 
-    int x = 10;
-    for (int i = 0; i < 7; i++) {
+    // Group 1: Left, Center, Right (3 buttons)
+    for (int i = 0; i < 3; i++) {
         g_alignRects[i] = {x, y, x + ALIGN_BTN_SIZE, y + ALIGN_BTN_SIZE};
         bool active = (g_textInfo.justify == (Justification)i);
         bool hover = (g_hoverAlign == i);
         DrawAlignButton(g, g_alignRects[i], i, active, hover);
-        x += ALIGN_BTN_SIZE + 4;
-        if (i == 2) x += 8; // Gap between L/C/R and justify buttons
+        x += ALIGN_BTN_SIZE + ALIGN_GAP;
     }
 
-    y += ALIGN_BTN_SIZE + 8;
+    // Gap between groups
+    x += ALIGN_GROUP_GAP;
+
+    // Group 2: Justify Left, Center, Right, Full (4 buttons)
+    for (int i = 3; i < 7; i++) {
+        g_alignRects[i] = {x, y, x + ALIGN_BTN_SIZE, y + ALIGN_BTN_SIZE};
+        bool active = (g_textInfo.justify == (Justification)i);
+        bool hover = (g_hoverAlign == i);
+        DrawAlignButton(g, g_alignRects[i], i, active, hover);
+        x += ALIGN_BTN_SIZE + ALIGN_GAP;
+    }
+
+    y += ALIGN_BTN_SIZE + PADDING;
 }
 
 /*****************************************************************************
