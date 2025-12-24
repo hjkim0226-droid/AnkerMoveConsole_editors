@@ -22,7 +22,7 @@ namespace DMenuUI {
 
 // Window dimensions
 static const int WINDOW_WIDTH = 140;
-static const int WINDOW_HEIGHT = 126;  // 4 items now
+static const int WINDOW_HEIGHT = 154;  // 5 items now
 
 // Scale factor for this module (set in ShowMenu)
 static float g_scaleFactor = 1.0f;
@@ -62,9 +62,10 @@ static const MenuItem MENU_ITEMS[] = {
     { L'A', L"Align", ACTION_ALIGN },
     { L'T', L"Text", ACTION_TEXT },
     { L'K', L"Keyframe", ACTION_KEYFRAME },
-    { L'C', L"Layer", ACTION_COMP }  // ACTION_COMP triggers Layer module
+    { L'C', L"Layer", ACTION_COMP },  // ACTION_COMP triggers Layer module
+    { L'G', L"Settings", ACTION_SETTINGS }
 };
-static const int MENU_ITEM_COUNT = 4;
+static const int MENU_ITEM_COUNT = 5;
 
 // Global state
 static HWND g_hwnd = NULL;
@@ -335,6 +336,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case 'C':
         case 'c':
             g_action = ACTION_COMP;
+            HideMenu();
+            break;
+        case 'G':
+        case 'g':
+            g_action = ACTION_SETTINGS;
             HideMenu();
             break;
         case VK_ESCAPE:

@@ -22,7 +22,8 @@ enum MenuAction {
     ACTION_ALIGN,
     ACTION_TEXT,
     ACTION_KEYFRAME,
-    ACTION_COMP
+    ACTION_COMP,
+    ACTION_SETTINGS
 };
 
 // Initialize the D Menu UI system
