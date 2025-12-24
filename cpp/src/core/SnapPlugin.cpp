@@ -57,9 +57,10 @@ static bool g_dKeyWasHeld = false;
 // Align module state
 static bool g_alignVisible = false;
 
-// Text editing state (detected via Command 2136)
+// Text editing state (detected via Command 2136 enter, 2004 exit)
 static bool g_textEditingMode = false;
-static const AEGP_Command CMD_TEXT_EDIT_TOGGLE = 2136;
+static const AEGP_Command CMD_TEXT_EDIT_ENTER = 2136;  // 텍스트 편집 진입
+static const AEGP_Command CMD_LAYER_SELECT = 2004;     // 레이어 선택 (편집 종료)
 
 // Text module state
 static bool g_textVisible = false;
@@ -1489,9 +1490,11 @@ static A_Err CommandHook(
     A_Boolean already_handledB,
     A_Boolean *handledPB) {
 
-  // Toggle text editing mode when Command 2136 is received
-  if (command == CMD_TEXT_EDIT_TOGGLE) {
-    g_textEditingMode = !g_textEditingMode;
+  // Text editing mode: 2136 = enter (only when off), 2004 = exit (only when on)
+  if (command == CMD_TEXT_EDIT_ENTER && !g_textEditingMode) {
+    g_textEditingMode = true;
+  } else if (command == CMD_LAYER_SELECT && g_textEditingMode) {
+    g_textEditingMode = false;
   }
 
   // Let AE continue processing the command
@@ -2824,11 +2827,11 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     ERR(suites.RegisterSuite5()->AEGP_RegisterIdleHook(
         aegp_plugin_id, IdleHook, (AEGP_IdleRefcon)&g_globals));
 
-    // Register Command Hook to detect text editing mode (Command 2136)
+    // Register Command Hook to detect text editing mode (2136=enter, 2004=exit)
     ERR(suites.RegisterSuite5()->AEGP_RegisterCommandHook(
         aegp_plugin_id,
         AEGP_HP_BeforeAE,
-        CMD_TEXT_EDIT_TOGGLE,
+        AEGP_Command_ALL,
         CommandHook,
         nullptr));
 
