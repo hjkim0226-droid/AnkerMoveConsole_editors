@@ -135,6 +135,7 @@ static ULONG_PTR g_gdiplusToken = 0;
 static LayerInfo g_layerInfo = {};
 static CompResult g_result;
 static bool g_keepPanelOpen = false;
+static bool g_forwardingToAE = false;  // Flag to prevent close during Undo/Redo
 static bool g_configLoaded = false;
 
 // Button rectangles (dynamic based on layer type)
@@ -748,7 +749,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_windowDragging) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_windowDragging && !g_forwardingToAE) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -963,6 +964,7 @@ static void ForwardUndoRedoToAE(bool isRedo) {
     }
 
     if (aeWnd) {
+        g_forwardingToAE = true;  // Prevent WM_ACTIVATE from closing panel
         SetForegroundWindow(aeWnd);
         keybd_event(VK_CONTROL, 0, 0, 0);
         if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
@@ -974,6 +976,7 @@ static void ForwardUndoRedoToAE(bool isRedo) {
         Sleep(30);
         SetForegroundWindow(g_hwnd);
         SetFocus(g_hwnd);
+        g_forwardingToAE = false;
     }
 }
 

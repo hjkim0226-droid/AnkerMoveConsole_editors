@@ -335,6 +335,7 @@ static bool g_saveButtonHover = false;
 static bool g_saveMode = false;         // When true, clicking preset 6-11 saves current curve
 static bool g_pinButtonHover = false;
 static bool g_keepPanelOpen = false;    // Pin mode
+static bool g_forwardingToAE = false;   // Flag to prevent close during Undo/Redo
 static bool g_applyButtonHover = false; // Apply button hover state
 static bool g_loadButtonHover = false;  // Load button hover state
 
@@ -1451,6 +1452,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                     hw = GetNextWindow(hw, GW_HWNDNEXT);
                 }
                 if (aeWnd) {
+                    g_forwardingToAE = true;  // Prevent WM_ACTIVATE from closing panel
                     SetForegroundWindow(aeWnd);
                     keybd_event(VK_CONTROL, 0, 0, 0);
                     if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
@@ -1461,6 +1463,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                     Sleep(30);
                     SetForegroundWindow(g_hwnd);
                     SetFocus(g_hwnd);
+                    g_forwardingToAE = false;
                 }
                 return 0;
             }
@@ -1913,7 +1916,7 @@ LRESULT CALLBACK KeyframeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         case WM_ACTIVATE: {
             // Close when window is deactivated (clicked outside)
-            if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen) {
+            if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_forwardingToAE) {
                 g_result.cancelled = true;
                 KeyframeUI::HidePanel();
             }

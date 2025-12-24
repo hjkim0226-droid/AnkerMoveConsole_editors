@@ -139,6 +139,7 @@ static const UINT CURSOR_BLINK_MS = 530; // Cursor blink interval
 
 // Window drag state
 static bool g_isDragging = false;       // True while window is being dragged
+static bool g_forwardingToAE = false;   // Flag to prevent close during Undo/Redo
 
 // Wait for Shift+E release before accepting input
 static bool g_waitingForKeyRelease = false;
@@ -1309,6 +1310,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     hw = GetNextWindow(hw, GW_HWNDNEXT);
                 }
                 if (aeWnd) {
+                    g_forwardingToAE = true;  // Prevent WM_ACTIVATE from closing panel
                     SetForegroundWindow(aeWnd);
                     keybd_event(VK_CONTROL, 0, 0, 0);
                     if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
@@ -1319,6 +1321,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     Sleep(30);
                     SetForegroundWindow(hwnd);
                     SetFocus(hwnd);
+                    g_forwardingToAE = false;
                 }
                 return 0;
             }
@@ -1655,7 +1658,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         case WM_ACTIVATE: {
             // Close when window is deactivated (clicked outside)
-            if (LOWORD(wParam) == WA_INACTIVE && !g_isDragging) {
+            if (LOWORD(wParam) == WA_INACTIVE && !g_isDragging && !g_forwardingToAE) {
                 g_result.cancelled = true;
                 ControlUI::HidePanel();
             }

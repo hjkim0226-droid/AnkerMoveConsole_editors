@@ -66,6 +66,7 @@ static FunctionMode g_funcMode = FUNC_ALIGN;
 static ReferenceMode g_refMode = REF_SELECTION;
 static AlignResult g_result;
 static bool g_keepPanelOpen = false; // Pin state
+static bool g_forwardingToAE = false;  // Flag to prevent close during Undo/Redo
 
 // Hover state
 static bool g_alignModeHover = false;
@@ -328,7 +329,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_forwardingToAE) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -729,6 +730,7 @@ static void ForwardUndoRedoToAE(bool isRedo) {
         hwnd = GetNextWindow(hwnd, GW_HWNDNEXT);
     }
     if (aeWnd) {
+        g_forwardingToAE = true;  // Prevent WM_ACTIVATE from closing panel
         SetForegroundWindow(aeWnd);
         keybd_event(VK_CONTROL, 0, 0, 0);
         if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
@@ -739,6 +741,7 @@ static void ForwardUndoRedoToAE(bool isRedo) {
         Sleep(30);
         SetForegroundWindow(g_hwnd);
         SetFocus(g_hwnd);
+        g_forwardingToAE = false;
     }
 }
 

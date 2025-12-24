@@ -111,6 +111,7 @@ static ULONG_PTR g_gdiplusToken = 0;
 static TextInfo g_textInfo = {};
 static TextResult g_result;
 static bool g_keepPanelOpen = false;
+static bool g_forwardingToAE = false;  // Flag to prevent close during Undo/Redo
 
 // Value box rectangles
 static RECT g_sizeRect;
@@ -660,7 +661,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         break;
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen && !g_presetDropdownOpen) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen && !g_presetDropdownOpen && !g_forwardingToAE) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -1383,6 +1384,7 @@ static void ForwardUndoRedoToAE(bool isRedo) {
         hw = GetNextWindow(hw, GW_HWNDNEXT);
     }
     if (aeWnd) {
+        g_forwardingToAE = true;  // Prevent WM_ACTIVATE from closing panel
         SetForegroundWindow(aeWnd);
         keybd_event(VK_CONTROL, 0, 0, 0);
         if (isRedo) keybd_event(VK_SHIFT, 0, 0, 0);
@@ -1393,6 +1395,7 @@ static void ForwardUndoRedoToAE(bool isRedo) {
         Sleep(30);
         SetForegroundWindow(g_hwnd);
         SetFocus(g_hwnd);
+        g_forwardingToAE = false;
     }
 }
 
