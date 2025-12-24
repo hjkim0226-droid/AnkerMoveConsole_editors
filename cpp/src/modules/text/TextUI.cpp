@@ -29,7 +29,7 @@ extern void ApplyTextFont(const char* postScriptName);
 namespace TextUI {
 
 // Window dimensions - Compact layout
-static const int WINDOW_WIDTH = 310;
+static const int WINDOW_WIDTH = 280;  // Reduced by 10%
 static const int WINDOW_HEIGHT = 195;
 
 // Scale factor for this module (set in ShowPanel)
@@ -910,7 +910,11 @@ static void DrawAlignSection(Graphics& g, int& y) {
     // Two button groups: alignment (L/C/R) and justify (JL/JC/JR/JF)
     // No label - icons are self-explanatory
 
-    int x = PADDING;
+    // Calculate total width for center alignment
+    int group1Width = 3 * ALIGN_BTN_SIZE + 2 * ALIGN_GAP;  // L, C, R
+    int group2Width = 4 * ALIGN_BTN_SIZE + 3 * ALIGN_GAP;  // JL, JC, JR, JF
+    int totalWidth = group1Width + ALIGN_GROUP_GAP + group2Width;
+    int x = (WINDOW_WIDTH - totalWidth) / 2;  // Center aligned
 
     // Group 1: Left, Center, Right (3 buttons)
     for (int i = 0; i < 3; i++) {
@@ -922,7 +926,7 @@ static void DrawAlignSection(Graphics& g, int& y) {
     }
 
     // Gap between groups
-    x += ALIGN_GROUP_GAP;
+    x += ALIGN_GROUP_GAP - ALIGN_GAP;  // Subtract one ALIGN_GAP since loop added it
 
     // Group 2: Justify Left, Center, Right, Full (4 buttons)
     for (int i = 3; i < 7; i++) {
