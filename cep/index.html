@@ -11,248 +11,376 @@
     <!-- Header Banner -->
     <div class="header-banner">
         <h1>⚓ Anchor Snap</h1>
-        <span class="version">v1.0.0</span>
+        <span class="version">v1.1.0</span>
     </div>
 
-    <!-- Grid Preview Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="gridPreview">Grid Preview</div>
-        <div class="grid-preview-container">
-            <div id="preview-grid" class="preview-grid"></div>
-        </div>
-    </div>
+    <!-- Tab Container -->
+    <div class="tab-container">
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="general">일반</button>
+            <button class="tab-btn" data-tab="dmenu">DMenu</button>
+            <button class="tab-btn" data-tab="anchor">앵커</button>
+            <button class="tab-btn" data-tab="effect">이펙트</button>
+        </nav>
 
-    <!-- Grid Size Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="gridSize">Grid Size</div>
-        <div class="grid-size-row">
-            <div class="size-control">
-                <span class="size-label" data-i18n="width">Width:</span>
-                <span class="size-value" id="grid-width" data-min="3" data-max="7">3</span>
-            </div>
-            <span class="size-separator">×</span>
-            <div class="size-control">
-                <span class="size-label" data-i18n="height">Height:</span>
-                <span class="size-value" id="grid-height" data-min="3" data-max="7">3</span>
-            </div>
-        </div>
-    </div>
+        <!-- ========================================
+             Tab 1: 일반 (General)
+             ======================================== -->
+        <div id="tab-general" class="tab-content active">
+            <!-- Module Scales Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="moduleScales">Module Scales</div>
+                <div class="help-text" style="margin-bottom: 8px;">Adjust popup size for each module</div>
 
-    <!-- Grid Scale Slider -->
-    <div class="section">
-        <div class="section-title" data-i18n="gridScale">Grid Scale</div>
-        <div class="scale-slider-container">
-            <span class="scale-label">-20%</span>
-            <input type="range" id="grid-scale" class="scale-slider" min="0" max="9" value="2" step="1">
-            <span class="scale-label">+70%</span>
-        </div>
-        <div class="scale-display" id="scale-display">0%</div>
-    </div>
-
-    <!-- Mode Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="mode">Mode</div>
-        <div class="mode-row">
-            <button class="mode-btn active selection" id="btn-selection">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="4" y="4" width="16" height="16" />
-                    <rect x="2" y="2" width="4" height="4" fill="currentColor" />
-                    <rect x="18" y="2" width="4" height="4" fill="currentColor" />
-                    <rect x="2" y="18" width="4" height="4" fill="currentColor" />
-                    <rect x="18" y="18" width="4" height="4" fill="currentColor" />
-                </svg>
-                <span data-i18n="selection">Selection</span>
-            </button>
-            <button class="mode-btn composition" id="btn-composition">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="6" width="20" height="12" />
-                    <line x1="12" y1="9" x2="12" y2="15" />
-                    <line x1="9" y1="12" x2="15" y2="12" />
-                </svg>
-                <span data-i18n="composition">Composition</span>
-            </button>
-        </div>
-        <div class="mode-row">
-            <button class="mode-btn active mask-on" id="btn-mask-on">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="2" y="2" width="20" height="20" rx="2" />
-                    <circle cx="12" cy="12" r="5" fill="var(--bg-color)" />
-                </svg>
-                <span data-i18n="maskOn">Mask ON</span>
-            </button>
-            <button class="mode-btn mask-off" id="btn-mask-off">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="2" width="20" height="20" rx="2" />
-                </svg>
-                <span data-i18n="maskOff">Mask OFF</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Custom Anchor Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="customAnchors">Custom Anchors</div>
-        <div class="custom-anchor-container">
-            <div class="custom-anchor-icons">
-                <button class="custom-btn active" id="custom-1" data-preset="1">
-                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="0" y1="14" x2="8" y2="14" />
-                        <line x1="20" y1="14" x2="28" y2="14" />
-                        <line x1="14" y1="0" x2="14" y2="8" />
-                        <line x1="14" y1="20" x2="14" y2="28" />
-                        <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
-                        <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
-                            stroke="none">1</text>
-                    </svg>
-                </button>
-                <button class="custom-btn" id="custom-2" data-preset="2">
-                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="0" y1="14" x2="8" y2="14" />
-                        <line x1="20" y1="14" x2="28" y2="14" />
-                        <line x1="14" y1="0" x2="14" y2="8" />
-                        <line x1="14" y1="20" x2="14" y2="28" />
-                        <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
-                        <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
-                            stroke="none">2</text>
-                    </svg>
-                </button>
-                <button class="custom-btn" id="custom-3" data-preset="3">
-                    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="0" y1="14" x2="8" y2="14" />
-                        <line x1="20" y1="14" x2="28" y2="14" />
-                        <line x1="14" y1="0" x2="14" y2="8" />
-                        <line x1="14" y1="20" x2="14" y2="28" />
-                        <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
-                        <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
-                            stroke="none">3</text>
-                    </svg>
-                </button>
-            </div>
-            <div class="anchor-editor-container">
-                <div class="anchor-editor" id="anchor-editor">
-                    <div class="anchor-marker" id="anchor-marker"></div>
+                <div class="module-scale-row">
+                    <span class="module-label">Anchor Grid (Y)</span>
+                    <input type="range" id="grid-scale" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-grid-display">0%</span>
                 </div>
-                <div class="anchor-controls-row">
-                    <input type="number" id="anchor-x" class="coord-input" value="50" min="-20" max="120">
-                    <span class="coord-sep">×</span>
-                    <input type="number" id="anchor-y" class="coord-input" value="50" min="-20" max="120">
-                    <span class="coord-unit">%</span>
-                    <button class="flip-btn" id="flip-h" data-i18n-title="flipH">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <polygon points="4,12 10,6 10,18" fill="none" stroke="currentColor" stroke-width="1.5" />
-                            <line x1="12" y1="4" x2="12" y2="20" stroke="currentColor" stroke-width="2" />
-                            <polygon points="20,12 14,6 14,18" fill="currentColor" />
-                        </svg>
-                    </button>
-                    <button class="flip-btn" id="flip-v" data-i18n-title="flipV">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <polygon points="12,4 6,10 18,10" fill="none" stroke="currentColor" stroke-width="1.5" />
-                            <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" />
-                            <polygon points="12,20 6,14 18,14" fill="currentColor" />
-                        </svg>
-                    </button>
-                    <button class="flip-btn paste-btn" id="paste-anchor" data-i18n-title="pasteAnchor">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <rect x="6" y="8" width="12" height="14" rx="1" fill="none" stroke="currentColor"
-                                stroke-width="2" />
-                            <rect x="9" y="2" width="6" height="4" rx="1" fill="currentColor" />
-                        </svg>
-                    </button>
+                <div class="module-scale-row">
+                    <span class="module-label">D-Menu (D)</span>
+                    <input type="range" id="scale-dmenu" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-dmenu-display">0%</span>
+                </div>
+                <div class="module-scale-row">
+                    <span class="module-label">Align (D → A)</span>
+                    <input type="range" id="scale-align" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-align-display">0%</span>
+                </div>
+                <div class="module-scale-row">
+                    <span class="module-label">Text (D → T)</span>
+                    <input type="range" id="scale-text" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-text-display">0%</span>
+                </div>
+                <div class="module-scale-row">
+                    <span class="module-label">Keyframe (D → K)</span>
+                    <input type="range" id="scale-keyframe" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-keyframe-display">0%</span>
+                </div>
+                <div class="module-scale-row">
+                    <span class="module-label">Layer (D → C)</span>
+                    <input type="range" id="scale-comp" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-comp-display">0%</span>
+                </div>
+                <div class="module-scale-row">
+                    <span class="module-label">Effect Search (Shift+E)</span>
+                    <input type="range" id="scale-control" class="scale-slider-mini" min="0" max="9" value="2" step="1">
+                    <span class="scale-value-mini" id="scale-control-display">0%</span>
                 </div>
             </div>
-        </div>
-        <div class="help-text">
-            Click or drag to set position. Shift+drag: vertical only. Ctrl+drag: snap to grid.
-        </div>
-    </div>
 
-    <!-- Transparency Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="transparency">Transparency</div>
-        <div class="slider-row">
-            <span class="slider-label" data-i18n="gridOpacity">Mark:</span>
-            <input type="range" id="grid-opacity" class="opacity-slider" min="0" max="100" value="75">
-            <span class="slider-value" id="grid-opacity-value">75%</span>
-        </div>
-        <div class="slider-row">
-            <span class="slider-label" data-i18n="cellOpacity">Cell:</span>
-            <input type="range" id="cell-opacity" class="opacity-slider" min="0" max="100" value="50">
-            <span class="slider-value" id="cell-opacity-value">50%</span>
-        </div>
-    </div>
+            <!-- Keyboard Shortcuts Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="shortcuts">Keyboard Shortcuts</div>
+                <div class="help-text" style="margin-bottom: 8px;">Click input and press new key. Right-click to reset.</div>
 
-    <!-- Module Scales Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="moduleScales">Module Scales</div>
-        <div class="help-text" style="margin-bottom: 8px;">Adjust popup size for each module (Grid uses its own scale above)</div>
+                <div class="shortcut-edit-row">
+                    <span class="shortcut-label">Anchor Grid:</span>
+                    <input type="text" id="shortcut-grid" class="shortcut-input" value="Y" readonly>
+                </div>
+                <div class="shortcut-edit-row">
+                    <span class="shortcut-label">D-Menu:</span>
+                    <input type="text" id="shortcut-dmenu" class="shortcut-input" value="D" readonly>
+                </div>
+                <div class="shortcut-edit-row">
+                    <span class="shortcut-label">Effect Search:</span>
+                    <input type="text" id="shortcut-control" class="shortcut-input" value="Shift+E" readonly>
+                </div>
 
-        <div class="module-scale-row">
-            <span class="module-label">Effect Search (Shift+E)</span>
-            <input type="range" id="scale-control" class="scale-slider-mini" min="0" max="9" value="2" step="1">
-            <span class="scale-value-mini" id="scale-control-display">0%</span>
-        </div>
-        <div class="module-scale-row">
-            <span class="module-label">Keyframe (K)</span>
-            <input type="range" id="scale-keyframe" class="scale-slider-mini" min="0" max="9" value="2" step="1">
-            <span class="scale-value-mini" id="scale-keyframe-display">0%</span>
-        </div>
-        <div class="module-scale-row">
-            <span class="module-label">D-Menu (D)</span>
-            <input type="range" id="scale-dmenu" class="scale-slider-mini" min="0" max="9" value="2" step="1">
-            <span class="scale-value-mini" id="scale-dmenu-display">0%</span>
-        </div>
-        <div class="module-scale-row">
-            <span class="module-label">Align (A)</span>
-            <input type="range" id="scale-align" class="scale-slider-mini" min="0" max="9" value="2" step="1">
-            <span class="scale-value-mini" id="scale-align-display">0%</span>
-        </div>
-        <div class="module-scale-row">
-            <span class="module-label">Text (T)</span>
-            <input type="range" id="scale-text" class="scale-slider-mini" min="0" max="9" value="2" step="1">
-            <span class="scale-value-mini" id="scale-text-display">0%</span>
-        </div>
-        <div class="module-scale-row">
-            <span class="module-label">Comp (C)</span>
-            <input type="range" id="scale-comp" class="scale-slider-mini" min="0" max="9" value="2" step="1">
-            <span class="scale-value-mini" id="scale-comp-display">0%</span>
-        </div>
-    </div>
+                <div class="shortcut-info">
+                    <span class="shortcut-key">Hold</span> = 0.4s hold to show
+                    <span class="shortcut-key">~</span> = Double-tap for toggle mode
+                </div>
+            </div>
 
-    <!-- Keyboard Shortcuts Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="shortcuts">Keyboard Shortcuts</div>
-        <div class="help-text" style="margin-bottom: 8px;">Click input and press new key. Right-click to reset.</div>
-
-        <div class="shortcut-edit-row">
-            <span class="shortcut-label">Anchor Grid:</span>
-            <input type="text" id="shortcut-grid" class="shortcut-input" value="Y" readonly>
-        </div>
-        <div class="shortcut-edit-row">
-            <span class="shortcut-label">Effect Search:</span>
-            <input type="text" id="shortcut-control" class="shortcut-input" value="Shift+E" readonly>
-        </div>
-        <div class="shortcut-edit-row">
-            <span class="shortcut-label">Keyframe:</span>
-            <input type="text" id="shortcut-keyframe" class="shortcut-input" value="K" readonly>
-        </div>
-        <div class="shortcut-edit-row">
-            <span class="shortcut-label">D-Menu:</span>
-            <input type="text" id="shortcut-dmenu" class="shortcut-input" value="D" readonly>
+            <!-- Language Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="language">Language</div>
+                <select id="language-select" class="language-select">
+                    <option value="en">English</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
         </div>
 
-        <div class="shortcut-info">
-            <span class="shortcut-key">Hold</span> = 0.4s hold to show
-            <span class="shortcut-key">~</span> = Double-tap for toggle mode
-        </div>
-    </div>
+        <!-- ========================================
+             Tab 2: DMenu (D key submenu settings)
+             ======================================== -->
+        <div id="tab-dmenu" class="tab-content">
+            <div class="accordion">
+                <!-- Layer Module (D → C) -->
+                <div class="accordion-item open" data-module="layer">
+                    <button class="accordion-header">
+                        <div class="accordion-title">
+                            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            <span>Layer (D → C)</span>
+                        </div>
+                        <span class="accordion-badge">D → C</span>
+                    </button>
+                    <div class="accordion-body">
+                        <div class="accordion-content">
+                            <select id="layer-type-select" class="layer-type-select">
+                                <option value="text">Text Layer</option>
+                                <option value="shape">Shape Layer</option>
+                                <option value="solid">Solid Layer</option>
+                                <option value="footage">Footage Layer</option>
+                                <option value="precomp">Pre-comp Layer</option>
+                                <option value="null">Null Layer</option>
+                                <option value="camera">Camera Layer</option>
+                                <option value="light">Light Layer</option>
+                            </select>
 
-    <!-- Language Section -->
-    <div class="section">
-        <div class="section-title" data-i18n="language">Language</div>
-        <select id="language-select" class="language-select">
-            <option value="en">English</option>
-            <option value="ko">한국어</option>
-        </select>
+                            <div id="layer-action-list" class="action-list">
+                                <!-- Dynamic action items will be populated by JS -->
+                            </div>
+
+                            <div class="action-list-footer">
+                                <button class="action-list-btn" id="layer-reset-btn">Reset</button>
+                                <button class="action-list-btn primary" id="layer-save-btn">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Align Module (D → A) -->
+                <div class="accordion-item" data-module="align">
+                    <button class="accordion-header">
+                        <div class="accordion-title">
+                            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            <span>Align (D → A)</span>
+                        </div>
+                        <span class="accordion-badge">D → A</span>
+                    </button>
+                    <div class="accordion-body">
+                        <div class="accordion-content">
+                            <div class="help-text">Coming soon - Align action customization</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Module (D → T) -->
+                <div class="accordion-item" data-module="text">
+                    <button class="accordion-header">
+                        <div class="accordion-title">
+                            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            <span>Text (D → T)</span>
+                        </div>
+                        <span class="accordion-badge">D → T</span>
+                    </button>
+                    <div class="accordion-body">
+                        <div class="accordion-content">
+                            <div class="help-text">Coming soon - Text action customization</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keyframe Module (D → K) -->
+                <div class="accordion-item" data-module="keyframe">
+                    <button class="accordion-header">
+                        <div class="accordion-title">
+                            <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            <span>Keyframe (D → K)</span>
+                        </div>
+                        <span class="accordion-badge">D → K</span>
+                    </button>
+                    <div class="accordion-body">
+                        <div class="accordion-content">
+                            <div class="help-text">Coming soon - Keyframe preset customization</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================
+             Tab 3: 앵커 (Anchor Grid - Y key)
+             ======================================== -->
+        <div id="tab-anchor" class="tab-content">
+            <!-- Grid Preview Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="gridPreview">Grid Preview</div>
+                <div class="grid-preview-container">
+                    <div id="preview-grid" class="preview-grid"></div>
+                </div>
+            </div>
+
+            <!-- Grid Size Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="gridSize">Grid Size</div>
+                <div class="grid-size-row">
+                    <div class="size-control">
+                        <span class="size-label" data-i18n="width">Width:</span>
+                        <span class="size-value" id="grid-width" data-min="3" data-max="7">3</span>
+                    </div>
+                    <span class="size-separator">×</span>
+                    <div class="size-control">
+                        <span class="size-label" data-i18n="height">Height:</span>
+                        <span class="size-value" id="grid-height" data-min="3" data-max="7">3</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="mode">Mode</div>
+                <div class="mode-row">
+                    <button class="mode-btn active selection" id="btn-selection">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" />
+                            <rect x="2" y="2" width="4" height="4" fill="currentColor" />
+                            <rect x="18" y="2" width="4" height="4" fill="currentColor" />
+                            <rect x="2" y="18" width="4" height="4" fill="currentColor" />
+                            <rect x="18" y="18" width="4" height="4" fill="currentColor" />
+                        </svg>
+                        <span data-i18n="selection">Selection</span>
+                    </button>
+                    <button class="mode-btn composition" id="btn-composition">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="6" width="20" height="12" />
+                            <line x1="12" y1="9" x2="12" y2="15" />
+                            <line x1="9" y1="12" x2="15" y2="12" />
+                        </svg>
+                        <span data-i18n="composition">Composition</span>
+                    </button>
+                </div>
+                <div class="mode-row">
+                    <button class="mode-btn active mask-on" id="btn-mask-on">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="2" y="2" width="20" height="20" rx="2" />
+                            <circle cx="12" cy="12" r="5" fill="var(--bg-color)" />
+                        </svg>
+                        <span data-i18n="maskOn">Mask ON</span>
+                    </button>
+                    <button class="mode-btn mask-off" id="btn-mask-off">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="20" rx="2" />
+                        </svg>
+                        <span data-i18n="maskOff">Mask OFF</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Anchor Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="customAnchors">Custom Anchors</div>
+                <div class="custom-anchor-container">
+                    <div class="custom-anchor-icons">
+                        <button class="custom-btn active" id="custom-1" data-preset="1">
+                            <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="0" y1="14" x2="8" y2="14" />
+                                <line x1="20" y1="14" x2="28" y2="14" />
+                                <line x1="14" y1="0" x2="14" y2="8" />
+                                <line x1="14" y1="20" x2="14" y2="28" />
+                                <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
+                                <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
+                                    stroke="none">1</text>
+                            </svg>
+                        </button>
+                        <button class="custom-btn" id="custom-2" data-preset="2">
+                            <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="0" y1="14" x2="8" y2="14" />
+                                <line x1="20" y1="14" x2="28" y2="14" />
+                                <line x1="14" y1="0" x2="14" y2="8" />
+                                <line x1="14" y1="20" x2="14" y2="28" />
+                                <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
+                                <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
+                                    stroke="none">2</text>
+                            </svg>
+                        </button>
+                        <button class="custom-btn" id="custom-3" data-preset="3">
+                            <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="0" y1="14" x2="8" y2="14" />
+                                <line x1="20" y1="14" x2="28" y2="14" />
+                                <line x1="14" y1="0" x2="14" y2="8" />
+                                <line x1="14" y1="20" x2="14" y2="28" />
+                                <circle cx="14" cy="14" r="6" fill="var(--bg-secondary)" />
+                                <text x="14" y="18" text-anchor="middle" font-size="10" fill="currentColor"
+                                    stroke="none">3</text>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="anchor-editor-container">
+                        <div class="anchor-editor" id="anchor-editor">
+                            <div class="anchor-marker" id="anchor-marker"></div>
+                        </div>
+                        <div class="anchor-controls-row">
+                            <input type="number" id="anchor-x" class="coord-input" value="50" min="-20" max="120">
+                            <span class="coord-sep">×</span>
+                            <input type="number" id="anchor-y" class="coord-input" value="50" min="-20" max="120">
+                            <span class="coord-unit">%</span>
+                            <button class="flip-btn" id="flip-h" data-i18n-title="flipH">
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <polygon points="4,12 10,6 10,18" fill="none" stroke="currentColor" stroke-width="1.5" />
+                                    <line x1="12" y1="4" x2="12" y2="20" stroke="currentColor" stroke-width="2" />
+                                    <polygon points="20,12 14,6 14,18" fill="currentColor" />
+                                </svg>
+                            </button>
+                            <button class="flip-btn" id="flip-v" data-i18n-title="flipV">
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <polygon points="12,4 6,10 18,10" fill="none" stroke="currentColor" stroke-width="1.5" />
+                                    <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" />
+                                    <polygon points="12,20 6,14 18,14" fill="currentColor" />
+                                </svg>
+                            </button>
+                            <button class="flip-btn paste-btn" id="paste-anchor" data-i18n-title="pasteAnchor">
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <rect x="6" y="8" width="12" height="14" rx="1" fill="none" stroke="currentColor"
+                                        stroke-width="2" />
+                                    <rect x="9" y="2" width="6" height="4" rx="1" fill="currentColor" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="help-text">
+                    Click or drag to set position. Shift+drag: vertical only. Ctrl+drag: snap to grid.
+                </div>
+            </div>
+
+            <!-- Transparency Section -->
+            <div class="section">
+                <div class="section-title" data-i18n="transparency">Transparency</div>
+                <div class="slider-row">
+                    <span class="slider-label" data-i18n="gridOpacity">Mark:</span>
+                    <input type="range" id="grid-opacity" class="opacity-slider" min="0" max="100" value="75">
+                    <span class="slider-value" id="grid-opacity-value">75%</span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label" data-i18n="cellOpacity">Cell:</span>
+                    <input type="range" id="cell-opacity" class="opacity-slider" min="0" max="100" value="50">
+                    <span class="slider-value" id="cell-opacity-value">50%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================
+             Tab 4: 이펙트 (Effect Search - Shift+E)
+             ======================================== -->
+        <div id="tab-effect" class="tab-content">
+            <div class="section">
+                <div class="section-title">Effect Search Settings</div>
+                <div class="help-text">
+                    Effect Search module settings will be available here.<br>
+                    Use Shift+E to open the effect search popup.
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Favorites</div>
+                <div class="help-text">
+                    Coming soon - Manage your favorite effects
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Error Message Area -->
@@ -269,6 +397,8 @@
     <script src="js/core/CSInterface.js"></script>
     <script src="js/core/i18n.js"></script>
     <script src="js/core/settings.js"></script>
+    <script src="js/core/tabs.js"></script>
+    <script src="js/modules/layer/actions.js"></script>
     <script src="js/modules/grid/custom-anchor.js"></script>
     <script src="js/modules/grid/grid.js"></script>
     <script src="js/main.js"></script>

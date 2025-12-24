@@ -153,9 +153,9 @@ class Settings {
         if (gridWidth) gridWidth.textContent = this.settings.gridWidth;
         if (gridHeight) gridHeight.textContent = this.settings.gridHeight;
 
-        // Grid scale
+        // Grid scale (now in General tab as scale-grid-display)
         const gridScale = document.getElementById('grid-scale');
-        const scaleDisplay = document.getElementById('scale-display');
+        const scaleDisplay = document.getElementById('scale-grid-display');
         if (gridScale) gridScale.value = this.settings.gridScale;
         if (scaleDisplay) {
             const scaleValues = ['-20%', '-10%', '0%', '+10%', '+20%', '+30%', '+40%', '+50%', '+60%', '+70%'];
@@ -244,7 +244,11 @@ class Settings {
 
         container.style.gridTemplateColumns = `repeat(${w}, 1fr)`;
         container.style.gridTemplateRows = `repeat(${h}, 1fr)`;
-        container.innerHTML = '';
+
+        // Clear existing children safely
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
 
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
@@ -281,14 +285,15 @@ class Settings {
         this.bindSizeControl('grid-width', 'gridWidth');
         this.bindSizeControl('grid-height', 'gridHeight');
 
-        // Grid scale slider
+        // Grid scale slider (now in General tab)
         const gridScale = document.getElementById('grid-scale');
         if (gridScale) {
             gridScale.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 this.set('gridScale', value);
                 const scaleValues = ['-20%', '-10%', '0%', '+10%', '+20%', '+30%', '+40%', '+50%', '+60%', '+70%'];
-                document.getElementById('scale-display').textContent = scaleValues[value];
+                const display = document.getElementById('scale-grid-display');
+                if (display) display.textContent = scaleValues[value];
             });
         }
 

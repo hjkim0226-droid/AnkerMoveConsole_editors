@@ -19,8 +19,14 @@ function debugLog(msg) {
     console.log(msg);
     const debugEl = document.getElementById('debug-output');
     if (debugEl) {
-        debugEl.innerHTML = '[' + new Date().toLocaleTimeString() + '] ' + msg + '<br>' + debugEl.innerHTML;
-        debugEl.innerHTML = debugEl.innerHTML.substring(0, 2000); // Limit size
+        // Create new log entry safely
+        const entry = document.createElement('div');
+        entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+        debugEl.insertBefore(entry, debugEl.firstChild);
+        // Limit children to prevent memory issues
+        while (debugEl.children.length > 20) {
+            debugEl.removeChild(debugEl.lastChild);
+        }
     }
     const errorEl = document.getElementById('error-message');
     if (errorEl && msg.toLowerCase().includes('error')) {

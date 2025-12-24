@@ -384,4 +384,267 @@ cep/jsx/
 
 ---
 
+## Part 8: Dynamic Action System (동적 액션 시스템)
+
+### 개요
+
+**목표:** 사용자가 레이어 타입별 액션을 커스터마이징 가능하게
+- 순서 변경 (자주 쓰는 기능을 1번에)
+- 활성화/비활성화 (안 쓰는 기능 숨기기)
+- 위치 기반 단축키 (보이는 순서 = 1,2,3...)
+
+### 현재 구조 (하드코딩)
+
+```cpp
+// CompUI.cpp - 고정된 배열
+static const ButtonInfo TEXT_BUTTONS[] = {
+    {L"Typewriter", L"1", ...},  // 항상 1번
+    {L"Fade In", L"2", ...},     // 항상 2번
+    ...
+};
+```
+
+**문제점:**
+- 순서 고정 (사용자 선호도 무시)
+- 기능 추가 시 코드 수정 필요
+- 안 쓰는 기능도 항상 표시
+
+### 새로운 구조 (동적)
+
+```
+┌─────────────────────────────┐
+│ LAYER ─ Text Layer    [📌] │
+├─────────────────────────────┤
+│ 1  [Fade In           ]     │  ← 사용자가 1번으로 설정
+│ 2  [Typewriter        ]     │  ← 2번으로 이동
+│ 3  [Tracking          ]     │  ← 3번
+│    (Scale, Blur 비활성화)    │
+└─────────────────────────────┘
+```
+
+### 설정 파일 구조
+
+**위치:** `~/.ae-anchor/layer-actions.json`
+
+```json
+{
+  "version": 1,
+  "layerTypes": {
+    "text": {
+      "actions": [
+        {"id": "fadeIn", "enabled": true},
+        {"id": "typewriter", "enabled": true},
+        {"id": "tracking", "enabled": true},
+        {"id": "scale", "enabled": false},
+        {"id": "blur", "enabled": false}
+      ]
+    },
+    "shape": {
+      "actions": [
+        {"id": "trimPath", "enabled": true},
+        {"id": "repeater", "enabled": true},
+        {"id": "wigglePath", "enabled": true},
+        {"id": "wiggleTransform", "enabled": false}
+      ]
+    },
+    "solid": {
+      "actions": [
+        {"id": "changeColor", "enabled": true},
+        {"id": "fitToComp", "enabled": true},
+        {"id": "resetTransform", "enabled": true}
+      ]
+    },
+    "footage": {
+      "actions": [
+        {"id": "loopCycle", "enabled": true},
+        {"id": "loopPingPong", "enabled": true},
+        {"id": "lastFrameHold", "enabled": true},
+        {"id": "resetTransform", "enabled": true}
+      ]
+    },
+    "precomp": {
+      "actions": [
+        {"id": "unPrecompose", "enabled": true},
+        {"id": "deepCopy", "enabled": true},
+        {"id": "fitToLayers", "enabled": true},
+        {"id": "resetTransform", "enabled": true}
+      ]
+    },
+    "null": {
+      "actions": [
+        {"id": "resetTransform", "enabled": true}
+      ]
+    },
+    "camera": {
+      "actions": [
+        {"id": "resetPosition", "enabled": true}
+      ]
+    },
+    "light": {
+      "actions": [
+        {"id": "resetPosition", "enabled": true}
+      ]
+    }
+  }
+}
+```
+
+### 액션 정의 테이블 (C++)
+
+```cpp
+// 모든 가능한 액션 정의 (마스터 테이블)
+struct ActionDefinition {
+    const char* id;           // JSON에서 사용하는 ID
+    const wchar_t* label;     // 버튼 텍스트
+    const wchar_t* desc;      // 설명
+    LayerAction actionEnum;   // 기존 enum 값
+    LayerType allowedTypes;   // 허용되는 레이어 타입 (bitflag)
+};
+
+static const ActionDefinition ALL_ACTIONS[] = {
+    // Text actions
+    {"typewriter",     L"Typewriter",      L"Animate text typing",        ACTION_TEXT_ANIMATOR_TYPEWRITER,  LAYER_TEXT},
+    {"fadeIn",         L"Fade In",         L"Fade in characters",         ACTION_TEXT_ANIMATOR_FADE,        LAYER_TEXT},
+    {"scale",          L"Scale",           L"Scale characters",           ACTION_TEXT_ANIMATOR_SCALE,       LAYER_TEXT},
+    {"blur",           L"Blur",            L"Blur characters",            ACTION_TEXT_ANIMATOR_BLUR,        LAYER_TEXT},
+    {"tracking",       L"Tracking",        L"Animate tracking",           ACTION_TEXT_ANIMATOR_TRACKING,    LAYER_TEXT},
+
+    // Shape actions
+    {"trimPath",       L"Trim Path",       L"Add trim paths",             ACTION_SHAPE_TRIM_PATH,           LAYER_SHAPE},
+    {"repeater",       L"Repeater",        L"Add repeater",               ACTION_SHAPE_REPEATER,            LAYER_SHAPE},
+    {"wigglePath",     L"Wiggle Path",     L"Add wiggle paths",           ACTION_SHAPE_WIGGLE_PATH,         LAYER_SHAPE},
+    {"wiggleTransform",L"Wiggle Transform",L"Add wiggle transform",       ACTION_SHAPE_WIGGLE_TRANSFORM,    LAYER_SHAPE},
+
+    // Solid actions
+    {"changeColor",    L"Change Color",    L"Change solid color",         ACTION_SOLID_CHANGE_COLOR,        LAYER_SOLID | LAYER_ADJUSTMENT},
+    {"fitToComp",      L"Fit to Comp",     L"Match comp dimensions",      ACTION_SOLID_FIT_TO_COMP,         LAYER_SOLID | LAYER_ADJUSTMENT},
+
+    // Footage/Precomp actions
+    {"loopCycle",      L"Loop (Cycle)",    L"Loop with cycle",            ACTION_FOOTAGE_LOOP_CYCLE,        LAYER_FOOTAGE},
+    {"loopPingPong",   L"Loop (Ping Pong)",L"Loop back and forth",        ACTION_FOOTAGE_LOOP_PINGPONG,     LAYER_FOOTAGE},
+    {"lastFrameHold",  L"Last Frame Hold", L"Freeze last frame",          ACTION_FOOTAGE_LAST_FRAME_HOLD,   LAYER_FOOTAGE},
+
+    // Precomp-specific actions
+    {"unPrecompose",   L"Un-Precompose",   L"Extract layers from precomp",ACTION_PRECOMP_UNPRECOMPOSE,      LAYER_PRECOMP},
+    {"deepCopy",       L"Deep Copy",       L"Duplicate comp hierarchy",   ACTION_PRECOMP_DEEP_COPY,         LAYER_PRECOMP},
+    {"fitToLayers",    L"Fit to Layers",   L"Fit comp to layer range",    ACTION_PRECOMP_FIT_TO_LAYERS,     LAYER_PRECOMP},
+
+    // Common actions
+    {"resetTransform", L"Reset Transform", L"Reset pos/scale/rot",        ACTION_RESET_TRANSFORM,           LAYER_ALL},
+    {"resetPosition",  L"Reset Position",  L"Reset position only",        ACTION_RESET_POSITION,            LAYER_CAMERA | LAYER_LIGHT},
+};
+```
+
+### C++ 동적 로딩
+
+```cpp
+// 동적 버튼 벡터
+static std::vector<const ActionDefinition*> g_activeActions;
+
+// 설정에서 버튼 로드
+void LoadActionsFromConfig(LayerType type, const char* jsonConfig) {
+    g_activeActions.clear();
+
+    // JSON 파싱해서 해당 레이어 타입의 활성화된 액션만 순서대로 추가
+    // ... JSON 파싱 로직 ...
+
+    for (const auto& actionId : enabledActionIds) {
+        for (const auto& def : ALL_ACTIONS) {
+            if (strcmp(def.id, actionId) == 0 && (def.allowedTypes & type)) {
+                g_activeActions.push_back(&def);
+                break;
+            }
+        }
+    }
+}
+
+// 위치 기반 단축키 처리
+void HandleKeyPress(wchar_t key) {
+    if (key >= L'1' && key <= L'9') {
+        int index = key - L'1';
+        if (index < g_activeActions.size()) {
+            ExecuteAction(g_activeActions[index]->actionEnum);
+        }
+    }
+}
+```
+
+### CEP 설정 UI
+
+```
+┌─────────────────────────────────────┐
+│ Layer Actions Settings              │
+├─────────────────────────────────────┤
+│ Layer Type: [Text Layer         ▼] │
+├─────────────────────────────────────┤
+│                                     │
+│ ☑ ≡ Fade In              [↑][↓]   │  1
+│ ☑ ≡ Typewriter           [↑][↓]   │  2
+│ ☑ ≡ Tracking             [↑][↓]   │  3
+│ ☐ ≡ Scale                [↑][↓]   │  (숨김)
+│ ☐ ≡ Blur                 [↑][↓]   │  (숨김)
+│                                     │
+├─────────────────────────────────────┤
+│ [Reset to Default]  [Save]          │
+└─────────────────────────────────────┘
+```
+
+**UI 기능:**
+- 드롭다운: 레이어 타입 선택
+- 체크박스: 활성화/비활성화
+- ↑↓ 버튼: 순서 변경
+- 드래그: 순서 변경 (선택)
+- Reset: 기본값 복원
+
+### CEP ↔ C++ 통신
+
+```javascript
+// CEP에서 설정 변경 시
+function saveLayerActionConfig(layerType, actions) {
+    // 1. JSON 파일에 저장
+    var configPath = getUserDataFolder() + "/layer-actions.json";
+    saveJSON(configPath, config);
+
+    // 2. C++ 플러그인에 알림
+    csInterface.evalScript('setLayerActionConfig("' + layerType + '", ' + JSON.stringify(actions) + ')');
+}
+
+// C++ 측 (SnapPlugin.cpp)
+void SetLayerActionConfig(const char* layerType, const char* actionsJson) {
+    // 설정 캐시 업데이트
+    g_layerActionConfigs[layerType] = ParseActionsJson(actionsJson);
+
+    // CompUI에 알림
+    CompUI::RefreshActionsForType(GetLayerTypeEnum(layerType));
+}
+```
+
+### 구현 단계
+
+| Phase | Task | 상태 |
+|-------|------|------|
+| 1.1 | 설정 파일 구조 정의 (`layer-actions.json`) | 🔲 |
+| 1.2 | 기본 설정 파일 생성 로직 | 🔲 |
+| 2.1 | `ActionDefinition` 마스터 테이블 | 🔲 |
+| 2.2 | 동적 버튼 벡터 (`g_activeActions`) | 🔲 |
+| 2.3 | JSON 파싱 및 로딩 | 🔲 |
+| 2.4 | 위치 기반 단축키 | 🔲 |
+| 3.1 | CEP 설정 UI 레이아웃 | 🔲 |
+| 3.2 | 순서 변경 기능 | 🔲 |
+| 3.3 | 활성화/비활성화 토글 | 🔲 |
+| 3.4 | 설정 저장/로드 | 🔲 |
+
+### 장점
+
+| 측면 | 효과 |
+|------|------|
+| **직관성** | 보이는 순서 = 단축키 (1,2,3...) |
+| **개인화** | 자주 쓰는 기능을 1번에 배치 |
+| **깔끔함** | 안 쓰는 기능 숨기기 가능 |
+| **확장성** | 새 기능 추가 시 코드 변경 최소화 |
+| **부담 감소** | 개발자: 기능만 추가, 사용자: 원하는 것만 활성화 |
+
+---
+
 *Created: 2024-12-24*
+*Updated: 2024-12-24 (동적 액션 시스템 추가)*

@@ -806,3 +806,268 @@ select:focus-visible {
     padding: 2px 6px;
     margin: 0 2px;
 }
+
+/* ========================================
+   Tab Navigation
+   ======================================== */
+
+.tab-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.tab-nav {
+    display: flex;
+    background: var(--section-bg);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 8px;
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+}
+
+.tab-content {
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ========================================
+   Accordion
+   ======================================== */
+
+.accordion {
+    margin: 8px;
+}
+
+.accordion-item {
+    background: var(--section-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.accordion-item:last-child {
+    margin-bottom: 0;
+}
+
+.accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.accordion-header:hover {
+    background: var(--hover-bg);
+}
+
+.accordion-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.accordion-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.accordion-item.open .accordion-icon {
+    transform: rotate(90deg);
+}
+
+.accordion-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--dark-gray);
+    color: var(--text-secondary);
+}
+
+.accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.accordion-item.open .accordion-body {
+    max-height: 600px;
+}
+
+.accordion-content {
+    padding: 0 14px 14px;
+}
+
+/* ========================================
+   Layer Actions List (for DMenu tab)
+   ======================================== */
+
+.layer-type-select {
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.layer-type-select:focus {
+    outline: none;
+    border-color: var(--blue);
+}
+
+.action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.action-item:hover {
+    background: var(--hover-bg);
+}
+
+.action-item.disabled {
+    opacity: 0.5;
+}
+
+.action-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--blue);
+    cursor: pointer;
+}
+
+.action-drag {
+    color: var(--text-secondary);
+    cursor: grab;
+    font-size: 14px;
+    padding: 2px;
+}
+
+.action-drag:active {
+    cursor: grabbing;
+}
+
+.action-name {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.action-shortcut {
+    font-size: 10px;
+    color: var(--blue);
+    background: rgba(74, 158, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.action-move-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.action-move-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.action-move-btn:hover {
+    color: var(--blue);
+}
+
+.action-list-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.action-list-btn {
+    padding: 6px 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.action-list-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.action-list-btn.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+}
+
+.action-list-btn.primary:hover {
+    background: #3a8eef;
+}
