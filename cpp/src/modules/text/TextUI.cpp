@@ -541,10 +541,37 @@ void SetTextInfo(const wchar_t* jsonInfo) {
     g_textInfo.strokeWidth = getFloat(L"strokeWidth");
     g_textInfo.applyFill = getBool(L"applyFill");
     g_textInfo.applyStroke = getBool(L"applyStroke");
-    g_textInfo.justify = (Justification)(int)getFloat(L"justification");
+    g_textInfo.justify = (Justification)(int)getFloat(L"justify");
 
-    // Parse colors (simplified - assumes [r,g,b] format)
-    // TODO: proper array parsing
+    // Parse color arrays [r,g,b]
+    auto getColorArray = [&json](const wchar_t* key, float* outRGB) {
+        std::wstring search = std::wstring(L"\"") + key + L"\":[";
+        size_t pos = json.find(search);
+        if (pos == std::wstring::npos) return;
+        pos += search.length();
+
+        // Parse r
+        outRGB[0] = (float)_wtof(json.c_str() + pos);
+
+        // Skip to next comma
+        size_t comma1 = json.find(L',', pos);
+        if (comma1 == std::wstring::npos) return;
+        pos = comma1 + 1;
+
+        // Parse g
+        outRGB[1] = (float)_wtof(json.c_str() + pos);
+
+        // Skip to next comma
+        size_t comma2 = json.find(L',', pos);
+        if (comma2 == std::wstring::npos) return;
+        pos = comma2 + 1;
+
+        // Parse b
+        outRGB[2] = (float)_wtof(json.c_str() + pos);
+    };
+
+    getColorArray(L"fillColor", g_textInfo.fillColor);
+    getColorArray(L"strokeColor", g_textInfo.strokeColor);
 
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
@@ -1967,29 +1994,250 @@ static void DrawPresetSection(Graphics& g, int& y) {
 }
 
 /*****************************************************************************
- * Color Picker
+ * Color Picker - Simple HSV picker
  *****************************************************************************/
+static const int PICKER_WIDTH = 200;
+static const int PICKER_HEIGHT = 180;
+static const int HUE_BAR_HEIGHT = 20;
+static const int SV_SIZE = 150;
+
+// HSV to RGB conversion
+static void HSVtoRGB(float h, float s, float v, float* r, float* g, float* b) {
+    int i = (int)(h * 6);
+    float f = h * 6 - i;
+    float p = v * (1 - s);
+    float q = v * (1 - f * s);
+    float t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+        case 0: *r = v; *g = t; *b = p; break;
+        case 1: *r = q; *g = v; *b = p; break;
+        case 2: *r = p; *g = v; *b = t; break;
+        case 3: *r = p; *g = q; *b = v; break;
+        case 4: *r = t; *g = p; *b = v; break;
+        case 5: *r = v; *g = p; *b = q; break;
+    }
+}
+
+// RGB to HSV conversion
+static void RGBtoHSV(float r, float g, float b, float* h, float* s, float* v) {
+    float maxC = max(r, max(g, b));
+    float minC = min(r, min(g, b));
+    *v = maxC;
+    float delta = maxC - minC;
+    if (delta < 0.00001f) {
+        *s = 0;
+        *h = 0;
+        return;
+    }
+    *s = delta / maxC;
+    if (r >= maxC) *h = (g - b) / delta;
+    else if (g >= maxC) *h = 2.0f + (b - r) / delta;
+    else *h = 4.0f + (r - g) / delta;
+    *h /= 6.0f;
+    if (*h < 0) *h += 1.0f;
+}
+
+static float g_pickerH = 0, g_pickerS = 1, g_pickerV = 1;
+static bool g_pickerDraggingSV = false;
+static bool g_pickerDraggingHue = false;
+
 void ShowColorPicker(bool forStroke, int x, int y) {
-    // TODO: Implement full color picker
-    // For now, just toggle stroke/fill
     g_colorPickerForStroke = forStroke;
 
-    // Simple color presets popup could go here
-    // For v1, clicking color box could cycle through presets
+    // Get current color and convert to HSV
+    float* currentColor = forStroke ? g_textInfo.strokeColor : g_textInfo.fillColor;
+    RGBtoHSV(currentColor[0], currentColor[1], currentColor[2], &g_pickerH, &g_pickerS, &g_pickerV);
+
+    // Create picker window if needed
+    if (!g_colorPickerHwnd) {
+        g_colorPickerHwnd = CreateWindowExW(
+            WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+            L"TextUIColorPicker",
+            L"Color",
+            WS_POPUP,
+            x, y, Scaled(PICKER_WIDTH), Scaled(PICKER_HEIGHT),
+            g_hwnd, NULL, GetModuleHandle(NULL), NULL
+        );
+    }
+
+    if (g_colorPickerHwnd) {
+        SetWindowPos(g_colorPickerHwnd, HWND_TOPMOST, x, y,
+                     Scaled(PICKER_WIDTH), Scaled(PICKER_HEIGHT), SWP_SHOWWINDOW);
+        ShowWindow(g_colorPickerHwnd, SW_SHOW);
+        InvalidateRect(g_colorPickerHwnd, NULL, TRUE);
+    }
 }
 
 void HideColorPicker() {
     if (g_colorPickerHwnd) {
         ShowWindow(g_colorPickerHwnd, SW_HIDE);
     }
+    g_pickerDraggingSV = false;
+    g_pickerDraggingHue = false;
 }
 
 bool IsColorPickerVisible() {
     return g_colorPickerHwnd && IsWindowVisible(g_colorPickerHwnd);
 }
 
+static void DrawColorPicker(HDC hdc) {
+    Graphics g(hdc);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
+    // Background
+    SolidBrush bgBrush(Color(255, 35, 35, 42));
+    g.FillRectangle(&bgBrush, 0, 0, PICKER_WIDTH, PICKER_HEIGHT);
+
+    // Border
+    Pen borderPen(Color(255, 80, 80, 90), 1);
+    g.DrawRectangle(&borderPen, 0, 0, PICKER_WIDTH - 1, PICKER_HEIGHT - 1);
+
+    int padding = 8;
+    int svX = padding, svY = padding;
+    int hueY = svY + SV_SIZE + 6;
+
+    // Draw SV square (saturation horizontal, value vertical)
+    for (int py = 0; py < SV_SIZE; py++) {
+        for (int px = 0; px < SV_SIZE; px++) {
+            float s = (float)px / SV_SIZE;
+            float v = 1.0f - (float)py / SV_SIZE;
+            float r, gVal, b;
+            HSVtoRGB(g_pickerH, s, v, &r, &gVal, &b);
+            SolidBrush pixelBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
+            g.FillRectangle(&pixelBrush, svX + px, svY + py, 1, 1);
+        }
+    }
+
+    // SV cursor
+    int svCursorX = svX + (int)(g_pickerS * SV_SIZE);
+    int svCursorY = svY + (int)((1.0f - g_pickerV) * SV_SIZE);
+    Pen cursorPen(Color(255, 255, 255, 255), 2);
+    g.DrawEllipse(&cursorPen, svCursorX - 5, svCursorY - 5, 10, 10);
+    Pen cursorPenInner(Color(255, 0, 0, 0), 1);
+    g.DrawEllipse(&cursorPenInner, svCursorX - 4, svCursorY - 4, 8, 8);
+
+    // Draw Hue bar
+    int hueBarWidth = SV_SIZE;
+    for (int px = 0; px < hueBarWidth; px++) {
+        float h = (float)px / hueBarWidth;
+        float r, gVal, b;
+        HSVtoRGB(h, 1, 1, &r, &gVal, &b);
+        SolidBrush hueBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
+        g.FillRectangle(&hueBrush, svX + px, hueY, 1, HUE_BAR_HEIGHT);
+    }
+
+    // Hue cursor
+    int hueCursorX = svX + (int)(g_pickerH * hueBarWidth);
+    Pen hueCursorPen(Color(255, 255, 255, 255), 2);
+    g.DrawRectangle(&hueCursorPen, hueCursorX - 2, hueY - 1, 4, HUE_BAR_HEIGHT + 2);
+
+    // Current color preview
+    int previewX = svX + SV_SIZE + 8;
+    int previewSize = 30;
+    float r, gVal, b;
+    HSVtoRGB(g_pickerH, g_pickerS, g_pickerV, &r, &gVal, &b);
+    SolidBrush previewBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
+    g.FillRectangle(&previewBrush, previewX, svY, previewSize, previewSize);
+    g.DrawRectangle(&borderPen, previewX, svY, previewSize - 1, previewSize - 1);
+}
+
+static void ApplyPickerColor() {
+    float r, g, b;
+    HSVtoRGB(g_pickerH, g_pickerS, g_pickerV, &r, &g, &b);
+    ApplyTextColor(g_colorPickerForStroke, r, g, b);
+}
+
 static LRESULT CALLBACK ColorPickerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // TODO: Implement color picker window
+    int padding = 8;
+    int svX = padding, svY = padding;
+    int hueY = svY + SV_SIZE + 6;
+
+    switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        RECT rect;
+        GetClientRect(hwnd, &rect);
+        HDC memDC = CreateCompatibleDC(hdc);
+        HBITMAP memBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+        HGDIOBJ oldBitmap = SelectObject(memDC, memBitmap);
+        DrawColorPicker(memDC);
+        BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
+        SelectObject(memDC, oldBitmap);
+        DeleteObject(memBitmap);
+        DeleteDC(memDC);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN: {
+        int x = InverseScaled(GET_X_LPARAM(lParam));
+        int y = InverseScaled(GET_Y_LPARAM(lParam));
+
+        // Check SV area
+        if (x >= svX && x < svX + SV_SIZE && y >= svY && y < svY + SV_SIZE) {
+            g_pickerDraggingSV = true;
+            g_pickerS = (float)(x - svX) / SV_SIZE;
+            g_pickerV = 1.0f - (float)(y - svY) / SV_SIZE;
+            g_pickerS = max(0.0f, min(1.0f, g_pickerS));
+            g_pickerV = max(0.0f, min(1.0f, g_pickerV));
+            SetCapture(hwnd);
+            ApplyPickerColor();
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        // Check Hue bar
+        else if (x >= svX && x < svX + SV_SIZE && y >= hueY && y < hueY + HUE_BAR_HEIGHT) {
+            g_pickerDraggingHue = true;
+            g_pickerH = (float)(x - svX) / SV_SIZE;
+            g_pickerH = max(0.0f, min(1.0f, g_pickerH));
+            SetCapture(hwnd);
+            ApplyPickerColor();
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+    }
+
+    case WM_MOUSEMOVE: {
+        if (!g_pickerDraggingSV && !g_pickerDraggingHue) return 0;
+        int x = InverseScaled(GET_X_LPARAM(lParam));
+        int y = InverseScaled(GET_Y_LPARAM(lParam));
+
+        if (g_pickerDraggingSV) {
+            g_pickerS = (float)(x - svX) / SV_SIZE;
+            g_pickerV = 1.0f - (float)(y - svY) / SV_SIZE;
+            g_pickerS = max(0.0f, min(1.0f, g_pickerS));
+            g_pickerV = max(0.0f, min(1.0f, g_pickerV));
+            ApplyPickerColor();
+            InvalidateRect(hwnd, NULL, FALSE);
+        } else if (g_pickerDraggingHue) {
+            g_pickerH = (float)(x - svX) / SV_SIZE;
+            g_pickerH = max(0.0f, min(1.0f, g_pickerH));
+            ApplyPickerColor();
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+    }
+
+    case WM_LBUTTONUP:
+        g_pickerDraggingSV = false;
+        g_pickerDraggingHue = false;
+        ReleaseCapture();
+        return 0;
+
+    case WM_ACTIVATE:
+        if (LOWORD(wParam) == WA_INACTIVE) {
+            HideColorPicker();
+        }
+        return 0;
+
+    case WM_KEYDOWN:
+        if (wParam == VK_ESCAPE) {
+            HideColorPicker();
+        }
+        return 0;
+    }
+
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 

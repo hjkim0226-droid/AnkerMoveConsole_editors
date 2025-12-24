@@ -2055,70 +2055,70 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       g_alignVisible = true;
       break;
 
-    case DMenuUI::ACTION_TEXT:
-      if (HasSelectedTextLayer()) {
-        // Get text layer info before showing panel
-        const char* getTextInfoScript =
-          "(function(){"
-          "try{"
-          "var c=app.project.activeItem;"
-          "if(!c||!(c instanceof CompItem))return '';"
-          "var sel=c.selectedLayers;"
-          "var textLayer=null;"
-          "for(var i=0;i<sel.length;i++){"
-          "if(sel[i] instanceof TextLayer){textLayer=sel[i];break;}"
-          "}"
-          "if(!textLayer)return '';"
-          "var txt=textLayer.text.sourceText.value;"
-          "var font=txt.font||'Arial';"
-          "var fontStyle=txt.fontStyle||'Regular';"
-          "var fontSize=txt.fontSize||72;"
-          "var tracking=txt.tracking||0;"
-          "var leading=txt.leading||0;"
-          "var strokeWidth=txt.strokeWidth||0;"
-          "var fill=txt.fillColor||[1,1,1];"
-          "var stroke=txt.strokeColor||[0,0,0];"
-          "var applyFill=txt.applyFill!==false;"
-          "var applyStroke=txt.applyStroke||false;"
-          "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
-          "var justNum=0;"
-          "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
-          "else if(just==ParagraphJustification.CENTER_JUSTIFY)justNum=1;"
-          "else if(just==ParagraphJustification.RIGHT_JUSTIFY)justNum=2;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT)justNum=3;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER)justNum=4;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
-          "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
-          "return '{'+"
-          "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
-          "'\"fontStyle\":\"'+fontStyle.replace(/\"/g,'\\\\\"')+'\",'+"
-          "'\"fontSize\":'+fontSize+','+"
-          "'\"tracking\":'+tracking+','+"
-          "'\"leading\":'+leading+','+"
-          "'\"strokeWidth\":'+strokeWidth+','+"
-          "'\"fillColor\":['+fill[0]+','+fill[1]+','+fill[2]+'],'+"
-          "'\"strokeColor\":['+stroke[0]+','+stroke[1]+','+stroke[2]+'],'+"
-          "'\"applyFill\":'+applyFill+','+"
-          "'\"applyStroke\":'+applyStroke+','+"
-          "'\"justify\":'+justNum+','+"
-          "'\"layerName\":\"'+textLayer.name.replace(/\"/g,'\\\\\"')+'\"'+"
-          "'}';"
-          "}catch(e){return '';}"
-          "})();";
+    case DMenuUI::ACTION_TEXT: {
+      // Get text layer info if a text layer is selected (panel opens regardless)
+      const char* getTextInfoScript =
+        "(function(){"
+        "try{"
+        "var c=app.project.activeItem;"
+        "if(!c||!(c instanceof CompItem))return '';"
+        "var sel=c.selectedLayers;"
+        "var textLayer=null;"
+        "for(var i=0;i<sel.length;i++){"
+        "if(sel[i] instanceof TextLayer){textLayer=sel[i];break;}"
+        "}"
+        "if(!textLayer)return '';"
+        "var txt=textLayer.text.sourceText.value;"
+        "var font=txt.font||'Arial';"
+        "var fontStyle=txt.fontStyle||'Regular';"
+        "var fontSize=txt.fontSize||72;"
+        "var tracking=txt.tracking||0;"
+        "var leading=txt.leading||0;"
+        "var strokeWidth=txt.strokeWidth||0;"
+        "var fill=txt.fillColor||[1,1,1];"
+        "var stroke=txt.strokeColor||[0,0,0];"
+        "var applyFill=txt.applyFill!==false;"
+        "var applyStroke=txt.applyStroke||false;"
+        "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
+        "var justNum=0;"
+        "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
+        "else if(just==ParagraphJustification.CENTER_JUSTIFY)justNum=1;"
+        "else if(just==ParagraphJustification.RIGHT_JUSTIFY)justNum=2;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT)justNum=3;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER)justNum=4;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
+        "return '{'+"
+        "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"fontStyle\":\"'+fontStyle.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"fontSize\":'+fontSize+','+"
+        "'\"tracking\":'+tracking+','+"
+        "'\"leading\":'+leading+','+"
+        "'\"strokeWidth\":'+strokeWidth+','+"
+        "'\"fillColor\":['+fill[0]+','+fill[1]+','+fill[2]+'],'+"
+        "'\"strokeColor\":['+stroke[0]+','+stroke[1]+','+stroke[2]+'],'+"
+        "'\"applyFill\":'+applyFill+','+"
+        "'\"applyStroke\":'+applyStroke+','+"
+        "'\"justify\":'+justNum+','+"
+        "'\"layerName\":\"'+textLayer.name.replace(/\"/g,'\\\\\"')+'\"'+"
+        "'}';"
+        "}catch(e){return '';}"
+        "})();";
 
-        char resultBuf[2048] = {0};
-        ExecuteScript(getTextInfoScript, resultBuf, sizeof(resultBuf));
+      char resultBuf[2048] = {0};
+      ExecuteScript(getTextInfoScript, resultBuf, sizeof(resultBuf));
 
-        if (resultBuf[0] == '{') {
-          wchar_t wResult[2048];
-          MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
-          TextUI::SetTextInfo(wResult);
-        }
-
-        TextUI::ShowPanel(mouseX, mouseY);
-        g_textVisible = true;
+      if (resultBuf[0] == '{') {
+        wchar_t wResult[2048];
+        MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
+        TextUI::SetTextInfo(wResult);
       }
+
+      // Always open the panel (even without text layer selected)
+      TextUI::ShowPanel(mouseX, mouseY);
+      g_textVisible = true;
       break;
+    }
 
     case DMenuUI::ACTION_KEYFRAME:
       // Toggle keyframe panel (not hold mode)
