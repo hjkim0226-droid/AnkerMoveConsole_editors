@@ -76,13 +76,53 @@ static auto g_lastTextLayerCheck = std::chrono::steady_clock::now();
 A_Err ExecuteScript(const char *script, char *resultBuf = nullptr, size_t bufSize = 0);
 
 /*****************************************************************************
+ * DebugLogFocusInfo
+ * Log focused window info to DebugView (for debugging text edit detection)
+ *****************************************************************************/
+#ifdef MSWindows
+static auto g_lastDebugLog = std::chrono::steady_clock::now();
+
+void DebugLogFocusInfo() {
+  // Only log every 500ms to avoid spam
+  auto now = std::chrono::steady_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastDebugLog).count();
+  if (elapsed < 500) return;
+  g_lastDebugLog = now;
+
+  HWND fg = GetForegroundWindow();
+  if (!fg) return;
+
+  DWORD threadId = GetWindowThreadProcessId(fg, NULL);
+  GUITHREADINFO gti = {0};
+  gti.cbSize = sizeof(GUITHREADINFO);
+
+  if (!GetGUIThreadInfo(threadId, &gti)) return;
+
+  char className[256] = {0};
+  if (gti.hwndFocus) {
+    GetClassNameA(gti.hwndFocus, className, sizeof(className));
+  }
+
+  char msg[512];
+  snprintf(msg, sizeof(msg),
+    "[AnchorSnap] Focus: %s | Caret: %s | Blinking: %s | IME: %s\n",
+    className[0] ? className : "(none)",
+    gti.hwndCaret ? "YES" : "no",
+    (gti.flags & GUI_CARETBLINKING) ? "YES" : "no",
+    ImmGetContext(gti.hwndFocus) ? "open" : "closed");
+  OutputDebugStringA(msg);
+}
+
+/*****************************************************************************
  * IsTextInputFocused
  * Check if focus is on a text input field (Edit, RichEdit, etc.)
  * Also detects AE's internal text editing mode using IME
  * Returns true if user is typing in a text field
  *****************************************************************************/
-#ifdef MSWindows
 bool IsTextInputFocused() {
+  // Debug log (remove after testing)
+  DebugLogFocusInfo();
+
   HWND fg = GetForegroundWindow();
   if (!fg) return false;
 
