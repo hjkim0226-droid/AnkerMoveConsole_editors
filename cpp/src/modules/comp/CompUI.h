@@ -24,16 +24,31 @@ namespace CompUI {
 enum LayerType {
     LAYER_UNKNOWN = -1,
     LAYER_NONE = 0,     // No layer selected
-    LAYER_TEXT,
-    LAYER_SHAPE,
-    LAYER_SOLID,
-    LAYER_NULL,
-    LAYER_FOOTAGE,
-    LAYER_CAMERA,
-    LAYER_LIGHT,
-    LAYER_ADJUSTMENT,   // Adjustment layer (special Solid)
-    LAYER_PRECOMP       // Pre-composition
+    LAYER_TEXT,         // 1
+    LAYER_SHAPE,        // 2
+    LAYER_SOLID,        // 3
+    LAYER_NULL,         // 4
+    LAYER_FOOTAGE,      // 5
+    LAYER_CAMERA,       // 6
+    LAYER_LIGHT,        // 7
+    LAYER_ADJUSTMENT,   // 8 - Adjustment layer (special Solid)
+    LAYER_PRECOMP       // 9 - Pre-composition
 };
+
+// LayerType bitmasks for ActionDef.allowedTypes
+constexpr unsigned int LT_TEXT       = (1 << LAYER_TEXT);       // 0x02
+constexpr unsigned int LT_SHAPE      = (1 << LAYER_SHAPE);      // 0x04
+constexpr unsigned int LT_SOLID      = (1 << LAYER_SOLID);      // 0x08
+constexpr unsigned int LT_NULL       = (1 << LAYER_NULL);       // 0x10
+constexpr unsigned int LT_FOOTAGE    = (1 << LAYER_FOOTAGE);    // 0x20
+constexpr unsigned int LT_CAMERA     = (1 << LAYER_CAMERA);     // 0x40
+constexpr unsigned int LT_LIGHT      = (1 << LAYER_LIGHT);      // 0x80
+constexpr unsigned int LT_ADJUSTMENT = (1 << LAYER_ADJUSTMENT); // 0x100
+constexpr unsigned int LT_PRECOMP    = (1 << LAYER_PRECOMP);    // 0x200
+
+// Common layer type groups
+constexpr unsigned int LT_VISUAL = LT_TEXT | LT_SHAPE | LT_SOLID | LT_FOOTAGE | LT_PRECOMP | LT_NULL;
+constexpr unsigned int LT_3D_ONLY = LT_CAMERA | LT_LIGHT;
 
 // Action types (layer-type specific)
 enum LayerAction {
@@ -62,11 +77,25 @@ enum LayerAction {
     ACTION_FOOTAGE_LOOP_OFFSET,
     ACTION_FOOTAGE_LAST_FRAME_HOLD,
 
+    // Precomp layer actions
+    ACTION_PRECOMP_UNPRECOMPOSE = 450,
+    ACTION_PRECOMP_DEEP_COPY,
+    ACTION_PRECOMP_FIT_TO_LAYERS,
+
     // Common actions (multiple layer types)
     ACTION_RESET_TRANSFORM = 500,       // Position, Scale, Rotation reset
     ACTION_RESET_POSITION,              // Position only (Camera, Light)
     ACTION_RESET_SCALE,
     ACTION_RESET_ROTATION
+};
+
+// Action definition for master table (used for dynamic action system)
+struct ActionDef {
+    const char* id;             // JSON identifier (e.g., "typewriter")
+    const wchar_t* label;       // Display label
+    const wchar_t* desc;        // Description
+    LayerAction action;         // Enum value
+    unsigned int allowedTypes;  // Bitmask of allowed LayerTypes
 };
 
 // Current layer info (read from AE)
@@ -121,6 +150,13 @@ LayerType GetCurrentLayerType();
 
 // Get selected action
 LayerAction GetSelectedAction();
+
+// Load action configuration from CEP settings file
+// Returns true if successfully loaded, false uses defaults
+bool LoadActionsFromConfig();
+
+// Get pointer to action definition by ID
+const ActionDef* GetActionById(const char* id);
 
 } // namespace CompUI
 

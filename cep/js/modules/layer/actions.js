@@ -231,14 +231,17 @@
     function saveConfig() {
         var layerType = layerTypeSelect ? layerTypeSelect.value : 'text';
 
-        // Save to localStorage for now (will be replaced with file save)
+        // Save to localStorage
         try {
             localStorage.setItem('anchorsnap-layer-config', JSON.stringify(currentConfig));
         } catch (e) {
             console.error('Failed to save config:', e);
         }
 
-        // Notify C++ plugin
+        // Save to settings.json file for C++ plugin
+        saveToSettingsFile();
+
+        // Notify C++ plugin via evalScript (for immediate effect)
         if (window.csInterface) {
             var configJson = JSON.stringify(currentConfig);
             window.csInterface.evalScript(
@@ -255,6 +258,49 @@
                 saveBtn.textContent = originalText;
                 saveBtn.style.background = '';
             }, 1000);
+        }
+    }
+
+    /**
+     * Save layer actions to settings.json file (for C++ to read)
+     */
+    function saveToSettingsFile() {
+        try {
+            var os = require('os');
+            var path = require('path');
+            var fs = require('fs');
+            var settingsPath;
+
+            if (os.platform() === 'win32') {
+                settingsPath = path.join(process.env.APPDATA, 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
+            } else {
+                settingsPath = path.join(os.homedir(), 'Library', 'Application Support', 'Adobe', 'CEP', 'extensions', 'com.anchor.snap', 'settings.json');
+            }
+
+            // Read existing settings or create new
+            var settings = {};
+            if (fs.existsSync(settingsPath)) {
+                try {
+                    settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+                } catch (e) {
+                    settings = {};
+                }
+            }
+
+            // Update layerActions section
+            settings.layerActions = currentConfig;
+
+            // Ensure directory exists
+            var dir = path.dirname(settingsPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            // Write file
+            fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+            console.log('Layer actions saved to:', settingsPath);
+        } catch (e) {
+            console.error('Failed to save layer actions to file:', e);
         }
     }
 

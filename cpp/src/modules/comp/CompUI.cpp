@@ -12,8 +12,11 @@
 #ifdef MSWindows
 #include <windowsx.h>
 #include <string>
+#include <cstring>  // For strcmp
 #include <cmath>
 #include <vector>
+#include <fstream>
+#include <shlobj.h>  // For SHGetFolderPath
 
 using namespace Gdiplus;
 
@@ -61,65 +64,69 @@ static const Color COLOR_FOOTAGE_LAYER(255, 80, 255, 180); // Green
 static const Color COLOR_CAMERA_LAYER(255, 200, 150, 255); // Purple
 static const Color COLOR_LIGHT_LAYER(255, 255, 255, 150);  // Yellow-white
 
-// Button info
-struct ButtonInfo {
-    const wchar_t* label;
-    const wchar_t* shortcut;
-    const wchar_t* description;
-    LayerAction action;
+/*****************************************************************************
+ * MASTER ACTION TABLE
+ * All possible actions defined here. CEP settings control which are shown.
+ *****************************************************************************/
+static const ActionDef MASTER_ACTIONS[] = {
+    // === Text Layer Actions ===
+    {"typewriter",      L"Typewriter",        L"Animate text typing",         ACTION_TEXT_ANIMATOR_TYPEWRITER,  LT_TEXT},
+    {"fadeIn",          L"Fade In",           L"Fade in characters",          ACTION_TEXT_ANIMATOR_FADE,        LT_TEXT},
+    {"scale",           L"Scale",             L"Scale characters",            ACTION_TEXT_ANIMATOR_SCALE,       LT_TEXT},
+    {"blur",            L"Blur",              L"Blur characters",             ACTION_TEXT_ANIMATOR_BLUR,        LT_TEXT},
+    {"tracking",        L"Tracking",          L"Animate tracking",            ACTION_TEXT_ANIMATOR_TRACKING,    LT_TEXT},
+
+    // === Shape Layer Actions ===
+    {"trimPath",        L"Trim Path",         L"Add trim paths",              ACTION_SHAPE_TRIM_PATH,           LT_SHAPE},
+    {"repeater",        L"Repeater",          L"Add repeater",                ACTION_SHAPE_REPEATER,            LT_SHAPE},
+    {"wigglePath",      L"Wiggle Path",       L"Add wiggle paths",            ACTION_SHAPE_WIGGLE_PATH,         LT_SHAPE},
+    {"wiggleTransform", L"Wiggle Transform",  L"Add wiggle transform",        ACTION_SHAPE_WIGGLE_TRANSFORM,    LT_SHAPE},
+
+    // === Solid Layer Actions ===
+    {"changeColor",     L"Change Color",      L"Change solid color",          ACTION_SOLID_CHANGE_COLOR,        LT_SOLID | LT_ADJUSTMENT},
+    {"fitToComp",       L"Fit to Comp",       L"Match comp dimensions",       ACTION_SOLID_FIT_TO_COMP,         LT_SOLID | LT_ADJUSTMENT},
+
+    // === Footage Layer Actions ===
+    {"loopCycle",       L"Loop (Cycle)",      L"Loop with cycle",             ACTION_FOOTAGE_LOOP_CYCLE,        LT_FOOTAGE},
+    {"loopPingPong",    L"Loop (Ping Pong)",  L"Loop back and forth",         ACTION_FOOTAGE_LOOP_PINGPONG,     LT_FOOTAGE},
+    {"lastFrameHold",   L"Last Frame Hold",   L"Freeze last frame",           ACTION_FOOTAGE_LAST_FRAME_HOLD,   LT_FOOTAGE},
+
+    // === Precomp Layer Actions ===
+    {"unPrecompose",    L"Un-Precompose",     L"Extract layers from precomp", ACTION_PRECOMP_UNPRECOMPOSE,      LT_PRECOMP},
+    {"deepCopy",        L"Deep Copy",         L"Duplicate comp hierarchy",    ACTION_PRECOMP_DEEP_COPY,         LT_PRECOMP},
+    {"fitToLayers",     L"Fit to Layers",     L"Fit comp to layer range",     ACTION_PRECOMP_FIT_TO_LAYERS,     LT_PRECOMP},
+
+    // === Common Actions (multiple layer types) ===
+    {"resetTransform",  L"Reset Transform",   L"Reset pos/scale/rot",         ACTION_RESET_TRANSFORM,           LT_VISUAL},
+    {"resetPosition",   L"Reset Position",    L"Reset position only",         ACTION_RESET_POSITION,            LT_3D_ONLY},
+
+    // Terminator
+    {nullptr, nullptr, nullptr, ACTION_NONE, 0}
 };
 
-// Buttons for each layer type
-static const ButtonInfo TEXT_BUTTONS[] = {
-    {L"Typewriter", L"1", L"Animate text typing", ACTION_TEXT_ANIMATOR_TYPEWRITER},
-    {L"Fade In", L"2", L"Fade in characters", ACTION_TEXT_ANIMATOR_FADE},
-    {L"Scale", L"3", L"Scale characters", ACTION_TEXT_ANIMATOR_SCALE},
-    {L"Blur", L"4", L"Blur characters", ACTION_TEXT_ANIMATOR_BLUR},
-    {L"Tracking", L"5", L"Animate tracking", ACTION_TEXT_ANIMATOR_TRACKING},
-};
-static const int NUM_TEXT_BUTTONS = 5;
+static const int NUM_MASTER_ACTIONS = (sizeof(MASTER_ACTIONS) / sizeof(MASTER_ACTIONS[0])) - 1;
 
-static const ButtonInfo SHAPE_BUTTONS[] = {
-    {L"Trim Path", L"1", L"Add trim paths", ACTION_SHAPE_TRIM_PATH},
-    {L"Repeater", L"2", L"Add repeater", ACTION_SHAPE_REPEATER},
-    {L"Wiggle Path", L"3", L"Add wiggle paths", ACTION_SHAPE_WIGGLE_PATH},
-    {L"Wiggle Transform", L"4", L"Add wiggle transform", ACTION_SHAPE_WIGGLE_TRANSFORM},
+/*****************************************************************************
+ * DYNAMIC ACTION VECTORS
+ * Populated from config file, one vector per layer type
+ *****************************************************************************/
+struct ActiveAction {
+    const ActionDef* def;       // Pointer to master table entry
+    bool enabled;               // Currently enabled
 };
-static const int NUM_SHAPE_BUTTONS = 4;
 
-static const ButtonInfo SOLID_BUTTONS[] = {
-    {L"Change Color", L"1", L"Change solid color", ACTION_SOLID_CHANGE_COLOR},
-    {L"Fit to Comp", L"2", L"Match comp dimensions", ACTION_SOLID_FIT_TO_COMP},
-    {L"Reset Transform", L"3", L"Reset pos/scale/rot", ACTION_RESET_TRANSFORM},
-};
-static const int NUM_SOLID_BUTTONS = 3;
+// Active actions per layer type (loaded from config)
+static std::vector<ActiveAction> g_textActions;
+static std::vector<ActiveAction> g_shapeActions;
+static std::vector<ActiveAction> g_solidActions;
+static std::vector<ActiveAction> g_nullActions;
+static std::vector<ActiveAction> g_footageActions;
+static std::vector<ActiveAction> g_cameraActions;
+static std::vector<ActiveAction> g_lightActions;
+static std::vector<ActiveAction> g_precompActions;
 
-static const ButtonInfo NULL_BUTTONS[] = {
-    {L"Reset Transform", L"1", L"Reset pos/scale/rot (parent-aware)", ACTION_RESET_TRANSFORM},
-};
-static const int NUM_NULL_BUTTONS = 1;
-
-static const ButtonInfo FOOTAGE_BUTTONS[] = {
-    {L"Loop (Cycle)", L"1", L"Loop with cycle", ACTION_FOOTAGE_LOOP_CYCLE},
-    {L"Loop (Ping Pong)", L"2", L"Loop back and forth", ACTION_FOOTAGE_LOOP_PINGPONG},
-    {L"Last Frame Hold", L"3", L"Freeze last frame", ACTION_FOOTAGE_LAST_FRAME_HOLD},
-    {L"Reset Transform", L"4", L"Reset pos/scale/rot", ACTION_RESET_TRANSFORM},
-};
-static const int NUM_FOOTAGE_BUTTONS = 4;
-
-static const ButtonInfo CAMERA_BUTTONS[] = {
-    {L"Reset Position", L"1", L"Reset camera position", ACTION_RESET_POSITION},
-};
-static const int NUM_CAMERA_BUTTONS = 1;
-
-static const ButtonInfo LIGHT_BUTTONS[] = {
-    {L"Reset Position", L"1", L"Reset light position", ACTION_RESET_POSITION},
-};
-static const int NUM_LIGHT_BUTTONS = 1;
-
-// No buttons for "no layer selected" - use nullptr
-static const ButtonInfo* NONE_BUTTONS = nullptr;
-static const int NUM_NONE_BUTTONS = 0;
+// Currently displayed actions (filtered by enabled + layer type)
+static std::vector<const ActionDef*> g_currentActions;
 
 // Global state
 static HWND g_hwnd = NULL;
@@ -128,12 +135,11 @@ static ULONG_PTR g_gdiplusToken = 0;
 static LayerInfo g_layerInfo = {};
 static CompResult g_result;
 static bool g_keepPanelOpen = false;
+static bool g_configLoaded = false;
 
 // Button rectangles (dynamic based on layer type)
 static RECT g_buttonRects[10];
 static RECT g_pinRect;
-static int g_numButtons = 0;
-static const ButtonInfo* g_currentButtons = nullptr;
 
 // Hover state
 static int g_hoverButton = -1;
@@ -221,44 +227,229 @@ void Shutdown() {
 }
 
 /*****************************************************************************
- * UpdateButtonsForLayerType
+ * GetActionById - Find action definition by JSON id
+ *****************************************************************************/
+const ActionDef* GetActionById(const char* id) {
+    if (!id) return nullptr;
+    for (int i = 0; i < NUM_MASTER_ACTIONS; i++) {
+        if (MASTER_ACTIONS[i].id && strcmp(MASTER_ACTIONS[i].id, id) == 0) {
+            return &MASTER_ACTIONS[i];
+        }
+    }
+    return nullptr;
+}
+
+/*****************************************************************************
+ * InitDefaultActions - Set up default action order for each layer type
+ *****************************************************************************/
+static void InitDefaultActions() {
+    // Text actions (default order)
+    g_textActions.clear();
+    g_textActions.push_back({GetActionById("typewriter"), true});
+    g_textActions.push_back({GetActionById("fadeIn"), true});
+    g_textActions.push_back({GetActionById("scale"), true});
+    g_textActions.push_back({GetActionById("blur"), true});
+    g_textActions.push_back({GetActionById("tracking"), true});
+
+    // Shape actions
+    g_shapeActions.clear();
+    g_shapeActions.push_back({GetActionById("trimPath"), true});
+    g_shapeActions.push_back({GetActionById("repeater"), true});
+    g_shapeActions.push_back({GetActionById("wigglePath"), true});
+    g_shapeActions.push_back({GetActionById("wiggleTransform"), true});
+
+    // Solid actions
+    g_solidActions.clear();
+    g_solidActions.push_back({GetActionById("changeColor"), true});
+    g_solidActions.push_back({GetActionById("fitToComp"), true});
+    g_solidActions.push_back({GetActionById("resetTransform"), true});
+
+    // Null actions
+    g_nullActions.clear();
+    g_nullActions.push_back({GetActionById("resetTransform"), true});
+
+    // Footage actions
+    g_footageActions.clear();
+    g_footageActions.push_back({GetActionById("loopCycle"), true});
+    g_footageActions.push_back({GetActionById("loopPingPong"), true});
+    g_footageActions.push_back({GetActionById("lastFrameHold"), true});
+    g_footageActions.push_back({GetActionById("resetTransform"), true});
+
+    // Precomp actions
+    g_precompActions.clear();
+    g_precompActions.push_back({GetActionById("unPrecompose"), true});
+    g_precompActions.push_back({GetActionById("deepCopy"), true});
+    g_precompActions.push_back({GetActionById("fitToLayers"), true});
+    g_precompActions.push_back({GetActionById("resetTransform"), true});
+
+    // Camera actions
+    g_cameraActions.clear();
+    g_cameraActions.push_back({GetActionById("resetPosition"), true});
+
+    // Light actions
+    g_lightActions.clear();
+    g_lightActions.push_back({GetActionById("resetPosition"), true});
+}
+
+/*****************************************************************************
+ * GetSettingsFilePath - Get path to CEP settings file
+ *****************************************************************************/
+static std::wstring GetSettingsFilePath() {
+    wchar_t appData[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData))) {
+        std::wstring path(appData);
+        path += L"\\Adobe\\CEP\\extensions\\com.anchor.snap\\settings.json";
+        return path;
+    }
+    return L"";
+}
+
+/*****************************************************************************
+ * ParseActionList - Parse JSON array of actions for a layer type
+ * Format: [{"id":"typewriter","enabled":true},...]
+ *****************************************************************************/
+static void ParseActionList(const std::string& json, std::vector<ActiveAction>& outActions) {
+    outActions.clear();
+
+    // Find array start
+    size_t pos = json.find('[');
+    if (pos == std::string::npos) return;
+
+    // Parse each object in array
+    while ((pos = json.find("{\"id\":", pos)) != std::string::npos) {
+        // Extract id value
+        size_t idStart = json.find("\"", pos + 6);  // Skip {"id":
+        if (idStart == std::string::npos) break;
+        idStart++;  // Skip opening quote
+
+        size_t idEnd = json.find("\"", idStart);
+        if (idEnd == std::string::npos) break;
+
+        std::string actionId = json.substr(idStart, idEnd - idStart);
+
+        // Find enabled value
+        size_t enabledPos = json.find("\"enabled\":", pos);
+        bool enabled = true;
+        if (enabledPos != std::string::npos && enabledPos < json.find("}", pos)) {
+            size_t valueStart = enabledPos + 10;
+            // Skip whitespace
+            while (valueStart < json.size() && (json[valueStart] == ' ' || json[valueStart] == '\t'))
+                valueStart++;
+            enabled = (json.substr(valueStart, 4) == "true");
+        }
+
+        // Look up action in master table
+        const ActionDef* def = GetActionById(actionId.c_str());
+        if (def) {
+            outActions.push_back({def, enabled});
+        }
+
+        pos = idEnd + 1;
+    }
+}
+
+/*****************************************************************************
+ * LoadActionsFromConfig - Parse settings.json to load action configuration
+ *****************************************************************************/
+bool LoadActionsFromConfig() {
+    // Initialize with defaults first
+    InitDefaultActions();
+
+    std::wstring configPath = GetSettingsFilePath();
+    if (configPath.empty()) {
+        g_configLoaded = true;  // Use defaults
+        return false;
+    }
+
+    // Try to open the file
+    std::ifstream file(configPath);
+    if (!file.is_open()) {
+        // File doesn't exist yet, use defaults
+        g_configLoaded = true;
+        return false;
+    }
+
+    // Read file content
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    file.close();
+
+    // Parse layer action configurations
+    // Look for "layerActions" section
+    size_t layerActionsPos = content.find("\"layerActions\"");
+    if (layerActionsPos == std::string::npos) {
+        g_configLoaded = true;
+        return false;
+    }
+
+    // Helper to find and parse a layer type's actions
+    auto parseLayerType = [&content, layerActionsPos](const char* typeName, std::vector<ActiveAction>& out) {
+        std::string search = std::string("\"") + typeName + "\":";
+        size_t pos = content.find(search, layerActionsPos);
+        if (pos != std::string::npos) {
+            size_t arrayStart = content.find("[", pos);
+            size_t arrayEnd = content.find("]", arrayStart);
+            if (arrayStart != std::string::npos && arrayEnd != std::string::npos) {
+                std::string arrayJson = content.substr(arrayStart, arrayEnd - arrayStart + 1);
+                ParseActionList(arrayJson, out);
+            }
+        }
+    };
+
+    // Parse each layer type
+    parseLayerType("text", g_textActions);
+    parseLayerType("shape", g_shapeActions);
+    parseLayerType("solid", g_solidActions);
+    parseLayerType("null", g_nullActions);
+    parseLayerType("footage", g_footageActions);
+    parseLayerType("precomp", g_precompActions);
+    parseLayerType("camera", g_cameraActions);
+    parseLayerType("light", g_lightActions);
+
+    g_configLoaded = true;
+    return true;
+}
+
+/*****************************************************************************
+ * GetActionsVectorForType - Get reference to action vector for layer type
+ *****************************************************************************/
+static std::vector<ActiveAction>* GetActionsVectorForType(LayerType type) {
+    switch (type) {
+    case LAYER_TEXT:       return &g_textActions;
+    case LAYER_SHAPE:      return &g_shapeActions;
+    case LAYER_SOLID:
+    case LAYER_ADJUSTMENT: return &g_solidActions;
+    case LAYER_NULL:       return &g_nullActions;
+    case LAYER_FOOTAGE:    return &g_footageActions;
+    case LAYER_PRECOMP:    return &g_precompActions;
+    case LAYER_CAMERA:     return &g_cameraActions;
+    case LAYER_LIGHT:      return &g_lightActions;
+    default:               return nullptr;
+    }
+}
+
+/*****************************************************************************
+ * UpdateButtonsForLayerType - Build g_currentActions from config
  *****************************************************************************/
 static void UpdateButtonsForLayerType() {
-    switch (g_layerInfo.type) {
-    case LAYER_TEXT:
-        g_currentButtons = TEXT_BUTTONS;
-        g_numButtons = NUM_TEXT_BUTTONS;
-        break;
-    case LAYER_SHAPE:
-        g_currentButtons = SHAPE_BUTTONS;
-        g_numButtons = NUM_SHAPE_BUTTONS;
-        break;
-    case LAYER_SOLID:
-    case LAYER_ADJUSTMENT:
-        g_currentButtons = SOLID_BUTTONS;
-        g_numButtons = NUM_SOLID_BUTTONS;
-        break;
-    case LAYER_NULL:
-        g_currentButtons = NULL_BUTTONS;
-        g_numButtons = NUM_NULL_BUTTONS;
-        break;
-    case LAYER_FOOTAGE:
-    case LAYER_PRECOMP:
-        g_currentButtons = FOOTAGE_BUTTONS;
-        g_numButtons = NUM_FOOTAGE_BUTTONS;
-        break;
-    case LAYER_CAMERA:
-        g_currentButtons = CAMERA_BUTTONS;
-        g_numButtons = NUM_CAMERA_BUTTONS;
-        break;
-    case LAYER_LIGHT:
-        g_currentButtons = LIGHT_BUTTONS;
-        g_numButtons = NUM_LIGHT_BUTTONS;
-        break;
-    default:
-        g_currentButtons = NONE_BUTTONS;
-        g_numButtons = NUM_NONE_BUTTONS;
-        break;
+    g_currentActions.clear();
+
+    // Ensure config is loaded
+    if (!g_configLoaded) {
+        LoadActionsFromConfig();
+    }
+
+    // Get the action vector for current layer type
+    std::vector<ActiveAction>* actions = GetActionsVectorForType(g_layerInfo.type);
+    if (!actions) {
+        return;
+    }
+
+    // Build current actions list from enabled actions only
+    for (const auto& action : *actions) {
+        if (action.enabled && action.def) {
+            g_currentActions.push_back(action.def);
+        }
     }
 }
 
@@ -266,10 +457,11 @@ static void UpdateButtonsForLayerType() {
  * CalculateWindowHeight
  *****************************************************************************/
 static int CalculateWindowHeight() {
-    if (g_numButtons == 0) {
+    int numButtons = (int)g_currentActions.size();
+    if (numButtons == 0) {
         return HEADER_HEIGHT + BUTTON_MARGIN + 40;  // "No layer selected" message
     }
-    return HEADER_HEIGHT + BUTTON_MARGIN + g_numButtons * (BUTTON_HEIGHT + 4) + BUTTON_MARGIN;
+    return HEADER_HEIGHT + BUTTON_MARGIN + numButtons * (BUTTON_HEIGHT + 4) + BUTTON_MARGIN;
 }
 
 /*****************************************************************************
@@ -545,10 +737,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
-        } else if (ch >= L'1' && ch <= L'9' && g_currentButtons) {
+        } else if (ch >= L'1' && ch <= L'9') {
             int index = ch - L'1';
-            if (index >= 0 && index < g_numButtons) {
-                ExecuteAction(g_currentButtons[index].action);
+            int numButtons = (int)g_currentActions.size();
+            if (index >= 0 && index < numButtons) {
+                ExecuteAction(g_currentActions[index]->action);
             }
         }
         return 0;
@@ -647,8 +840,9 @@ static void DrawHeader(Graphics& g) {
  *****************************************************************************/
 static void DrawButtons(Graphics& g) {
     int y = HEADER_HEIGHT + BUTTON_MARGIN;
+    int numButtons = (int)g_currentActions.size();
 
-    if (g_numButtons == 0) {
+    if (numButtons == 0) {
         // No layer selected message
         FontFamily fontFamily(L"Segoe UI");
         Font msgFont(&fontFamily, 11, FontStyleRegular, UnitPixel);
@@ -660,7 +854,7 @@ static void DrawButtons(Graphics& g) {
         return;
     }
 
-    for (int i = 0; i < g_numButtons; i++) {
+    for (int i = 0; i < numButtons && i < 10; i++) {
         g_buttonRects[i] = {
             BUTTON_MARGIN,
             y,
@@ -676,8 +870,10 @@ static void DrawButtons(Graphics& g) {
  * DrawButton
  *****************************************************************************/
 static void DrawButton(Graphics& g, RECT& rect, int index, bool hover) {
-    if (!g_currentButtons || index >= g_numButtons) return;
-    const ButtonInfo& btn = g_currentButtons[index];
+    int numButtons = (int)g_currentActions.size();
+    if (index < 0 || index >= numButtons) return;
+    const ActionDef* action = g_currentActions[index];
+    if (!action) return;
 
     // Background
     Color bgColor = hover ? COLOR_BUTTON_HOVER : COLOR_BUTTON_BG;
@@ -700,16 +896,18 @@ static void DrawButton(Graphics& g, RECT& rect, int index, bool hover) {
     SolidBrush dimBrush(COLOR_TEXT_DIM);
     SolidBrush accentBrush(COLOR_BUTTON_ACTIVE);
 
-    // Shortcut number
-    g.DrawString(btn.shortcut, -1, &shortcutFont,
+    // Shortcut number (position-based: 1, 2, 3, ...)
+    wchar_t shortcutStr[4];
+    swprintf(shortcutStr, 4, L"%d", index + 1);
+    g.DrawString(shortcutStr, -1, &shortcutFont,
                  PointF((REAL)(rect.left + 10), (REAL)(rect.top + 10)), &accentBrush);
 
     // Label
-    g.DrawString(btn.label, -1, &labelFont,
+    g.DrawString(action->label, -1, &labelFont,
                  PointF((REAL)(rect.left + 30), (REAL)(rect.top + 6)), &textBrush);
 
     // Description
-    g.DrawString(btn.description, -1, &descFont,
+    g.DrawString(action->desc, -1, &descFont,
                  PointF((REAL)(rect.left + 30), (REAL)(rect.top + 20)), &dimBrush);
 }
 
@@ -718,7 +916,8 @@ static void DrawButton(Graphics& g, RECT& rect, int index, bool hover) {
  *****************************************************************************/
 static int HitTestButton(int x, int y) {
     POINT pt = {x, y};
-    for (int i = 0; i < g_numButtons; i++) {
+    int numButtons = (int)g_currentActions.size();
+    for (int i = 0; i < numButtons && i < 10; i++) {
         if (PtInRect(&g_buttonRects[i], pt)) return i;
     }
     return -1;
@@ -739,8 +938,9 @@ static void HandleMouseDown(int x, int y) {
 
     // Buttons
     int hit = HitTestButton(x, y);
-    if (hit >= 0 && hit < g_numButtons && g_currentButtons) {
-        ExecuteAction(g_currentButtons[hit].action);
+    int numButtons = (int)g_currentActions.size();
+    if (hit >= 0 && hit < numButtons) {
+        ExecuteAction(g_currentActions[hit]->action);
     }
 }
 
