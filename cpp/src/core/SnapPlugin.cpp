@@ -23,6 +23,8 @@
 
 #ifdef MSWindows
 #include <windows.h>
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
 #endif
 
 #include "AEGP_SuiteHandler.h"
@@ -55,11 +57,19 @@ static bool g_dKeyWasHeld = false;
 // Align module state
 static bool g_alignVisible = false;
 
+// Text editing state (detected via Command 2136)
+static bool g_textEditingMode = false;
+static const AEGP_Command CMD_TEXT_EDIT_TOGGLE = 2136;
+
 // Text module state
 static bool g_textVisible = false;
 
 // Layer module state (D → C)
 static bool g_layerVisible = false;
+
+// Text editing mode detection (cached, updated periodically)
+static bool g_isTextLayerSelected = false;
+static auto g_lastTextLayerCheck = std::chrono::steady_clock::now();
 
 // Forward declaration for ExecuteScript (defined later)
 A_Err ExecuteScript(const char *script, char *resultBuf = nullptr, size_t bufSize = 0);
@@ -67,6 +77,7 @@ A_Err ExecuteScript(const char *script, char *resultBuf = nullptr, size_t bufSiz
 /*****************************************************************************
  * IsTextInputFocused
  * Check if focus is on a text input field (Edit, RichEdit, etc.)
+ * Also detects AE's internal text editing mode using IME
  * Returns true if user is typing in a text field
  *****************************************************************************/
 #ifdef MSWindows
@@ -91,8 +102,39 @@ bool IsTextInputFocused() {
     return true;
   }
 
-  // Method 3: Check focused window class name (fallback)
+  // Method 3: Check IME context - AE uses IME for text layer editing
+  // When editing text in AE's Composition viewer, IME is active
   HWND focused = gti.hwndFocus;
+  if (focused) {
+    HIMC hImc = ImmGetContext(focused);
+    if (hImc) {
+      // Check if IME is currently composing text
+      // This catches text input even in custom rendering contexts like AE's viewer
+      DWORD convMode = 0, sentMode = 0;
+      if (ImmGetConversionStatus(hImc, &convMode, &sentMode)) {
+        // Check if IME has a composition string (user is typing)
+        LONG compLen = ImmGetCompositionStringW(hImc, GCS_COMPSTR, NULL, 0);
+        if (compLen > 0) {
+          ImmReleaseContext(focused, hImc);
+          return true;
+        }
+      }
+
+      // Also check if IME window is open (indicates text input mode)
+      if (ImmGetOpenStatus(hImc)) {
+        // IME is open - check if we're in an AE composition viewer
+        char className[256] = {0};
+        GetClassNameA(focused, className, sizeof(className));
+        // AE viewer panels contain "Afx" in their class names
+        if (strstr(className, "Afx") != NULL) {
+          ImmReleaseContext(focused, hImc);
+          return true;
+        }
+      }
+      ImmReleaseContext(focused, hImc);
+    }
+  }
+
   if (!focused) return false;
 
   char className[256] = {0};
@@ -1436,6 +1478,28 @@ void HideAndApplyAnchor() {
 }
 
 /*****************************************************************************
+ * CommandHook
+ * Monitors AE commands to detect text editing mode (Command 2136)
+ *****************************************************************************/
+static A_Err CommandHook(
+    AEGP_GlobalRefcon plugin_refconP,
+    AEGP_CommandRefcon refconP,
+    AEGP_Command command,
+    AEGP_HookPriority hook_priority,
+    A_Boolean already_handledB,
+    A_Boolean *handledPB) {
+
+  // Toggle text editing mode when Command 2136 is received
+  if (command == CMD_TEXT_EDIT_TOGGLE) {
+    g_textEditingMode = !g_textEditingMode;
+  }
+
+  // Let AE continue processing the command
+  *handledPB = FALSE;
+  return A_Err_NONE;
+}
+
+/*****************************************************************************
  * IdleHook
  * Called periodically by After Effects - we use this to check keyboard state
  *****************************************************************************/
@@ -1462,9 +1526,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: user is typing in text field OR After Effects is not in foreground
+  // Skip if: user is typing in text field, text editing mode, OR After Effects is not in foreground
   if (y_key_held && !g_globals.key_was_held && !alt_held &&
-      !IsTextInputFocused() && IsAfterEffectsForeground()) {
+      !IsTextInputFocused() && !g_textEditingMode && IsAfterEffectsForeground()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
       auto timeSinceLastRelease =
@@ -1556,7 +1620,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Shift+E just pressed - toggle panel
   if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible) {
+      !g_textEditingMode && IsAfterEffectsForeground() && !g_globals.menu_visible) {
 
     if (g_controlVisible) {
       // Already open - close it (toggle off)
@@ -2029,10 +2093,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  // Skip if: modifier keys held (Ctrl/Shift/Alt) or text input focused
+  // Skip if: modifier keys held (Ctrl/Shift/Alt), text input focused, or text editing mode
   bool ctrl_held = KeyboardMonitor::IsCtrlHeld();
   if (d_key_held && !g_dKeyWasHeld && !alt_held && !shift_held && !ctrl_held &&
-      !IsTextInputFocused() && IsAfterEffectsForeground() &&
+      !IsTextInputFocused() && !g_textEditingMode && IsAfterEffectsForeground() &&
       !g_globals.menu_visible && !g_controlVisible && !g_keyframeVisible &&
       !g_alignVisible && !g_textVisible && !g_dMenuVisible) {
     int mouseX = 0, mouseY = 0;
@@ -2246,6 +2310,41 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         g_layerVisible = true;
       }
       break;
+
+    case DMenuUI::ACTION_SETTINGS: {
+      // Try to find and focus the CEP Settings panel
+      // Window title should be "Anchor Snap" or contain it
+      HWND settingsWnd = NULL;
+
+      // Callback to find window with matching title
+      struct EnumData {
+        HWND found;
+      } enumData = { NULL };
+
+      EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        auto* data = reinterpret_cast<EnumData*>(lParam);
+        wchar_t title[256];
+        if (GetWindowTextW(hwnd, title, 256)) {
+          // Check if title contains "Anchor Snap"
+          if (wcsstr(title, L"Anchor Snap") != NULL) {
+            data->found = hwnd;
+            return FALSE;  // Stop enumeration
+          }
+        }
+        return TRUE;  // Continue enumeration
+      }, reinterpret_cast<LPARAM>(&enumData));
+
+      if (enumData.found) {
+        // Restore if minimized
+        if (IsIconic(enumData.found)) {
+          ShowWindow(enumData.found, SW_RESTORE);
+        }
+        SetForegroundWindow(enumData.found);
+        SetFocus(enumData.found);
+      }
+      // If not found, panel might not be open - user needs to open from Window > Extensions
+      break;
+    }
 
     default:
       // ACTION_NONE or ACTION_CANCELLED - do nothing
@@ -2724,6 +2823,14 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
 
     ERR(suites.RegisterSuite5()->AEGP_RegisterIdleHook(
         aegp_plugin_id, IdleHook, (AEGP_IdleRefcon)&g_globals));
+
+    // Register Command Hook to detect text editing mode (Command 2136)
+    ERR(suites.RegisterSuite5()->AEGP_RegisterCommandHook(
+        aegp_plugin_id,
+        AEGP_HP_BeforeAE,
+        CMD_TEXT_EDIT_TOGGLE,
+        CommandHook,
+        nullptr));
 
   } catch (...) {
     err = A_Err_GENERIC;
