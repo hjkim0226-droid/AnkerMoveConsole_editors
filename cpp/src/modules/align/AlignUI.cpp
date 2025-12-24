@@ -357,16 +357,17 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         // Header area (excluding buttons)
         if (pt.y >= 0 && pt.y < HEADER_HEIGHT) {
-            // Pin button (right side)
-            int pinBtnX = WINDOW_WIDTH - 8 - 20;
-            if (pt.x >= pinBtnX && pt.x <= WINDOW_WIDTH - 8) {
-                return HTCLIENT;  // Pin button - clickable
-            }
-            // Mode buttons (left side)
+            // Left side buttons (Align/Dist mode)
             if (pt.x <= 120) {
                 return HTCLIENT;  // Mode buttons - clickable
             }
-            // Rest of header - draggable
+            // Right side buttons (Sel/Comp, Pin, Close)
+            // Sel/Comp start around x=156, Pin/Close near the end
+            int rightButtonsStart = WINDOW_WIDTH - 8 - 24 - 4 - 24 - 8 - 56;  // ~156
+            if (pt.x >= rightButtonsStart) {
+                return HTCLIENT;  // Right buttons - clickable
+            }
+            // Middle area - draggable
             return HTCAPTION;
         }
         return HTCLIENT;
