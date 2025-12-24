@@ -97,10 +97,10 @@ struct DragConfig {
 };
 
 static const DragConfig DRAG_CONFIGS[] = {
-    {0.5f, 1.0f, 999.0f, 1, L"pt"},      // SIZE
-    {2.0f, -1000.0f, 1000.0f, 0, L""},   // TRACKING
-    {1.0f, 0.0f, 999.0f, 0, L""},        // LEADING (0=Auto)
-    {0.1f, 0.0f, 100.0f, 1, L"px"}       // STROKE_WIDTH
+    {0.5f, 1.0f, 999.0f, 1, L"pt"},       // SIZE
+    {2.0f, -10000.0f, 10000.0f, 0, L""}, // TRACKING (±10000)
+    {1.0f, 0.0f, 999.0f, 0, L""},         // LEADING (0=Auto)
+    {0.1f, 0.0f, 100.0f, 1, L"px"}        // STROKE_WIDTH
 };
 
 // Global state
