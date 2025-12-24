@@ -14,7 +14,7 @@
 #include "AE_GeneralPlug.h"
 #include "AE_Macros.h"
 #include "AEGP_SuiteHandler.h"
-#include "String_Utils.h"
+#include "entry.h"
 
 #include <Windows.h>
 #include <fstream>
