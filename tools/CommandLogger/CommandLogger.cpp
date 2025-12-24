@@ -14,7 +14,12 @@
 #include "AE_GeneralPlug.h"
 #include "AE_Macros.h"
 #include "AEGP_SuiteHandler.h"
-#include "entry.h"
+
+#ifdef _WIN32
+    #define DllExport __declspec(dllexport)
+#else
+    #define DllExport __attribute__((visibility("default")))
+#endif
 
 #include <Windows.h>
 #include <fstream>
