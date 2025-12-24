@@ -25,8 +25,7 @@ if(WIN32)
     # SDK 포함 경로
     target_include_directories(${PROJECT_NAME} PRIVATE
         ${AE_SDK_PATH}
-        ${AE_SDK_PATH}/Headers
-        ${AE_SDK_PATH}/Headers/SP
+        ${AE_SDK_PATH}/SP
         ${AE_SDK_PATH}/Util
     )
 
