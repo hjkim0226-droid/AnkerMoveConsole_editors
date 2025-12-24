@@ -153,6 +153,7 @@ static ValueTarget g_lastClickTarget = TARGET_NONE;
 
 // Color picker state
 static bool g_colorPickerForStroke = false;
+static bool g_colorPickerOpen = false;  // Prevent main window from closing
 static float g_pickerColor[3] = {1, 1, 1};
 static int g_pickerHue = 0;
 
@@ -661,7 +662,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         break;
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen && !g_presetDropdownOpen && !g_forwardingToAE) {
+        if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen && !g_presetDropdownOpen && !g_forwardingToAE && !g_colorPickerOpen) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -2048,58 +2049,86 @@ static float g_pickerH = 0, g_pickerS = 1, g_pickerV = 1;
 static bool g_pickerDraggingSV = false;
 static bool g_pickerDraggingHue = false;
 
-// Bitmap caching for performance
+// Bitmap caching for performance (using DIB for fast pixel access)
 static HBITMAP g_svBitmap = NULL;
 static HBITMAP g_hueBitmap = NULL;
 static float g_cachedHue = -1.0f;  // Track when SV needs redraw
+static BYTE* g_svPixels = NULL;    // Direct pixel access for SV
+static BYTE* g_huePixels = NULL;   // Direct pixel access for Hue
 
 static void CreateSVBitmap(float hue) {
-    if (g_svBitmap) DeleteObject(g_svBitmap);
-
-    HDC screenDC = GetDC(NULL);
-    g_svBitmap = CreateCompatibleBitmap(screenDC, SV_SIZE, SV_SIZE);
-    HDC memDC = CreateCompatibleDC(screenDC);
-    SelectObject(memDC, g_svBitmap);
-
-    for (int py = 0; py < SV_SIZE; py++) {
-        for (int px = 0; px < SV_SIZE; px++) {
-            float s = (float)px / SV_SIZE;
-            float v = 1.0f - (float)py / SV_SIZE;
-            float r, g, b;
-            HSVtoRGB(hue, s, v, &r, &g, &b);
-            SetPixel(memDC, px, py, RGB((int)(r*255), (int)(g*255), (int)(b*255)));
-        }
+    if (g_svBitmap) {
+        DeleteObject(g_svBitmap);
+        g_svBitmap = NULL;
+        g_svPixels = NULL;
     }
 
-    DeleteDC(memDC);
+    // Create DIB for direct pixel access
+    BITMAPINFO bmi = {0};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = SV_SIZE;
+    bmi.bmiHeader.biHeight = -SV_SIZE;  // Top-down DIB
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    HDC screenDC = GetDC(NULL);
+    g_svBitmap = CreateDIBSection(screenDC, &bmi, DIB_RGB_COLORS, (void**)&g_svPixels, NULL, 0);
     ReleaseDC(NULL, screenDC);
+
+    if (g_svPixels) {
+        // Direct pixel write - much faster than SetPixel
+        for (int py = 0; py < SV_SIZE; py++) {
+            BYTE* row = g_svPixels + py * SV_SIZE * 4;
+            for (int px = 0; px < SV_SIZE; px++) {
+                float s = (float)px / SV_SIZE;
+                float v = 1.0f - (float)py / SV_SIZE;
+                float r, g, b;
+                HSVtoRGB(hue, s, v, &r, &g, &b);
+                row[px * 4 + 0] = (BYTE)(b * 255);  // Blue
+                row[px * 4 + 1] = (BYTE)(g * 255);  // Green
+                row[px * 4 + 2] = (BYTE)(r * 255);  // Red
+                row[px * 4 + 3] = 255;              // Alpha
+            }
+        }
+    }
     g_cachedHue = hue;
 }
 
 static void CreateHueBitmap() {
     if (g_hueBitmap) return;  // Only create once
 
-    HDC screenDC = GetDC(NULL);
-    g_hueBitmap = CreateCompatibleBitmap(screenDC, SV_SIZE, HUE_BAR_HEIGHT);
-    HDC memDC = CreateCompatibleDC(screenDC);
-    SelectObject(memDC, g_hueBitmap);
+    BITMAPINFO bmi = {0};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = SV_SIZE;
+    bmi.bmiHeader.biHeight = -HUE_BAR_HEIGHT;  // Top-down DIB
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
 
-    for (int px = 0; px < SV_SIZE; px++) {
-        float h = (float)px / SV_SIZE;
-        float r, g, b;
-        HSVtoRGB(h, 1, 1, &r, &g, &b);
-        COLORREF color = RGB((int)(r*255), (int)(g*255), (int)(b*255));
+    HDC screenDC = GetDC(NULL);
+    g_hueBitmap = CreateDIBSection(screenDC, &bmi, DIB_RGB_COLORS, (void**)&g_huePixels, NULL, 0);
+    ReleaseDC(NULL, screenDC);
+
+    if (g_huePixels) {
         for (int py = 0; py < HUE_BAR_HEIGHT; py++) {
-            SetPixel(memDC, px, py, color);
+            BYTE* row = g_huePixels + py * SV_SIZE * 4;
+            for (int px = 0; px < SV_SIZE; px++) {
+                float h = (float)px / SV_SIZE;
+                float r, g, b;
+                HSVtoRGB(h, 1, 1, &r, &g, &b);
+                row[px * 4 + 0] = (BYTE)(b * 255);
+                row[px * 4 + 1] = (BYTE)(g * 255);
+                row[px * 4 + 2] = (BYTE)(r * 255);
+                row[px * 4 + 3] = 255;
+            }
         }
     }
-
-    DeleteDC(memDC);
-    ReleaseDC(NULL, screenDC);
 }
 
 void ShowColorPicker(bool forStroke, int x, int y) {
     g_colorPickerForStroke = forStroke;
+    g_colorPickerOpen = true;  // Prevent main window from closing
 
     // Get current color and convert to HSV
     float* currentColor = forStroke ? g_textInfo.strokeColor : g_textInfo.fillColor;
@@ -2126,6 +2155,7 @@ void ShowColorPicker(bool forStroke, int x, int y) {
 }
 
 void HideColorPicker() {
+    g_colorPickerOpen = false;  // Allow main window to close again
     if (g_colorPickerHwnd) {
         ShowWindow(g_colorPickerHwnd, SW_HIDE);
     }
