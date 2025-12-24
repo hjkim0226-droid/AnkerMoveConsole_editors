@@ -2044,6 +2044,56 @@ static float g_pickerH = 0, g_pickerS = 1, g_pickerV = 1;
 static bool g_pickerDraggingSV = false;
 static bool g_pickerDraggingHue = false;
 
+// Bitmap caching for performance
+static HBITMAP g_svBitmap = NULL;
+static HBITMAP g_hueBitmap = NULL;
+static float g_cachedHue = -1.0f;  // Track when SV needs redraw
+
+static void CreateSVBitmap(float hue) {
+    if (g_svBitmap) DeleteObject(g_svBitmap);
+
+    HDC screenDC = GetDC(NULL);
+    g_svBitmap = CreateCompatibleBitmap(screenDC, SV_SIZE, SV_SIZE);
+    HDC memDC = CreateCompatibleDC(screenDC);
+    SelectObject(memDC, g_svBitmap);
+
+    for (int py = 0; py < SV_SIZE; py++) {
+        for (int px = 0; px < SV_SIZE; px++) {
+            float s = (float)px / SV_SIZE;
+            float v = 1.0f - (float)py / SV_SIZE;
+            float r, g, b;
+            HSVtoRGB(hue, s, v, &r, &g, &b);
+            SetPixel(memDC, px, py, RGB((int)(r*255), (int)(g*255), (int)(b*255)));
+        }
+    }
+
+    DeleteDC(memDC);
+    ReleaseDC(NULL, screenDC);
+    g_cachedHue = hue;
+}
+
+static void CreateHueBitmap() {
+    if (g_hueBitmap) return;  // Only create once
+
+    HDC screenDC = GetDC(NULL);
+    g_hueBitmap = CreateCompatibleBitmap(screenDC, SV_SIZE, HUE_BAR_HEIGHT);
+    HDC memDC = CreateCompatibleDC(screenDC);
+    SelectObject(memDC, g_hueBitmap);
+
+    for (int px = 0; px < SV_SIZE; px++) {
+        float h = (float)px / SV_SIZE;
+        float r, g, b;
+        HSVtoRGB(h, 1, 1, &r, &g, &b);
+        COLORREF color = RGB((int)(r*255), (int)(g*255), (int)(b*255));
+        for (int py = 0; py < HUE_BAR_HEIGHT; py++) {
+            SetPixel(memDC, px, py, color);
+        }
+    }
+
+    DeleteDC(memDC);
+    ReleaseDC(NULL, screenDC);
+}
+
 void ShowColorPicker(bool forStroke, int x, int y) {
     g_colorPickerForStroke = forStroke;
 
@@ -2084,33 +2134,57 @@ bool IsColorPickerVisible() {
 }
 
 static void DrawColorPicker(HDC hdc) {
-    Graphics g(hdc);
-    g.SetSmoothingMode(SmoothingModeAntiAlias);
-    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
-
-    // Background
-    SolidBrush bgBrush(Color(255, 35, 35, 42));
-    g.FillRectangle(&bgBrush, 0, 0, PICKER_WIDTH, PICKER_HEIGHT);
-
-    // Border
-    Pen borderPen(Color(255, 80, 80, 90), 1);
-    g.DrawRectangle(&borderPen, 0, 0, PICKER_WIDTH - 1, PICKER_HEIGHT - 1);
+    // Ensure bitmaps are created/updated
+    CreateHueBitmap();
+    if (g_cachedHue != g_pickerH) {
+        CreateSVBitmap(g_pickerH);
+    }
 
     int padding = 8;
     int svX = padding, svY = padding;
     int hueY = svY + SV_SIZE + 6;
 
-    // Draw SV square (saturation horizontal, value vertical)
-    for (int py = 0; py < SV_SIZE; py++) {
-        for (int px = 0; px < SV_SIZE; px++) {
-            float s = (float)px / SV_SIZE;
-            float v = 1.0f - (float)py / SV_SIZE;
-            float r, gVal, b;
-            HSVtoRGB(g_pickerH, s, v, &r, &gVal, &b);
-            SolidBrush pixelBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
-            g.FillRectangle(&pixelBrush, svX + px, svY + py, 1, 1);
-        }
+    // Create scaled dimensions
+    int scaledSvX = (int)(svX * g_scaleFactor);
+    int scaledSvY = (int)(svY * g_scaleFactor);
+    int scaledSvSize = (int)(SV_SIZE * g_scaleFactor);
+    int scaledHueY = (int)(hueY * g_scaleFactor);
+    int scaledHueH = (int)(HUE_BAR_HEIGHT * g_scaleFactor);
+
+    // Draw background
+    Graphics g(hdc);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
+
+    SolidBrush bgBrush(Color(255, 35, 35, 42));
+    g.FillRectangle(&bgBrush, 0, 0, PICKER_WIDTH, PICKER_HEIGHT);
+
+    Pen borderPen(Color(255, 80, 80, 90), 1);
+    g.DrawRectangle(&borderPen, 0, 0, PICKER_WIDTH - 1, PICKER_HEIGHT - 1);
+
+    // Reset transform to draw bitmaps at actual pixel positions
+    g.ResetTransform();
+
+    // Draw cached SV bitmap (stretched to scaled size)
+    if (g_svBitmap) {
+        HDC memDC = CreateCompatibleDC(hdc);
+        SelectObject(memDC, g_svBitmap);
+        StretchBlt(hdc, scaledSvX, scaledSvY, scaledSvSize, scaledSvSize,
+                   memDC, 0, 0, SV_SIZE, SV_SIZE, SRCCOPY);
+        DeleteDC(memDC);
     }
+
+    // Draw cached Hue bitmap
+    if (g_hueBitmap) {
+        HDC memDC = CreateCompatibleDC(hdc);
+        SelectObject(memDC, g_hueBitmap);
+        StretchBlt(hdc, scaledSvX, scaledHueY, scaledSvSize, scaledHueH,
+                   memDC, 0, 0, SV_SIZE, HUE_BAR_HEIGHT, SRCCOPY);
+        DeleteDC(memDC);
+    }
+
+    // Restore scale for cursors and preview
+    g.ScaleTransform(g_scaleFactor, g_scaleFactor);
 
     // SV cursor
     int svCursorX = svX + (int)(g_pickerS * SV_SIZE);
@@ -2120,17 +2194,8 @@ static void DrawColorPicker(HDC hdc) {
     Pen cursorPenInner(Color(255, 0, 0, 0), 1);
     g.DrawEllipse(&cursorPenInner, svCursorX - 4, svCursorY - 4, 8, 8);
 
-    // Draw Hue bar
-    int hueBarWidth = SV_SIZE;
-    for (int px = 0; px < hueBarWidth; px++) {
-        float h = (float)px / hueBarWidth;
-        float r, gVal, b;
-        HSVtoRGB(h, 1, 1, &r, &gVal, &b);
-        SolidBrush hueBrush(Color(255, (BYTE)(r * 255), (BYTE)(gVal * 255), (BYTE)(b * 255)));
-        g.FillRectangle(&hueBrush, svX + px, hueY, 1, HUE_BAR_HEIGHT);
-    }
-
     // Hue cursor
+    int hueBarWidth = SV_SIZE;
     int hueCursorX = svX + (int)(g_pickerH * hueBarWidth);
     Pen hueCursorPen(Color(255, 255, 255, 255), 2);
     g.DrawRectangle(&hueCursorPen, hueCursorX - 2, hueY - 1, 4, HUE_BAR_HEIGHT + 2);
