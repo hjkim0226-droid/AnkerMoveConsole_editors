@@ -219,9 +219,9 @@ static void ConvertBezierToAE(
     outSpeed = normalizedOutSpeed * safeAvgSpeed;
     inSpeed = normalizedInSpeed * safeAvgSpeed;
 
-    // Clamp speeds to prevent NaN/inf in script (reasonable range: 0-1000)
-    outSpeed = max(0.0f, min(1000.0f, outSpeed));
-    inSpeed = max(0.0f, min(1000.0f, inSpeed));
+    // Clamp speeds to prevent NaN/inf in script (AE range: 0 ~ 10,000,000)
+    outSpeed = max(0.0f, min(10000000.0f, outSpeed));
+    inSpeed = max(0.0f, min(10000000.0f, inSpeed));
 
     // Final NaN and infinity check
     // Finite numbers satisfy: (x - x == 0) and (x == x)
