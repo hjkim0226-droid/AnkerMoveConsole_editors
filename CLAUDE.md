@@ -264,9 +264,9 @@ case WM_ACTIVATE:
 **발견 경위**: AE 내부 로그(`Help > Reveal Logging File`)에서 `UpdateMenuHook` 패턴 발견
 
 **핵심 원리**:
-- `AEGP_RegisterUpdateMenuHook`은 AE 메뉴 업데이트 시 호출됨
-- **텍스트 편집 중에는 이 훅이 호출되지 않음** (AE가 메뉴 업데이트를 건너뜀)
-- "최근에 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
+- `AEGP_RegisterUpdateMenuHook`은 **키보드 입력 시** 호출됨 (주기적 타이머 아님!)
+- **텍스트 편집 중에는 키 입력이 에디터로 가서 훅이 호출되지 않음**
+- "같은 키 입력으로 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
 
 **구현**:
 ```cpp
@@ -300,7 +300,7 @@ if (d_key_held && IsMenuHookRecent() && ...) {
 **장점**:
 - Windows API 의존 없음 (IsTextInputFocused 제거)
 - AE 포그라운드 체크 자동 포함 (AE가 비활성이면 훅 안 호출)
-- 50ms threshold로 빠른 반응속도 유지
+- 50ms threshold = 같은 키 이벤트 처리 시간 여유
 
 **이전 방식 (제거됨)**:
 - `IsTextInputFocused()`: Windows API 기반 (AE 내부 텍스트 에디터 감지 불가)

@@ -24,9 +24,9 @@ DynamicLinkPlugin Plugin::UpdateMenuHook windowtype=2
 
 ### 동작 원리
 
-1. `AEGP_RegisterUpdateMenuHook`은 AE 메뉴 업데이트 시 호출됨
-2. **텍스트 편집 중에는 AE가 메뉴 업데이트를 건너뜀** → 훅 미호출
-3. "최근에 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
+1. `AEGP_RegisterUpdateMenuHook`은 **키보드 입력 시** 호출됨 (주기적 타이머 아님!)
+2. **텍스트 편집 중에는 키 입력이 에디터로 가서** → 훅 미호출
+3. "같은 키 입력으로 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
 
 ### 구현
 
@@ -76,9 +76,9 @@ if (d_key_held && IsMenuHookRecent() && ...) {
 
 ### Threshold 설정
 
-- **50ms**: IdleHook이 ~33ms 간격으로 호출되므로 50ms 내 감지 가능
-- 더 낮추면: 오탐 가능성 증가 (Ctrl+단축키 등)
-- 더 높이면: 반응 속도 저하
+- **50ms**: 같은 키 입력 이벤트 처리에 충분한 여유 시간
+- 키 입력 → MenuHook(0ms) → IdleHook(~10ms) 순서로 처리됨
+- 50ms = "같은 키 입력에서 왔다"고 판단하는 기준
 
 ---
 
