@@ -76,6 +76,48 @@ static auto g_lastTextLayerCheck = std::chrono::steady_clock::now();
 A_Err ExecuteScript(const char *script, char *resultBuf = nullptr, size_t bufSize = 0);
 
 /*****************************************************************************
+ * LogToFile
+ * Write debug messages to a log file in TEMP folder
+ * Usage: LogToFile("message %d", value);
+ *****************************************************************************/
+#ifdef MSWindows
+static FILE* g_logFile = nullptr;
+static bool g_logInitialized = false;
+
+void LogToFile(const char* format, ...) {
+    if (!g_logInitialized) {
+        g_logInitialized = true;
+        char path[MAX_PATH];
+        if (GetTempPathA(MAX_PATH, path)) {
+            strcat_s(path, MAX_PATH, "AnchorSnap.log");
+            fopen_s(&g_logFile, path, "a");
+            if (g_logFile) {
+                fprintf(g_logFile, "\n=== AnchorSnap Log Started ===\n");
+                fflush(g_logFile);
+            }
+        }
+    }
+    if (g_logFile) {
+        va_list args;
+        va_start(args, format);
+        vfprintf(g_logFile, format, args);
+        va_end(args);
+        fprintf(g_logFile, "\n");
+        fflush(g_logFile);
+    }
+    // Also output to DebugView
+    char buffer[1024];
+    va_list args2;
+    va_start(args2, format);
+    vsnprintf(buffer, sizeof(buffer), format, args2);
+    va_end(args2);
+    OutputDebugStringA(buffer);
+}
+#else
+void LogToFile(const char* format, ...) { (void)format; }
+#endif
+
+/*****************************************************************************
  * DebugLogFocusInfo
  * Log focused window info to DebugView (for debugging text edit detection)
  *****************************************************************************/
@@ -1533,8 +1575,10 @@ static A_Err CommandHook(
   // Text editing mode: 2136 = enter (only when off), 2004 = exit (only when on)
   if (command == CMD_TEXT_EDIT_ENTER && !g_textEditingMode) {
     g_textEditingMode = true;
+    LogToFile("[AnchorSnap] Text Edit Mode: ENTER (cmd=%d)", (int)command);
   } else if (command == CMD_LAYER_SELECT && g_textEditingMode) {
     g_textEditingMode = false;
+    LogToFile("[AnchorSnap] Text Edit Mode: EXIT (cmd=%d)", (int)command);
   }
 
   // Let AE continue processing the command
