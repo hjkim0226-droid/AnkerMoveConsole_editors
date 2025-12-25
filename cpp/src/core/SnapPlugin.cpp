@@ -122,6 +122,7 @@ void LogToFile(const char* format, ...) {
 void LogToFile(const char* format, ...) { (void)format; }
 #endif
 
+#ifdef MSWindows
 /*****************************************************************************
  * IsEffectControlsFocused
  * Check if Effect Controls panel is the active/focused panel in AE
