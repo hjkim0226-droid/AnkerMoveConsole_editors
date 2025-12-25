@@ -65,7 +65,7 @@ static const AEGP_Command CMD_LAYER_SELECT = 2004;     // 레이어 선택 (편�
 // UpdateMenuHook-based text editing detection (NEW METHOD)
 // If UpdateMenuHook is called, we're NOT in text editing mode
 static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
-static const int MENU_HOOK_THRESHOLD_MS = 100;  // 100ms 이내에 호출됐으면 편집 모드 아님
+static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내에 호출됐으면 편집 모드 아님
 
 // Text module state
 static bool g_textVisible = false;
