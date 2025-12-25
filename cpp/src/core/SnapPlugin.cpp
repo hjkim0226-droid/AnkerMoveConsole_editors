@@ -62,6 +62,11 @@ static bool g_alignVisible = false;
 static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
 static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내에 호출됐으면 편집 모드 아님
 
+// Panel activation window - allows key input for 1 second after UpdateMenuHook
+// Fixes: switching from other window, then immediately pressing key
+static auto g_panelActivationTime = std::chrono::steady_clock::now();
+static const int PANEL_ACTIVATION_WINDOW_MS = 1000;  // UpdateMenuHook 후 1초간 키 입력 허용
+
 // Text module state
 static bool g_textVisible = false;
 
@@ -1392,7 +1397,7 @@ void HideAndApplyAnchor() {
 
 /*****************************************************************************
  * CommandHook
- * Monitors AE commands (reserved for future use)
+ * Monitors AE commands - logs all command IDs for debugging
  *****************************************************************************/
 static A_Err CommandHook(
     AEGP_GlobalRefcon plugin_refconP,
@@ -1402,8 +1407,13 @@ static A_Err CommandHook(
     A_Boolean already_handledB,
     A_Boolean *handledPB) {
 
-  // Reserved for future command monitoring
-  // Text editing detection now uses UpdateMenuHook instead
+  // Log to AE debug console (visible with -debug flag or in log file)
+  if (g_globals.pica_basicP) {
+    AEGP_SuiteHandler suites(g_globals.pica_basicP);
+    char info[64];
+    snprintf(info, sizeof(info), "cmd=%d", command);
+    suites.UtilitySuite6()->AEGP_WriteToDebugLog("AnchorSnap", "CommandHook", info);
+  }
 
   *handledPB = FALSE;
   return A_Err_NONE;
@@ -1419,7 +1429,13 @@ static A_Err UpdateMenuHook(
     AEGP_UpdateMenuRefcon refconP,
     AEGP_WindowType active_window) {
 
-  g_lastMenuHookTime = std::chrono::steady_clock::now();
+  auto now = std::chrono::steady_clock::now();
+  g_lastMenuHookTime = now;
+
+  // Also update panel activation time for 1-second key input window
+  // This covers: panel clicks, key inputs, returning from other apps
+  g_panelActivationTime = now;
+
   return A_Err_NONE;
 }
 
@@ -1428,6 +1444,18 @@ static bool IsMenuHookRecent() {
   auto now = std::chrono::steady_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastMenuHookTime).count();
   return elapsed < MENU_HOOK_THRESHOLD_MS;
+}
+
+// Helper: Check if within panel activation window (1 second after valid panel state)
+static bool IsInPanelActivationWindow() {
+  auto now = std::chrono::steady_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_panelActivationTime).count();
+  return elapsed < PANEL_ACTIVATION_WINDOW_MS;
+}
+
+// Combined check: either UpdateMenuHook recent OR within panel activation window
+static bool IsKeyInputAllowed() {
+  return IsMenuHookRecent() || IsInPanelActivationWindow();
 }
 
 /*****************************************************************************
@@ -1457,8 +1485,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: UpdateMenuHook not called recently (= text editing mode or AE not foreground)
-  if (y_key_held && !g_globals.key_was_held && !alt_held && IsMenuHookRecent()) {
+  // Skip if: not in valid key input state (text editing mode, AE not foreground, or panel not active)
+  if (y_key_held && !g_globals.key_was_held && !alt_held && IsKeyInputAllowed()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
       auto timeSinceLastRelease =
@@ -1549,9 +1577,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool shift_e_pressed = shift_held && e_key_held;
 
   // Shift+E just pressed - toggle panel
-  // Skip if: UpdateMenuHook not called recently (= text editing mode or AE not foreground)
+  // Skip if: not in valid key input state
   if (shift_e_pressed && !g_eKeyWasHeld &&
-      IsMenuHookRecent() && !g_globals.menu_visible) {
+      IsKeyInputAllowed() && !g_globals.menu_visible) {
 
     if (g_controlVisible) {
       // Already open - close it (toggle off)
@@ -1821,7 +1849,7 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Right Shift+K just pressed - toggle panel
   if (rshift_k_pressed && !g_rshiftKWasHeld &&
-      IsMenuHookRecent() && !g_globals.menu_visible && !g_dMenuVisible) {
+      IsKeyInputAllowed() && !g_globals.menu_visible && !g_dMenuVisible) {
 
     if (g_keyframeVisible) {
       // Already open - close it (toggle off)
@@ -2024,10 +2052,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  // Skip if: modifier keys held, or UpdateMenuHook not called recently (= text editing mode or AE not foreground)
+  // Skip if: modifier keys held, or not in valid key input state
   bool ctrl_held = KeyboardMonitor::IsCtrlHeld();
   if (d_key_held && !g_dKeyWasHeld && !alt_held && !shift_held && !ctrl_held &&
-      IsMenuHookRecent() &&
+      IsKeyInputAllowed() &&
       !g_globals.menu_visible && !g_controlVisible && !g_keyframeVisible &&
       !g_alignVisible && !g_textVisible && !g_dMenuVisible) {
     int mouseX = 0, mouseY = 0;
