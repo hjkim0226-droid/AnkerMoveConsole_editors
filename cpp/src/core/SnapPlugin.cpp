@@ -1640,9 +1640,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: user is typing in text field, text editing mode, OR After Effects is not in foreground
+  // Skip if: UpdateMenuHook not called recently (= text editing mode)
   if (y_key_held && !g_globals.key_was_held && !alt_held &&
-      !IsTextInputFocused() && !g_textEditingMode && IsAfterEffectsForeground()) {
+      IsMenuHookRecent() && IsAfterEffectsForeground()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
       auto timeSinceLastRelease =
@@ -1733,8 +1733,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool shift_e_pressed = shift_held && e_key_held;
 
   // Shift+E just pressed - toggle panel
-  if (shift_e_pressed && !g_eKeyWasHeld && !IsTextInputFocused() &&
-      !g_textEditingMode && IsAfterEffectsForeground() && !g_globals.menu_visible) {
+  // Skip if: UpdateMenuHook not called recently (= text editing mode)
+  if (shift_e_pressed && !g_eKeyWasHeld &&
+      IsMenuHookRecent() && IsAfterEffectsForeground() && !g_globals.menu_visible) {
 
     if (g_controlVisible) {
       // Already open - close it (toggle off)
@@ -2207,10 +2208,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  // Skip if: modifier keys held (Ctrl/Shift/Alt), text input focused, or text editing mode
+  // Skip if: modifier keys held, or UpdateMenuHook not called recently (= text editing mode)
   bool ctrl_held = KeyboardMonitor::IsCtrlHeld();
   if (d_key_held && !g_dKeyWasHeld && !alt_held && !shift_held && !ctrl_held &&
-      !IsTextInputFocused() && !g_textEditingMode && IsAfterEffectsForeground() &&
+      IsMenuHookRecent() && IsAfterEffectsForeground() &&
       !g_globals.menu_visible && !g_controlVisible && !g_keyframeVisible &&
       !g_alignVisible && !g_textVisible && !g_dMenuVisible) {
     int mouseX = 0, mouseY = 0;
