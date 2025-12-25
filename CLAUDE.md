@@ -259,6 +259,54 @@ case WM_ACTIVATE:
 3. **Git diff로 비교**
    - 작동하던 커밋과 현재 코드 비교: `git diff <working-commit> HEAD -- <file>`
 
+### 텍스트 편집 중 키보드 후킹 방지 (UpdateMenuHook 방식)
+
+**발견 경위**: AE 내부 로그(`Help > Reveal Logging File`)에서 `UpdateMenuHook` 패턴 발견
+
+**핵심 원리**:
+- `AEGP_RegisterUpdateMenuHook`은 AE 메뉴 업데이트 시 호출됨
+- **텍스트 편집 중에는 이 훅이 호출되지 않음** (AE가 메뉴 업데이트를 건너뜀)
+- "최근에 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
+
+**구현**:
+```cpp
+// 전역 변수
+static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
+static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내 = 편집 모드 아님
+
+// UpdateMenuHook 콜백
+static A_Err UpdateMenuHook(
+    AEGP_GlobalRefcon plugin_refconP,
+    AEGP_UpdateMenuRefcon refconP,
+    AEGP_WindowType active_window) {
+  g_lastMenuHookTime = std::chrono::steady_clock::now();
+  return A_Err_NONE;
+}
+
+// 헬퍼 함수
+static bool IsMenuHookRecent() {
+  auto now = std::chrono::steady_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now - g_lastMenuHookTime).count();
+  return elapsed < MENU_HOOK_THRESHOLD_MS;
+}
+
+// 사용 예시 (D키 조건)
+if (d_key_held && IsMenuHookRecent() && ...) {
+  DMenuUI::ShowMenu(x, y);
+}
+```
+
+**장점**:
+- Windows API 의존 없음 (IsTextInputFocused 제거)
+- AE 포그라운드 체크 자동 포함 (AE가 비활성이면 훅 안 호출)
+- 50ms threshold로 빠른 반응속도 유지
+
+**이전 방식 (제거됨)**:
+- `IsTextInputFocused()`: Windows API 기반 (AE 내부 텍스트 에디터 감지 불가)
+- `IsAfterEffectsForeground()`: 별도 체크 불필요 (UpdateMenuHook에 포함)
+- `CommandHook` CMD 2136/2004: 텍스트 편집 감지 시도 (불안정)
+
 ---
 
 ## Git Workflow

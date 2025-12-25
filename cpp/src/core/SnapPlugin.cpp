@@ -57,13 +57,8 @@ static bool g_dKeyWasHeld = false;
 // Align module state
 static bool g_alignVisible = false;
 
-// Text editing state (detected via Command 2136 enter, 2004 exit)
-static bool g_textEditingMode = false;
-static const AEGP_Command CMD_TEXT_EDIT_ENTER = 2136;  // 텍스트 편집 진입
-static const AEGP_Command CMD_LAYER_SELECT = 2004;     // 레이어 선택 (편집 종료)
-
-// UpdateMenuHook-based text editing detection (NEW METHOD)
-// If UpdateMenuHook is called, we're NOT in text editing mode
+// Text editing detection via UpdateMenuHook
+// If UpdateMenuHook is called recently, user is NOT in text editing mode
 static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
 static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내에 호출됐으면 편집 모드 아님
 
@@ -121,174 +116,6 @@ void LogToFile(const char* format, ...) {
 #else
 void LogToFile(const char* format, ...) { (void)format; }
 #endif
-
-/*****************************************************************************
- * DebugLogFocusInfo
- * Log focused window info to DebugView (for debugging text edit detection)
- *****************************************************************************/
-#ifdef MSWindows
-static auto g_lastDebugLog = std::chrono::steady_clock::now();
-
-void DebugLogFocusInfo() {
-  // Only log every 500ms to avoid spam
-  auto now = std::chrono::steady_clock::now();
-  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastDebugLog).count();
-  if (elapsed < 500) return;
-  g_lastDebugLog = now;
-
-  HWND fg = GetForegroundWindow();
-  if (!fg) return;
-
-  DWORD threadId = GetWindowThreadProcessId(fg, NULL);
-  GUITHREADINFO gti = {0};
-  gti.cbSize = sizeof(GUITHREADINFO);
-
-  if (!GetGUIThreadInfo(threadId, &gti)) return;
-
-  char className[256] = {0};
-  if (gti.hwndFocus) {
-    GetClassNameA(gti.hwndFocus, className, sizeof(className));
-  }
-
-  char msg[512];
-  snprintf(msg, sizeof(msg),
-    "[AnchorSnap] Focus: %s | Caret: %s | Blinking: %s | IME: %s\n",
-    className[0] ? className : "(none)",
-    gti.hwndCaret ? "YES" : "no",
-    (gti.flags & GUI_CARETBLINKING) ? "YES" : "no",
-    ImmGetContext(gti.hwndFocus) ? "open" : "closed");
-  OutputDebugStringA(msg);
-}
-
-/*****************************************************************************
- * IsTextInputFocused
- * Check if focus is on a text input field (Edit, RichEdit, etc.)
- * Also detects AE's internal text editing mode using IME
- * Returns true if user is typing in a text field
- *****************************************************************************/
-bool IsTextInputFocused() {
-  // Debug log (remove after testing)
-  DebugLogFocusInfo();
-
-  HWND fg = GetForegroundWindow();
-  if (!fg) return false;
-
-  DWORD threadId = GetWindowThreadProcessId(fg, NULL);
-  GUITHREADINFO gti = {0};
-  gti.cbSize = sizeof(GUITHREADINFO);
-
-  if (!GetGUIThreadInfo(threadId, &gti)) return false;
-
-  // Method 1: Check if caret is visible (most reliable for text input)
-  // hwndCaret is set when a text caret (cursor) is visible in any window
-  if (gti.hwndCaret != NULL) {
-    return true;
-  }
-
-  // Method 2: Check if caret is blinking (alternative detection)
-  if (gti.flags & GUI_CARETBLINKING) {
-    return true;
-  }
-
-  // Method 3: Check IME context - AE uses IME for text layer editing
-  // When editing text in AE's Composition viewer, IME is active
-  HWND focused = gti.hwndFocus;
-  if (focused) {
-    HIMC hImc = ImmGetContext(focused);
-    if (hImc) {
-      // Check if IME is currently composing text
-      // This catches text input even in custom rendering contexts like AE's viewer
-      DWORD convMode = 0, sentMode = 0;
-      if (ImmGetConversionStatus(hImc, &convMode, &sentMode)) {
-        // Check if IME has a composition string (user is typing)
-        LONG compLen = ImmGetCompositionStringW(hImc, GCS_COMPSTR, NULL, 0);
-        if (compLen > 0) {
-          ImmReleaseContext(focused, hImc);
-          return true;
-        }
-      }
-
-      // Also check if IME window is open (indicates text input mode)
-      if (ImmGetOpenStatus(hImc)) {
-        // IME is open - check if we're in an AE composition viewer
-        char className[256] = {0};
-        GetClassNameA(focused, className, sizeof(className));
-        // AE viewer panels contain "Afx" in their class names
-        if (strstr(className, "Afx") != NULL) {
-          ImmReleaseContext(focused, hImc);
-          return true;
-        }
-      }
-      ImmReleaseContext(focused, hImc);
-    }
-  }
-
-  if (!focused) return false;
-
-  char className[256] = {0};
-  GetClassNameA(focused, className, sizeof(className));
-
-  // Common text input class names
-  if (_strnicmp(className, "Edit", 4) == 0 ||
-      _strnicmp(className, "RichEdit", 8) == 0 ||
-      _strnicmp(className, "RICHEDIT", 8) == 0 ||
-      _strnicmp(className, "Scintilla", 9) == 0) {
-    return true;
-  }
-
-  // Adobe/AE specific text controls
-  if (strstr(className, "TextField") != NULL ||
-      strstr(className, "TextInput") != NULL ||
-      strstr(className, "Afx") != NULL) {  // Adobe uses MFC (Afx) controls
-    return true;
-  }
-
-  // Method 4: Check if parent window is a text editing dialog
-  // AE uses custom dialogs for text layer editing
-  char parentClass[256] = {0};
-  HWND parent = GetParent(focused);
-  if (parent) {
-    GetClassNameA(parent, parentClass, sizeof(parentClass));
-    if (strstr(parentClass, "Afx") != NULL ||
-        strstr(parentClass, "Edit") != NULL) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/*****************************************************************************
- * IsAfterEffectsForeground
- * Check if After Effects is the foreground (active) window
- * Returns true only when AE is in focus
- *****************************************************************************/
-bool IsAfterEffectsForeground() {
-  HWND fg = GetForegroundWindow();
-  if (!fg)
-    return false;
-
-  // Get window title
-  char title[256] = {0};
-  GetWindowTextA(fg, title, sizeof(title));
-
-  // Check if window title contains "After Effects"
-  // AE main window title format: "Adobe After Effects 2024 - project.aep"
-  if (strstr(title, "After Effects") != NULL) {
-    return true;
-  }
-
-  // Also check window class for AE
-  char className[64] = {0};
-  GetClassNameA(fg, className, sizeof(className));
-
-  // AE uses class names starting with "AE_"
-  if (_strnicmp(className, "AE_", 3) == 0) {
-    return true;
-  }
-
-  return false;
-}
 
 /*****************************************************************************
  * IsEffectControlsFocused
@@ -458,8 +285,6 @@ void GetLayerEffectsList(wchar_t* outBuffer, size_t bufSize) {
 }
 #else
 // macOS stub - TODO: implement
-bool IsTextInputFocused() { return false; }
-bool IsAfterEffectsForeground() { return true; }
 bool IsEffectControlsFocused() { return false; }
 bool IsTextToolActive() { return false; }
 static bool g_effectsLoaded = false;
@@ -1567,7 +1392,7 @@ void HideAndApplyAnchor() {
 
 /*****************************************************************************
  * CommandHook
- * Monitors AE commands to detect text editing mode (Command 2136)
+ * Monitors AE commands (reserved for future use)
  *****************************************************************************/
 static A_Err CommandHook(
     AEGP_GlobalRefcon plugin_refconP,
@@ -1577,16 +1402,9 @@ static A_Err CommandHook(
     A_Boolean already_handledB,
     A_Boolean *handledPB) {
 
-  // Text editing mode: 2136 = enter (only when off), 2004 = exit (only when on)
-  if (command == CMD_TEXT_EDIT_ENTER && !g_textEditingMode) {
-    g_textEditingMode = true;
-    LogToFile("[AnchorSnap] Text Edit Mode: ENTER (cmd=%d)", (int)command);
-  } else if (command == CMD_LAYER_SELECT && g_textEditingMode) {
-    g_textEditingMode = false;
-    LogToFile("[AnchorSnap] Text Edit Mode: EXIT (cmd=%d)", (int)command);
-  }
+  // Reserved for future command monitoring
+  // Text editing detection now uses UpdateMenuHook instead
 
-  // Let AE continue processing the command
   *handledPB = FALSE;
   return A_Err_NONE;
 }
@@ -1602,7 +1420,6 @@ static A_Err UpdateMenuHook(
     AEGP_WindowType active_window) {
 
   g_lastMenuHookTime = std::chrono::steady_clock::now();
-  LogToFile("[AnchorSnap] UpdateMenuHook windowtype=%d", (int)active_window);
   return A_Err_NONE;
 }
 
@@ -1640,9 +1457,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   auto now = std::chrono::steady_clock::now();
 
   // Y key just pressed
-  // Skip if: UpdateMenuHook not called recently (= text editing mode)
-  if (y_key_held && !g_globals.key_was_held && !alt_held &&
-      IsMenuHookRecent() && IsAfterEffectsForeground()) {
+  // Skip if: UpdateMenuHook not called recently (= text editing mode or AE not foreground)
+  if (y_key_held && !g_globals.key_was_held && !alt_held && IsMenuHookRecent()) {
     if (HasSelectedLayers()) {
       // Check for double-tap (Y~Y)
       auto timeSinceLastRelease =
@@ -1733,9 +1549,9 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool shift_e_pressed = shift_held && e_key_held;
 
   // Shift+E just pressed - toggle panel
-  // Skip if: UpdateMenuHook not called recently (= text editing mode)
+  // Skip if: UpdateMenuHook not called recently (= text editing mode or AE not foreground)
   if (shift_e_pressed && !g_eKeyWasHeld &&
-      IsMenuHookRecent() && IsAfterEffectsForeground() && !g_globals.menu_visible) {
+      IsMenuHookRecent() && !g_globals.menu_visible) {
 
     if (g_controlVisible) {
       // Already open - close it (toggle off)
@@ -2004,8 +1820,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool rshift_k_pressed = rshift_held && k_key_held;
 
   // Right Shift+K just pressed - toggle panel
-  if (rshift_k_pressed && !g_rshiftKWasHeld && !IsTextInputFocused() &&
-      IsAfterEffectsForeground() && !g_globals.menu_visible && !g_dMenuVisible) {
+  if (rshift_k_pressed && !g_rshiftKWasHeld &&
+      IsMenuHookRecent() && !g_globals.menu_visible && !g_dMenuVisible) {
 
     if (g_keyframeVisible) {
       // Already open - close it (toggle off)
@@ -2208,10 +2024,10 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
   bool d_key_held = KeyboardMonitor::IsKeyHeld(KeyboardMonitor::KEY_D);
 
   // D key just pressed - show D menu
-  // Skip if: modifier keys held, or UpdateMenuHook not called recently (= text editing mode)
+  // Skip if: modifier keys held, or UpdateMenuHook not called recently (= text editing mode or AE not foreground)
   bool ctrl_held = KeyboardMonitor::IsCtrlHeld();
   if (d_key_held && !g_dKeyWasHeld && !alt_held && !shift_held && !ctrl_held &&
-      IsMenuHookRecent() && IsAfterEffectsForeground() &&
+      IsMenuHookRecent() &&
       !g_globals.menu_visible && !g_controlVisible && !g_keyframeVisible &&
       !g_alignVisible && !g_textVisible && !g_dMenuVisible) {
     int mouseX = 0, mouseY = 0;

@@ -5,187 +5,160 @@
 플러그인의 키보드 단축키(Y, D, Shift+E 등)가 텍스트 입력 중에 작동하면 안 됩니다.
 사용자가 텍스트를 입력할 때 이 키들이 후킹되면 의도치 않게 모듈이 열리는 문제가 발생합니다.
 
-## 현재 상태: 미해결
+## 현재 상태: ✅ 해결됨
 
-**문제**: AE에서 텍스트 레이어 편집 중 영어 `D` 키 입력 시 D메뉴가 열림
+**해결 방법**: UpdateMenuHook 기반 텍스트 편집 감지 (2024-12-25)
 
 ---
 
-## 키보드 후킹 방지 조건들
+## 해결책: UpdateMenuHook 방식
 
-### 1. `IsTextInputFocused()` - Windows 텍스트 입력 감지
+### 발견 경위
 
-**위치**: `SnapPlugin.cpp:76-163`
+AE 내부 로그(`Help > Reveal Logging File`)에서 `UpdateMenuHook` 패턴 발견:
+```
+DynamicLinkPlugin Plugin::UpdateMenuHook windowtype=2
+```
+
+**핵심 발견**: 텍스트 편집 중에는 이 훅이 호출되지 않음!
+
+### 동작 원리
+
+1. `AEGP_RegisterUpdateMenuHook`은 AE 메뉴 업데이트 시 호출됨
+2. **텍스트 편집 중에는 AE가 메뉴 업데이트를 건너뜀** → 훅 미호출
+3. "최근에 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
+
+### 구현
+
+**위치**: `cpp/src/core/SnapPlugin.cpp`
 
 ```cpp
+// 전역 변수
+static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
+static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내 = 편집 모드 아님
+
+// UpdateMenuHook 콜백 등록 (GPMain에서)
+ERR(suites.RegisterSuite5()->AEGP_RegisterUpdateMenuHook(
+    aegp_plugin_id, UpdateMenuHook, nullptr));
+
+// UpdateMenuHook 콜백
+static A_Err UpdateMenuHook(
+    AEGP_GlobalRefcon plugin_refconP,
+    AEGP_UpdateMenuRefcon refconP,
+    AEGP_WindowType active_window) {
+  g_lastMenuHookTime = std::chrono::steady_clock::now();
+  return A_Err_NONE;
+}
+
+// 헬퍼 함수
+static bool IsMenuHookRecent() {
+  auto now = std::chrono::steady_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now - g_lastMenuHookTime).count();
+  return elapsed < MENU_HOOK_THRESHOLD_MS;
+}
+
+// 사용 예시 (모든 키보드 단축키에 적용)
+if (d_key_held && IsMenuHookRecent() && ...) {
+  DMenuUI::ShowMenu(x, y);
+}
+```
+
+### 장점
+
+| 항목 | 이전 방식 | UpdateMenuHook 방식 |
+|------|----------|-------------------|
+| Windows API 의존 | ✅ 필요 (imm32.lib) | ❌ 불필요 |
+| AE 내부 텍스트 에디터 감지 | ❌ 불가능 | ✅ 가능 |
+| AE 포그라운드 체크 | 별도 함수 필요 | 자동 포함 |
+| 코드 복잡도 | 높음 (~100줄) | 낮음 (~20줄) |
+| 반응 속도 | 느림 (WinAPI 호출) | 빠름 (50ms threshold) |
+
+### Threshold 설정
+
+- **50ms**: IdleHook이 ~33ms 간격으로 호출되므로 50ms 내 감지 가능
+- 더 낮추면: 오탐 가능성 증가 (Ctrl+단축키 등)
+- 더 높이면: 반응 속도 저하
+
+---
+
+## 이전 방식들 (제거됨)
+
+### 1. IsTextInputFocused() - Windows API 기반
+
+```cpp
+// 제거됨
 bool IsTextInputFocused() {
-  // Method 1: Windows 캐럿 확인
-  if (gti.hwndCaret != NULL) return true;
-
-  // Method 2: 캐럿 깜빡임 플래그
-  if (gti.flags & GUI_CARETBLINKING) return true;
-
-  // Method 3: IME 컨텍스트 확인 (한글/일본어/중국어)
-  HIMC hImc = ImmGetContext(focused);
-  if (hImc) {
-    // IME 조합 문자열 확인
-    LONG compLen = ImmGetCompositionStringW(hImc, GCS_COMPSTR, NULL, 0);
-    if (compLen > 0) return true;
-
-    // IME 열림 상태 + AE 뷰어 확인
-    if (ImmGetOpenStatus(hImc) && strstr(className, "Afx")) return true;
-  }
-
-  // Method 4: 표준 텍스트 컨트롤 클래스명
-  if (_strnicmp(className, "Edit", 4) == 0) return true;
-  if (_strnicmp(className, "RichEdit", 8) == 0) return true;
-
-  // Method 5: Adobe 특수 컨트롤
-  if (strstr(className, "TextField")) return true;
-  if (strstr(className, "Afx")) return true;
+  // Windows 캐럿, IME, Edit 컨트롤 확인
+  // 문제: AE 컴포지션 뷰어의 텍스트 에디터는 감지 불가
 }
 ```
 
-**감지 가능한 경우**:
-| 상황 | 감지 여부 | 이유 |
-|------|----------|------|
-| Windows Edit 컨트롤 | ✅ 감지됨 | 클래스명 "Edit" |
-| 대화상자 텍스트 필드 | ✅ 감지됨 | hwndCaret 존재 |
-| 한글 입력 (IME) | ✅ 감지됨 | ImmGetCompositionString |
-| **AE 컴포지션 뷰어에서 영어 입력** | ❌ 감지 안됨 | 아래 설명 참조 |
+**문제점**: AE 뷰어는 자체 렌더링을 사용하여 Windows 캐럿/IME 미사용
 
-### 2. `IsTextToolActive()` - AE 텍스트 도구 감지
-
-**위치**: `SnapPlugin.cpp:226-238`
+### 2. CommandHook 기반 (CMD 2136/2004)
 
 ```cpp
-bool IsTextToolActive() {
-  ExecuteScript(
-    "var t=app.project.toolType;"
-    "if(t===ToolType.Tool_TextH||t===ToolType.Tool_TextV)return '1';"
-  );
+// 제거됨
+if (cmd_id == 2136) {
+  g_textEditingMode = true;  // 텍스트 편집 진입
+}
+if (cmd_id == 2004) {
+  g_textEditingMode = false; // 레이어 선택
 }
 ```
 
-**문제점**:
-- 이 함수는 현재 D키 조건에서 **사용되지 않음**
-- 사용하면 텍스트 도구 선택 시 항상 D키 차단 (편집 안 하고 있어도)
+**문제점**: 특정 상황에서만 호출되어 신뢰도 낮음
 
----
+### 3. IsAfterEffectsForeground()
 
-## AE 텍스트 편집이 감지 안 되는 이유
-
-### 문제 상황
-1. AE 컴포지션 뷰어에서 텍스트 레이어 더블클릭 → 텍스트 편집 모드 진입
-2. 영어 `D` 입력 → **D메뉴가 열림** (버그)
-
-### 원인 분석
-
-| 감지 방법 | AE 텍스트 편집에서 작동? | 이유 |
-|-----------|------------------------|------|
-| hwndCaret | ❌ | AE는 자체 렌더링으로 커서 표시, Windows 캐럿 안 씀 |
-| GUI_CARETBLINKING | ❌ | 동일한 이유 |
-| IME 조합 문자열 | ❌ | 영어는 IME 조합 안 함 |
-| ImmGetOpenStatus | ❌ | 영어 입력 시 IME 비활성 |
-| 클래스명 "Edit" | ❌ | AE 뷰어는 Edit 컨트롤 아님 |
-
-### 핵심 문제
-> **AE 컴포지션 뷰어의 텍스트 편집은 AE 내부적으로 처리되며,
-> Windows API로 감지할 수 있는 표준 메커니즘을 사용하지 않음**
-
----
-
-## 가능한 해결 방안
-
-### 방안 1: `IsTextToolActive()` 사용
 ```cpp
-// D키 조건에 추가
-if (!IsTextToolActive() && !IsTextInputFocused() && ...) {
-  DMenuUI::ShowMenu();
+// 제거됨
+bool IsAfterEffectsForeground() {
+  HWND fg = GetForegroundWindow();
+  // AE 클래스명 확인
 }
 ```
-- **장점**: 텍스트 도구 선택 시 D키 차단
-- **단점**: 텍스트 편집 안 하고 도구만 선택해도 차단됨
 
-### 방안 2: TextLayer 선택 상태 확인
+**문제점**: UpdateMenuHook이 AE 비활성 시 호출 안 됨으로 자동 포함
+
+---
+
+## 적용된 단축키
+
+| 키 | 모듈 | IsMenuHookRecent() 체크 |
+|----|------|----------------------|
+| Y (hold) | Grid | ✅ |
+| Shift+E | Control | ✅ |
+| D | DMenu | ✅ |
+| Right Shift+K | Keyframe | ✅ |
+
+---
+
+## AEGP_WindowType 참고
+
+UpdateMenuHook의 `active_window` 파라미터:
+
 ```cpp
-// ExtendScript로 TextLayer 선택 확인
-bool IsTextLayerSelected() {
-  ExecuteScript(
-    "var layers=app.project.activeItem.selectedLayers;"
-    "for(var i=0;i<layers.length;i++){"
-    "  if(layers[i] instanceof TextLayer)return '1';"
-    "}"
-  );
-}
+enum AEGP_WindowType {
+  AEGP_WindType_NONE = 0,
+  AEGP_WindType_PROJECT = 1,
+  AEGP_WindType_COMP = 2,
+  AEGP_WindType_TIME_LAYOUT = 3,
+  AEGP_WindType_LAYER = 4,
+  AEGP_WindType_FOOTAGE = 5,
+  AEGP_WindType_RENDER_QUEUE = 6,
+  AEGP_WindType_QT = 7,
+  AEGP_WindType_DIALOG = 8,
+  AEGP_WindType_FLOWCHART = 9,
+  AEGP_WindType_EFFECT = 10,
+  AEGP_WindType_OTHER = 11
+};
 ```
-- **단점**: TextLayer 선택만 해도 차단 (편집 안 하고 있어도)
-
-### 방안 3: AE 단축키 동작 확인 (실험적)
-사용자 힌트: "텍스트 편집 중에는 선택 도구(V), 앵커 도구(Y) 단축키가 안 먹힘"
-
-AE가 내부적으로 "텍스트 편집 모드"를 알고 있다는 뜻.
-하지만 이 상태를 외부에서 확인할 API가 없음.
-
-### 방안 4: 특정 AE 창 클래스 확인
-AE 텍스트 편집 시 특정 자식 창이 생성되는지 Spy++로 확인 필요.
-
----
-
-## 현재 구현된 코드
-
-### D키 후킹 조건 (SnapPlugin.cpp:2072-2075)
-```cpp
-if (d_key_held && !g_dKeyWasHeld &&
-    !alt_held && !shift_held && !ctrl_held &&
-    !IsTextInputFocused() &&           // 텍스트 입력 감지
-    IsAfterEffectsForeground() &&
-    !g_globals.menu_visible &&
-    !g_controlVisible &&
-    !g_keyframeVisible &&
-    !g_alignVisible &&
-    !g_textVisible &&
-    !g_dMenuVisible) {
-  DMenuUI::ShowMenu(mouseX, mouseY);
-}
-```
-
-### 다른 단축키도 동일한 문제 있음
-- **Y키** (Grid 모듈): `!IsTextInputFocused()` 체크함 → 영어 입력 감지 안됨
-- **Shift+E** (Control 모듈): `!IsTextInputFocused()` 체크함 → 동일
-
----
-
-## ExtendScript API 조사 결과
-
-### 확인한 문서
-- `general/application`: app 객체 속성/메서드
-- `other/viewer`: Viewer 객체 (패널 타입만 확인 가능)
-- `layer/textlayer`: TextLayer 속성
-- `text/textdocument`: 텍스트 속성 (폰트, 크기, 색상 등)
-
-### 결론
-> **AE ExtendScript에는 "텍스트 편집 중인지" 확인하는 API가 존재하지 않음**
-
-- `app.project.toolType`: 도구 선택 상태만 확인 (편집 모드 아님)
-- `TextDocument`: 텍스트 속성만 제공
-- `Viewer.type`: 패널 종류만 (COMPOSITION/LAYER/FOOTAGE)
-
----
-
-## 테스트 필요 사항
-
-1. **Spy++로 AE 텍스트 편집 시 포커스된 창 클래스명 확인**
-   - 텍스트 편집 시 특정 자식 창이 생성되는지 확인
-   - 포커스된 창의 클래스명이 바뀌는지 확인
-
-2. **AE Command ID 조사**
-   - https://hyperbrew.github.io/after-effects-command-ids/
-   - 텍스트 편집 모드 진입/종료 관련 Command ID 확인
 
 ---
 
 ## 관련 파일
 
-- `cpp/src/core/SnapPlugin.cpp`: IsTextInputFocused(), IsTextToolActive()
-- `cpp/src/core/KeyboardMonitor.cpp`: 키보드 상태 확인
+- `cpp/src/core/SnapPlugin.cpp`: UpdateMenuHook 구현 및 IsMenuHookRecent()
+- `CLAUDE.md`: "텍스트 편집 중 키보드 후킹 방지" 섹션
