@@ -62,6 +62,11 @@ static bool g_textEditingMode = false;
 static const AEGP_Command CMD_TEXT_EDIT_ENTER = 2136;  // 텍스트 편집 진입
 static const AEGP_Command CMD_LAYER_SELECT = 2004;     // 레이어 선택 (편집 종료)
 
+// UpdateMenuHook-based text editing detection (NEW METHOD)
+// If UpdateMenuHook is called, we're NOT in text editing mode
+static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
+static const int MENU_HOOK_THRESHOLD_MS = 100;  // 100ms 이내에 호출됐으면 편집 모드 아님
+
 // Text module state
 static bool g_textVisible = false;
 
@@ -1588,15 +1593,24 @@ static A_Err CommandHook(
 
 /*****************************************************************************
  * UpdateMenuHook
- * Called when menus need updating - logs active window type
+ * Called when menus need updating - used to detect NOT in text editing mode
+ * If this hook is called, user is NOT typing in a text field
  *****************************************************************************/
 static A_Err UpdateMenuHook(
     AEGP_GlobalRefcon plugin_refconP,
     AEGP_UpdateMenuRefcon refconP,
     AEGP_WindowType active_window) {
 
+  g_lastMenuHookTime = std::chrono::steady_clock::now();
   LogToFile("[AnchorSnap] UpdateMenuHook windowtype=%d", (int)active_window);
   return A_Err_NONE;
+}
+
+// Helper: Check if UpdateMenuHook was called recently (= NOT in text editing)
+static bool IsMenuHookRecent() {
+  auto now = std::chrono::steady_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastMenuHookTime).count();
+  return elapsed < MENU_HOOK_THRESHOLD_MS;
 }
 
 /*****************************************************************************
