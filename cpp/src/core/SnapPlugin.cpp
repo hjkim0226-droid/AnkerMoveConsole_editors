@@ -1587,6 +1587,19 @@ static A_Err CommandHook(
 }
 
 /*****************************************************************************
+ * UpdateMenuHook
+ * Called when menus need updating - logs active window type
+ *****************************************************************************/
+static A_Err UpdateMenuHook(
+    AEGP_GlobalRefcon plugin_refconP,
+    AEGP_UpdateMenuRefcon refconP,
+    AEGP_WindowType active_window) {
+
+  LogToFile("[AnchorSnap] UpdateMenuHook windowtype=%d", (int)active_window);
+  return A_Err_NONE;
+}
+
+/*****************************************************************************
  * IdleHook
  * Called periodically by After Effects - we use this to check keyboard state
  *****************************************************************************/
@@ -2917,6 +2930,12 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
         AEGP_HP_BeforeAE,
         AEGP_Command_ALL,
         CommandHook,
+        nullptr));
+
+    // Register UpdateMenu Hook to detect window type changes
+    ERR(suites.RegisterSuite5()->AEGP_RegisterUpdateMenuHook(
+        aegp_plugin_id,
+        UpdateMenuHook,
         nullptr));
 
   } catch (...) {
