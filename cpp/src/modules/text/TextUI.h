@@ -86,6 +86,9 @@ TextResult GetResult();
 // Set current text info from ExtendScript JSON
 void SetTextInfo(const wchar_t* jsonInfo);
 
+// Refresh request - returns true if refresh is needed, then clears the flag
+bool NeedsRefresh();
+
 // Color picker
 void ShowColorPicker(bool forStroke, int x, int y);
 void HideColorPicker();

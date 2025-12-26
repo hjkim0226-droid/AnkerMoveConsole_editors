@@ -1444,13 +1444,14 @@ static bool IsAEForeground() {
       AEGP_SuiteHandler suites(g_globals.pica_basicP);
       suites.UtilitySuite6()->AEGP_GetMainHWND(&g_aeMainHwnd);
     } catch (...) {
-      // Suite not available
-      return true;  // Assume foreground if we can't check
+      // Suite not available - SAFE: assume NOT foreground
+      return false;
     }
   }
 
   if (g_aeMainHwnd == NULL) {
-    return true;  // Assume foreground if we can't get handle
+    // Can't get handle - SAFE: assume NOT foreground to prevent key hooking in other apps
+    return false;
   }
 
   // Check if foreground window is AE or a child of AE
@@ -2149,6 +2150,11 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     g_dMenuVisible = true;
   }
 
+  // Fallback: Force close DMenu if it lost focus (WM_ACTIVATE might not fire)
+  if (g_dMenuVisible) {
+    DMenuUI::CheckAndCloseLostFocus();
+  }
+
   // Check if D menu closed and handle action
   if (g_dMenuVisible && !DMenuUI::IsVisible()) {
     g_dMenuVisible = false;
@@ -2554,6 +2560,64 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
     int mouseX = 0, mouseY = 0;
     KeyboardMonitor::GetMousePosition(&mouseX, &mouseY);
     TextUI::UpdateHover(mouseX, mouseY);
+
+    // Check if refresh is requested (e.g., user clicked refresh button)
+    if (TextUI::NeedsRefresh()) {
+      const char* getTextInfoScript =
+        "(function(){"
+        "try{"
+        "var c=app.project.activeItem;"
+        "if(!c||!(c instanceof CompItem))return '';"
+        "var sel=c.selectedLayers;"
+        "var textLayer=null;"
+        "for(var i=0;i<sel.length;i++){"
+        "if(sel[i] instanceof TextLayer){textLayer=sel[i];break;}"
+        "}"
+        "if(!textLayer)return '';"
+        "var txt=textLayer.text.sourceText.value;"
+        "var font=txt.font||'Arial';"
+        "var fontSize=txt.fontSize||72;"
+        "var tracking=txt.tracking||0;"
+        "var leading=txt.leading||0;"
+        "var strokeWidth=txt.strokeWidth||0;"
+        "var fill=txt.fillColor||[1,1,1];"
+        "var stroke=txt.strokeColor||[0,0,0];"
+        "var applyFill=txt.applyFill!==false;"
+        "var applyStroke=txt.applyStroke||false;"
+        "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
+        "var justNum=0;"
+        "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
+        "else if(just==ParagraphJustification.CENTER_JUSTIFY)justNum=1;"
+        "else if(just==ParagraphJustification.RIGHT_JUSTIFY)justNum=2;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT)justNum=3;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_CENTER)justNum=4;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
+        "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
+        "return '{'+"
+        "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"fontSize\":'+fontSize+','+"
+        "'\"tracking\":'+tracking+','+"
+        "'\"leading\":'+leading+','+"
+        "'\"strokeWidth\":'+strokeWidth+','+"
+        "'\"fillColor\":['+fill[0]+','+fill[1]+','+fill[2]+'],'+"
+        "'\"strokeColor\":['+stroke[0]+','+stroke[1]+','+stroke[2]+'],'+"
+        "'\"applyFill\":'+applyFill+','+"
+        "'\"applyStroke\":'+applyStroke+','+"
+        "'\"justify\":'+justNum+','+"
+        "'\"layerName\":\"'+textLayer.name.replace(/\"/g,'\\\\\"')+'\"'+"
+        "'}';"
+        "}catch(e){return '';}"
+        "})();";
+
+      char resultBuf[2048] = {0};
+      ExecuteScript(getTextInfoScript, resultBuf, sizeof(resultBuf));
+
+      if (resultBuf[0] == '{') {
+        wchar_t wResult[2048];
+        MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 2048);
+        TextUI::SetTextInfo(wResult);
+      }
+    }
   }
 
   // Check if Layer panel closed and process result

@@ -107,6 +107,7 @@ static const DragConfig DRAG_CONFIGS[] = {
 static HWND g_hwnd = NULL;
 static HWND g_colorPickerHwnd = NULL;
 static bool g_visible = false;
+static bool g_needsRefresh = false;  // Request to refresh text info from selection
 static ULONG_PTR g_gdiplusToken = 0;
 static TextInfo g_textInfo = {};
 static TextResult g_result;
@@ -579,6 +580,17 @@ void SetTextInfo(const wchar_t* jsonInfo) {
 }
 
 /*****************************************************************************
+ * NeedsRefresh - Check if refresh is requested, and clear the flag
+ *****************************************************************************/
+bool NeedsRefresh() {
+    if (g_needsRefresh) {
+        g_needsRefresh = false;
+        return true;
+    }
+    return false;
+}
+
+/*****************************************************************************
  * WndProc
  *****************************************************************************/
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -662,6 +674,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         break;
 
     case WM_ACTIVATE:
+        // Auto-refresh text info when panel is activated (e.g., clicked)
+        if (LOWORD(wParam) == WA_ACTIVE || LOWORD(wParam) == WA_CLICKACTIVE) {
+            g_needsRefresh = true;  // Request refresh from SnapPlugin
+        }
         if (LOWORD(wParam) == WA_INACTIVE && !g_keepPanelOpen && !g_dragging && !g_editMode && !g_windowDragging && !g_fontDropdownOpen && !g_presetDropdownOpen && !g_forwardingToAE && !g_colorPickerOpen) {
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
@@ -672,7 +688,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_KILLFOCUS:
         if (g_editMode) {
             ExitEditMode(true);
-        } else if (!g_keepPanelOpen && !g_dragging) {
+        } else if (!g_keepPanelOpen && !g_dragging && !g_colorPickerOpen &&
+                   !g_fontDropdownOpen && !g_presetDropdownOpen && !g_forwardingToAE && !g_windowDragging) {
+            // Only close if not in any special mode (same conditions as WM_ACTIVATE)
             g_result.cancelled = true;
             ShowWindow(hwnd, SW_HIDE);
             g_visible = false;
@@ -2357,6 +2375,7 @@ bool IsVisible() { return false; }
 void UpdateHover(int mouseX, int mouseY) { (void)mouseX; (void)mouseY; }
 TextResult GetResult() { return TextResult(); }
 void SetTextInfo(const wchar_t* jsonInfo) { (void)jsonInfo; }
+bool NeedsRefresh() { return false; }
 void ShowColorPicker(bool forStroke, int x, int y) { (void)forStroke; (void)x; (void)y; }
 void HideColorPicker() {}
 bool IsColorPickerVisible() { return false; }

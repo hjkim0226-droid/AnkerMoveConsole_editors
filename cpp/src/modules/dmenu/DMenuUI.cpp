@@ -199,6 +199,38 @@ bool IsVisible() {
 }
 
 /*****************************************************************************
+ * HasFocus
+ * Check if DMenu window has keyboard focus
+ *****************************************************************************/
+bool HasFocus() {
+    if (!g_hwnd || !g_visible) return false;
+    HWND fg = GetForegroundWindow();
+    return fg == g_hwnd;
+}
+
+/*****************************************************************************
+ * CheckAndCloseLostFocus
+ * Fallback: Close menu if it lost focus after grace period
+ * Called from IdleHook to catch cases where WM_ACTIVATE didn't fire
+ *****************************************************************************/
+void CheckAndCloseLostFocus() {
+    if (!g_visible || !g_hwnd) return;
+
+    // Check if grace period has passed
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - g_showTime).count();
+    if (elapsed <= FOCUS_GRACE_PERIOD_MS) return;
+
+    // Check if we lost focus
+    HWND fg = GetForegroundWindow();
+    if (fg != g_hwnd && g_action == ACTION_NONE) {
+        // Lost focus - close the menu
+        g_action = ACTION_CANCELLED;
+        HideMenu();
+    }
+}
+
+/*****************************************************************************
  * GetAction
  *****************************************************************************/
 MenuAction GetAction() {
@@ -398,6 +430,8 @@ void Shutdown() {}
 void ShowMenu(int x, int y) { (void)x; (void)y; }
 void HideMenu() {}
 bool IsVisible() { return false; }
+bool HasFocus() { return false; }
+void CheckAndCloseLostFocus() {}
 MenuAction GetAction() { return ACTION_NONE; }
 void Update() {}
 

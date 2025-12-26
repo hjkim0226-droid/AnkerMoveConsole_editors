@@ -41,6 +41,12 @@ void HideMenu();
 // Check if menu is visible
 bool IsVisible();
 
+// Check if menu has focus (for fallback close detection)
+bool HasFocus();
+
+// Force close if lost focus (call from idle hook as fallback)
+void CheckAndCloseLostFocus();
+
 // Get the action after menu closes
 MenuAction GetAction();
 
