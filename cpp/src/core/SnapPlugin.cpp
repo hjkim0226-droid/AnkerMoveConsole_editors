@@ -1371,9 +1371,46 @@ void HideAndApplyAnchor() {
 // 대체: UpdateMenuHook이 텍스트 편집 감지 역할을 이미 수행
 
 /*****************************************************************************
+ * ═══════════════════════════════════════════════════════════════════════════
+ *                     KEY INPUT DETECTION SYSTEM
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * 키 입력 감지 흐름:
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ 1. IdleHook (주기적 호출)                                                │
+ * │    └─> GetAsyncKeyState()로 키 상태 확인                                 │
+ * │        └─> IsKeyInputAllowed()로 키 입력 허용 여부 판단                   │
+ * │                                                                         │
+ * │ 2. IsKeyInputAllowed() 조건:                                            │
+ * │    ├─> IsAEForeground(): AE가 포그라운드인지 확인                         │
+ * │    │   └─> AEGP_GetMainHWND + GetForegroundWindow 조합                  │
+ * │    │                                                                    │
+ * │    └─> IsMenuHookRecent() OR IsInPanelActivationWindow()                │
+ * │        ├─> IsMenuHookRecent(): 50ms 이내 UpdateMenuHook 호출 여부        │
+ * │        │   └─> 키 입력 시 호출됨 (텍스트 편집 중엔 미호출)                 │
+ * │        │                                                                │
+ * │        └─> IsInPanelActivationWindow(): 300ms 이내 활성화 여부           │
+ * │            └─> 마우스 클릭 시 UpdateMenuHook 미호출 → 직접 감지           │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
+ * AEGP API 사용:
+ * - AEGP_RegisterUpdateMenuHook: 텍스트 편집 감지 (AEGP_UtilitySuite)
+ * - AEGP_GetMainHWND: AE 메인 윈도우 핸들 (AEGP_UtilitySuite6)
+ * - AEGP_RegisterIdleHook: 주기적 키 상태 확인 (AEGP_RegisterSuite5)
+ *
+ * Windows API 사용 (AEGP 대체 불가):
+ * - GetAsyncKeyState: 키 상태 조회
+ * - GetForegroundWindow: 포그라운드 윈도우 확인
+ * - GetAncestor, GetWindow: AE 자식 윈도우 확인
+ *****************************************************************************/
+
+/*****************************************************************************
  * UpdateMenuHook
  * Called when menus need updating - used to detect NOT in text editing mode
  * If this hook is called, user is NOT typing in a text field
+ *
+ * AEGP API: AEGP_RegisterUpdateMenuHook (AEGP_RegisterSuite5)
+ * 역할: 텍스트 편집 모드 감지 - 텍스트 편집 중에는 이 훅이 호출되지 않음
  *****************************************************************************/
 static A_Err UpdateMenuHook(
     AEGP_GlobalRefcon plugin_refconP,
@@ -1390,8 +1427,16 @@ static A_Err UpdateMenuHook(
   return A_Err_NONE;
 }
 
-// Helper: Check if After Effects is the foreground window
-// Uses cached AE main window handle from AEGP_GetMainHWND
+/**
+ * IsAEForeground
+ * Check if After Effects is the foreground window
+ *
+ * AEGP API: AEGP_GetMainHWND (AEGP_UtilitySuite6)
+ * Windows API: GetForegroundWindow, GetAncestor, GetWindow (대체 불가)
+ *
+ * 동작: AE 메인 윈도우 또는 자식 윈도우가 포그라운드인지 확인
+ * 참고: 다이얼로그, 패널 등 AE 소유 윈도우도 포함
+ */
 static bool IsAEForeground() {
   // Get AE main window handle if not cached
   if (g_aeMainHwnd == NULL && g_globals.pica_basicP != NULL) {
@@ -1439,21 +1484,44 @@ static bool IsAEForeground() {
   return false;
 }
 
-// Helper: Check if UpdateMenuHook was called recently (= NOT in text editing)
+/**
+ * IsMenuHookRecent
+ * Check if UpdateMenuHook was called within threshold (= NOT in text editing)
+ *
+ * 원리: 키 입력 시 UpdateMenuHook이 호출됨
+ *       텍스트 편집 중에는 키가 에디터로 가서 훅 미호출
+ * 임계값: MENU_HOOK_THRESHOLD_MS (50ms)
+ */
 static bool IsMenuHookRecent() {
   auto now = std::chrono::steady_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastMenuHookTime).count();
   return elapsed < MENU_HOOK_THRESHOLD_MS;
 }
 
-// Helper: Check if within panel activation window (1 second after valid panel state)
+/**
+ * IsInPanelActivationWindow
+ * Check if within panel activation window after mouse click or UpdateMenuHook
+ *
+ * 원리: 마우스 클릭 시 UpdateMenuHook 미호출 → IdleHook에서 직접 감지
+ *       클릭 후 일정 시간 내에는 키 입력 허용
+ * 임계값: PANEL_ACTIVATION_WINDOW_MS (300ms)
+ */
 static bool IsInPanelActivationWindow() {
   auto now = std::chrono::steady_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_panelActivationTime).count();
   return elapsed < PANEL_ACTIVATION_WINDOW_MS;
 }
 
-// Combined check: AE foreground AND (UpdateMenuHook recent OR within panel activation window)
+/**
+ * IsKeyInputAllowed
+ * Combined check for key input permission
+ *
+ * 조건:
+ * 1. AE가 포그라운드 (IsAEForeground)
+ * 2. 최근 UpdateMenuHook 호출 (IsMenuHookRecent) OR 패널 활성화 윈도우 내 (IsInPanelActivationWindow)
+ *
+ * 사용 위치: IdleHook에서 각 모듈 키 트리거 전에 호출
+ */
 static bool IsKeyInputAllowed() {
   // First, check if AE is the foreground window
   if (!IsAEForeground()) {

@@ -59,6 +59,24 @@ cep/                    # CEP Panel (Settings UI)
 
 ---
 
+## API Usage (AEGP vs Windows API)
+
+### AEGP API 사용 현황
+- **AEGP_GetMainHWND**: AE 메인 윈도우 핸들 (IsAEForeground)
+- **AEGP_ExecuteScript**: ExtendScript 실행
+- **AEGP_RegisterUpdateMenuHook**: 텍스트 편집 감지
+- **AEGP_RegisterIdleHook**: 주기적 키 상태 확인
+
+### 필수 Windows API (대체 불가)
+- **GetAsyncKeyState**: 키 상태 조회 - AEGP에 대체 API 없음
+- **GetCursorPos**: 마우스 위치 조회 - AEGP에 대체 API 없음
+- **CreateWindowExW**: UI 윈도우 생성 - AEGP에 대체 API 없음
+
+### 상세 문서
+→ [docs/API_MAPPING.md](docs/API_MAPPING.md)
+
+---
+
 ## Module UI Guidelines (모듈 UI 가이드라인)
 
 ### 모듈 타입별 UI 요소
