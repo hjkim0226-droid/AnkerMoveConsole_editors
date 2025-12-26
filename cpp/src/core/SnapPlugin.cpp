@@ -67,6 +67,9 @@ static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내에 호출됐으면
 static auto g_panelActivationTime = std::chrono::steady_clock::now();
 static const int PANEL_ACTIVATION_WINDOW_MS = 1000;  // UpdateMenuHook 후 1초간 키 입력 허용
 
+// Mouse click detection for panel activation (UpdateMenuHook doesn't fire on mouse clicks)
+static bool g_wasMouseButtonDown = false;
+
 // Text module state
 static bool g_textVisible = false;
 
@@ -1466,6 +1469,15 @@ static bool IsKeyInputAllowed() {
 A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
                A_long *max_sleepPL) {
   A_Err err = A_Err_NONE;
+
+  // Mouse click detection: UpdateMenuHook doesn't fire on mouse clicks
+  // Detect click moment and update panel activation time
+  bool mouseButtonDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+  if (mouseButtonDown && !g_wasMouseButtonDown) {
+    // Mouse just clicked - update panel activation time
+    g_panelActivationTime = std::chrono::steady_clock::now();
+  }
+  g_wasMouseButtonDown = mouseButtonDown;
 
   // Preload effects list on first idle (so Shift+E is fast)
   if (!g_effectsLoaded) {

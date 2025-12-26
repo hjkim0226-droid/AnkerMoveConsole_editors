@@ -242,8 +242,9 @@ case WM_ACTIVATE:
 - [x] Mode 1 (Search): Viewer/Timeline 포커스 → Search bar
 - [x] Mode 2 (Effects List): Effect Controls 포커스 → 레이어 이펙트 목록
 - [x] 닫기 버튼 [x] 및 ESC 키
-- [ ] 이펙트 실제 삭제 연결 (ExtendScript)
-- [ ] 이펙트 검색 결과에서 실제 적용
+- [x] 이펙트 실제 삭제 연결 (ExtendScript) → `removeEffectFromLayer()`
+- [x] 이펙트 검색 결과에서 실제 적용 → `addEffectToLayer()`
+- [x] 프리셋 저장/불러오기 → `getEffectPresetData()`, `applyEffectPreset()`
 - [ ] Effect Controls 닫히면 자동 닫힘
 
 ### 중요한 교훈
@@ -267,6 +268,9 @@ case WM_ACTIVATE:
 - `AEGP_RegisterUpdateMenuHook`은 **키보드 입력 시** 호출됨 (주기적 타이머 아님!)
 - **텍스트 편집 중에는 키 입력이 에디터로 가서 훅이 호출되지 않음**
 - "같은 키 입력으로 훅이 호출됐다 = 텍스트 편집 모드 아님" 공식 성립
+- **마우스 클릭 중에는 UpdateMenuHook이 호출되지 않음** (마우스 이벤트 ≠ 키보드 이벤트)
+- **마우스 클릭 중 입력된 키는 다시 입력하지 않는 이상 MenuHook을 발생시키지 않음**
+  - 해결책: IdleHook에서 `GetAsyncKeyState(VK_LBUTTON)`으로 마우스 클릭 감지 → 타임스탬프 업데이트
 
 **구현**:
 ```cpp
