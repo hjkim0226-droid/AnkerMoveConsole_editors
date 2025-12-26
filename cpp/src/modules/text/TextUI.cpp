@@ -110,6 +110,8 @@ static bool g_visible = false;
 static bool g_needsRefresh = false;  // Request to refresh text info from selection
 static ULONG_PTR g_gdiplusToken = 0;
 static TextInfo g_textInfo = {};
+static TextInfo g_copiedStyle = {};    // Copied style for Ctrl+C/V
+static bool g_hasStyleCopied = false;  // True if a style has been copied
 static TextResult g_result;
 static bool g_keepPanelOpen = false;
 static bool g_forwardingToAE = false;  // Flag to prevent close during Undo/Redo
@@ -1430,6 +1432,72 @@ static void HandleKeyDown(WPARAM key) {
     if ((GetKeyState(VK_CONTROL) & 0x8000) && key == 'Z') {
         bool isRedo = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         ForwardUndoRedoToAE(isRedo);
+        return;
+    }
+
+    // Ctrl+C: Copy current text style
+    if ((GetKeyState(VK_CONTROL) & 0x8000) && key == 'C') {
+        g_copiedStyle = g_textInfo;
+        g_hasStyleCopied = true;
+        // Visual feedback could be added here (e.g., brief flash)
+        return;
+    }
+
+    // Ctrl+V: Paste copied text style
+    if ((GetKeyState(VK_CONTROL) & 0x8000) && key == 'V') {
+        if (g_hasStyleCopied) {
+            // Apply all style properties from copied style
+            ApplyTextPropertyValue("fontSize", g_copiedStyle.fontSize);
+            ApplyTextPropertyValue("tracking", g_copiedStyle.tracking);
+            if (g_copiedStyle.leading > 0) {
+                ApplyTextPropertyValue("leading", g_copiedStyle.leading);
+            }
+            ApplyTextPropertyValue("strokeWidth", g_copiedStyle.strokeWidth);
+
+            // Apply colors
+            if (g_copiedStyle.applyFill) {
+                ApplyTextColorValue(false, g_copiedStyle.fillColor[0],
+                                    g_copiedStyle.fillColor[1], g_copiedStyle.fillColor[2]);
+            }
+            if (g_copiedStyle.applyStroke) {
+                ApplyTextColorValue(true, g_copiedStyle.strokeColor[0],
+                                    g_copiedStyle.strokeColor[1], g_copiedStyle.strokeColor[2]);
+            }
+
+            // Apply justification
+            ApplyTextJustificationValue((int)g_copiedStyle.justify);
+
+            // Apply font - find PostScript name from font list
+            const wchar_t* psNameW = g_copiedStyle.font;  // Fallback to family name
+            const wchar_t* familyMatchPS = nullptr;       // First family match (if no style match)
+            for (const auto& fi : g_allFonts) {
+                // Match by family name (case-insensitive)
+                if (_wcsicmp(fi.familyName.c_str(), g_copiedStyle.font) == 0) {
+                    // If we also have an exact style match, use it immediately
+                    if (g_copiedStyle.fontStyle[0] != L'\0' &&
+                        _wcsicmp(fi.styleName.c_str(), g_copiedStyle.fontStyle) == 0) {
+                        psNameW = fi.postScriptName.c_str();
+                        break;
+                    }
+                    // Store first family match as fallback
+                    if (familyMatchPS == nullptr) {
+                        familyMatchPS = fi.postScriptName.c_str();
+                    }
+                }
+            }
+            // Use family match if no exact style match was found
+            if (psNameW == g_copiedStyle.font && familyMatchPS != nullptr) {
+                psNameW = familyMatchPS;
+            }
+            char psName[256];
+            WideCharToMultiByte(CP_UTF8, 0, psNameW, -1, psName, sizeof(psName), NULL, NULL);
+            ApplyTextFont(psName);
+
+            // Update current text info to reflect pasted style
+            g_textInfo = g_copiedStyle;
+            g_result.applied = true;
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        }
         return;
     }
 
