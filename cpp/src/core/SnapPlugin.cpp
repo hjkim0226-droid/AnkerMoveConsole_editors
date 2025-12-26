@@ -62,13 +62,16 @@ static bool g_alignVisible = false;
 static auto g_lastMenuHookTime = std::chrono::steady_clock::now();
 static const int MENU_HOOK_THRESHOLD_MS = 50;  // 50ms 이내에 호출됐으면 편집 모드 아님
 
-// Panel activation window - allows key input for 1 second after UpdateMenuHook
+// Panel activation window - allows key input for short time after UpdateMenuHook/click
 // Fixes: switching from other window, then immediately pressing key
 static auto g_panelActivationTime = std::chrono::steady_clock::now();
-static const int PANEL_ACTIVATION_WINDOW_MS = 1000;  // UpdateMenuHook 후 1초간 키 입력 허용
+static const int PANEL_ACTIVATION_WINDOW_MS = 300;  // UpdateMenuHook 후 300ms간 키 입력 허용 (1000→300 변경)
 
 // Mouse click detection for panel activation (UpdateMenuHook doesn't fire on mouse clicks)
 static bool g_wasMouseButtonDown = false;
+
+// Cached AE main window handle for foreground check
+static HWND g_aeMainHwnd = NULL;
 
 // Text module state
 static bool g_textVisible = false;
@@ -186,45 +189,9 @@ void OpenEffectControls() {
       NULL, 0);
 }
 
-/*****************************************************************************
- * FindEffectControlsWindow
- * Find Effect Controls window position using Win32 API
- * Returns window rect or {0,0,0,0} if not found
- *****************************************************************************/
-RECT FindEffectControlsWindow() {
-  RECT result = {0, 0, 0, 0};
-
-  // Find AE main window first
-  HWND aeWnd = NULL;
-
-  // Callback to find Effect Controls window
-  struct FindData {
-    HWND found;
-  } findData = {NULL};
-
-  // Look for windows with "Effect Controls" in title
-  EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
-    auto* data = (FindData*)lParam;
-    wchar_t title[256];
-    GetWindowTextW(hwnd, title, sizeof(title)/sizeof(wchar_t));
-
-    // Check if this is an Effect Controls window
-    if (wcsstr(title, L"Effect Controls") != NULL) {
-      // Verify it's visible
-      if (IsWindowVisible(hwnd)) {
-        data->found = hwnd;
-        return FALSE; // Stop enumeration
-      }
-    }
-    return TRUE; // Continue
-  }, (LPARAM)&findData);
-
-  if (findData.found) {
-    GetWindowRect(findData.found, &result);
-  }
-
-  return result;
-}
+// NOTE: FindEffectControlsWindow() 삭제됨 (2025-12-26)
+// 이유: 미사용 함수, 4개 Windows API 호출 (EnumWindows, GetWindowTextW, IsWindowVisible, GetWindowRect)
+// 대체: IsEffectControlsFocused()가 ExtendScript로 더 신뢰적으로 구현됨
 
 /*****************************************************************************
  * GetAllEffectsList
@@ -1399,29 +1366,9 @@ void HideAndApplyAnchor() {
   }
 }
 
-/*****************************************************************************
- * CommandHook
- * Monitors AE commands - logs all command IDs for debugging
- *****************************************************************************/
-static A_Err CommandHook(
-    AEGP_GlobalRefcon plugin_refconP,
-    AEGP_CommandRefcon refconP,
-    AEGP_Command command,
-    AEGP_HookPriority hook_priority,
-    A_Boolean already_handledB,
-    A_Boolean *handledPB) {
-
-  // Log to AE debug console (visible with -debug flag or in log file)
-  if (g_globals.pica_basicP) {
-    AEGP_SuiteHandler suites(g_globals.pica_basicP);
-    char info[64];
-    snprintf(info, sizeof(info), "cmd=%d", command);
-    suites.UtilitySuite6()->AEGP_WriteToDebugLog("AnchorSnap", "CommandHook", info);
-  }
-
-  *handledPB = FALSE;
-  return A_Err_NONE;
-}
+// NOTE: CommandHook() 삭제됨 (2025-12-26)
+// 이유: 디버그 로깅만 수행, 실제 기능 없음
+// 대체: UpdateMenuHook이 텍스트 편집 감지 역할을 이미 수행
 
 /*****************************************************************************
  * UpdateMenuHook
@@ -1443,6 +1390,55 @@ static A_Err UpdateMenuHook(
   return A_Err_NONE;
 }
 
+// Helper: Check if After Effects is the foreground window
+// Uses cached AE main window handle from AEGP_GetMainHWND
+static bool IsAEForeground() {
+  // Get AE main window handle if not cached
+  if (g_aeMainHwnd == NULL && g_globals.pica_basicP != NULL) {
+    try {
+      AEGP_SuiteHandler suites(g_globals.pica_basicP);
+      suites.UtilitySuite6()->AEGP_GetMainHWND(&g_aeMainHwnd);
+    } catch (...) {
+      // Suite not available
+      return true;  // Assume foreground if we can't check
+    }
+  }
+
+  if (g_aeMainHwnd == NULL) {
+    return true;  // Assume foreground if we can't get handle
+  }
+
+  // Check if foreground window is AE or a child of AE
+  HWND fgWnd = GetForegroundWindow();
+  if (fgWnd == NULL) {
+    return false;
+  }
+
+  // Direct match
+  if (fgWnd == g_aeMainHwnd) {
+    return true;
+  }
+
+  // Check if foreground window is a child/owned by AE (for dialogs, panels, etc.)
+  HWND parentWnd = GetAncestor(fgWnd, GA_ROOTOWNER);
+  if (parentWnd == g_aeMainHwnd) {
+    return true;
+  }
+
+  // Also check by walking up the owner chain
+  HWND ownerWnd = fgWnd;
+  while (ownerWnd != NULL) {
+    if (ownerWnd == g_aeMainHwnd) {
+      return true;
+    }
+    HWND nextOwner = GetWindow(ownerWnd, GW_OWNER);
+    if (nextOwner == ownerWnd) break;  // Prevent infinite loop
+    ownerWnd = nextOwner;
+  }
+
+  return false;
+}
+
 // Helper: Check if UpdateMenuHook was called recently (= NOT in text editing)
 static bool IsMenuHookRecent() {
   auto now = std::chrono::steady_clock::now();
@@ -1457,8 +1453,13 @@ static bool IsInPanelActivationWindow() {
   return elapsed < PANEL_ACTIVATION_WINDOW_MS;
 }
 
-// Combined check: either UpdateMenuHook recent OR within panel activation window
+// Combined check: AE foreground AND (UpdateMenuHook recent OR within panel activation window)
 static bool IsKeyInputAllowed() {
+  // First, check if AE is the foreground window
+  if (!IsAEForeground()) {
+    return false;
+  }
+  // Then check the timing conditions
   return IsMenuHookRecent() || IsInPanelActivationWindow();
 }
 
@@ -1472,10 +1473,13 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
 
   // Mouse click detection: UpdateMenuHook doesn't fire on mouse clicks
   // Detect click moment and update panel activation time
+  // IMPORTANT: Only update when AE is foreground to prevent hooking keys from other apps
   bool mouseButtonDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
   if (mouseButtonDown && !g_wasMouseButtonDown) {
-    // Mouse just clicked - update panel activation time
-    g_panelActivationTime = std::chrono::steady_clock::now();
+    // Mouse just clicked - update panel activation time ONLY if AE is foreground
+    if (IsAEForeground()) {
+      g_panelActivationTime = std::chrono::steady_clock::now();
+    }
   }
   g_wasMouseButtonDown = mouseButtonDown;
 
@@ -2796,13 +2800,8 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     ERR(suites.RegisterSuite5()->AEGP_RegisterIdleHook(
         aegp_plugin_id, IdleHook, (AEGP_IdleRefcon)&g_globals));
 
-    // Register Command Hook to detect text editing mode (2136=enter, 2004=exit)
-    ERR(suites.RegisterSuite5()->AEGP_RegisterCommandHook(
-        aegp_plugin_id,
-        AEGP_HP_BeforeAE,
-        AEGP_Command_ALL,
-        CommandHook,
-        nullptr));
+    // NOTE: CommandHook 등록 삭제됨 (2025-12-26)
+    // 이유: 디버그 로깅만 수행, UpdateMenuHook이 텍스트 편집 감지 역할 수행
 
     // Register UpdateMenu Hook to detect window type changes
     ERR(suites.RegisterSuite5()->AEGP_RegisterUpdateMenuHook(
