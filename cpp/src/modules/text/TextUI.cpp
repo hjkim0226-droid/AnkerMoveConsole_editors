@@ -1000,10 +1000,27 @@ static void DrawValueBox(Graphics& g, RECT& rect, ValueTarget target, float valu
     sf.SetLineAlignment(StringAlignmentCenter);
     RectF textRect((REAL)rect.left, (REAL)rect.top,
                    (REAL)(rect.right - rect.left), (REAL)(rect.bottom - rect.top));
+
+    // Selection highlight when selectAll is active
+    if (isEdit && g_editSelectAll && !displayText.empty()) {
+        RectF bounds;
+        g.MeasureString(displayText.c_str(), -1, &font, PointF(0, 0), &bounds);
+        REAL textWidth = bounds.Width;
+        REAL textHeight = bounds.Height;
+
+        int selX = (rect.left + rect.right) / 2 - (int)(textWidth / 2) - 2;
+        int selY = (rect.top + rect.bottom) / 2 - (int)(textHeight / 2);
+        int selW = (int)textWidth + 4;
+        int selH = (int)textHeight;
+
+        SolidBrush selBrush(Color(180, 74, 158, 255));  // Blue selection highlight
+        g.FillRectangle(&selBrush, selX, selY, selW, selH);
+    }
+
     g.DrawString(displayText.c_str(), -1, &font, textRect, &sf, &textBrush);
 
-    // Cursor for edit mode
-    if (isEdit) {
+    // Cursor for edit mode (only show when not selectAll)
+    if (isEdit && !g_editSelectAll) {
         // Simple cursor at end (TODO: proper cursor positioning)
         REAL textWidth = 0;
         RectF bounds;
