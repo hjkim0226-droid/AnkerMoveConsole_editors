@@ -272,7 +272,7 @@ macOS: CGEventSourceKeyState(), CGEventGetLocation()
 | **Text** | O | O (스타일) | O | O | X |
 | **Keyframe** | X | X | O (4슬롯) | X | X |
 | **Control** | O | X | O (6슬롯) | X | O (↑↓ Enter) |
-| **Comp** | X | X | X | X | X |
+| **Comp** | X | X | X | X | O (1-9 액션) |
 
 ### 모드/상태
 
@@ -296,6 +296,61 @@ macOS: CGEventSourceKeyState(), CGEventGetLocation()
 - 최근 버그 수정 완료 (DMenu, TextUI, SnapPlugin)
 - 스타일 복사/붙여넣기 신규 기능 추가 완료
 - GitHub Actions 빌드 성공
+
+---
+
+## ExtendScript 선택 감지 API
+
+### ✅ 감지 가능
+
+| 대상 | API | 비고 |
+|------|-----|------|
+| **레이어** | `comp.selectedLayers` | 모든 레이어 타입 |
+| **속성 (타임라인)** | `comp.selectedProperties` | Position, Scale 등 |
+| **키프레임** | `property.selectedKeys` | 인덱스 배열 반환 (1-based) |
+| **프로젝트 아이템** | `app.project.selection` | 컴프, 푸티지, 폴더 등 |
+| **활성 컴프** | `app.project.activeItem` | 현재 열린 컴프 |
+| **마스크** | `layer.mask(index).selected` | 개별 마스크 |
+| **쉐이프 그룹** | `property.selected` | Contents 내 그룹 |
+| **효과** | `comp.selectedProperties` 내 필터링 | matchName 체크 |
+
+### ❌ 감지 불가능
+
+| 대상 | 이유 | 대안 |
+|------|------|------|
+| **마스크 버텍스/포인트** | API 없음 | 없음 |
+| **쉐이프 버텍스/포인트** | API 없음 | 없음 |
+| **베지어 핸들** | API 없음 | 없음 |
+| **Effect Controls 패널 선택** | 패널 포커스 감지 불가 | UpdateMenuHook 간접 감지 |
+| **텍스트 문자 선택 (편집 중)** | API 없음 | 없음 |
+| **타임라인 작업 영역** | 선택 개념 없음 | `comp.workAreaStart/Duration` |
+| **눈금자 가이드** | API 없음 | 없음 |
+| **렌더 큐 아이템** | 선택 API 없음 | 인덱스 접근만 가능 |
+| **오디오 파형 선택** | API 없음 | 없음 |
+
+### ⚠️ 부분적 감지 가능
+
+| 대상 | 가능한 것 | 불가능한 것 |
+|------|----------|------------|
+| **마커** | 속성으로 선택 여부 | 개별 마커 선택 |
+| **레이어 라벨** | 라벨 색상 읽기 | 라벨로 필터링된 선택 |
+| **3D 뷰** | 활성 뷰 인덱스 | 뷰 내 선택된 객체 |
+| **그래프 에디터** | 선택된 키프레임 | 커브 핸들 선택 |
+
+### 레이어 타입 감지
+
+```javascript
+layer instanceof TextLayer      // 텍스트 레이어
+layer instanceof ShapeLayer     // 쉐이프 레이어
+layer instanceof AVLayer        // 영상/이미지/프리컴프/솔리드
+layer instanceof CameraLayer    // 카메라
+layer instanceof LightLayer     // 조명
+
+// AVLayer 세부 타입
+layer.source instanceof CompItem      // 프리컴프
+layer.source instanceof FootageItem   // 푸티지
+layer.source.mainSource instanceof SolidSource  // 솔리드
+```
 
 ---
 
