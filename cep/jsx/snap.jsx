@@ -1257,3 +1257,425 @@ function extendCompDuration() {
     }
 }
 
+// =========================================================================
+// Shape Module - Shape Layer Functions
+// =========================================================================
+
+/**
+ * Get shape layer info for selected shape group
+ * Returns JSON with shape properties
+ */
+function getShapeInfo() {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "";
+        }
+        if (comp.selectedLayers.length === 0) {
+            return "";
+        }
+
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) {
+            return "";
+        }
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        if (!contents || contents.numProperties === 0) {
+            return "";
+        }
+
+        // Get first shape group
+        var shapeGroup = contents.property(1);
+        if (!shapeGroup) {
+            return "";
+        }
+
+        var result = {
+            layerName: layer.name,
+            shapeName: shapeGroup.name,
+            shapeType: "Path",
+            hasFill: false,
+            hasStroke: false,
+            fillColor: [1, 1, 1],
+            strokeColor: [0, 0, 0],
+            strokeWidth: 0,
+            opacity: 100,
+            sizeW: 100,
+            sizeH: 100,
+            roundness: 0,
+            anchorX: 0,
+            anchorY: 0,
+            isParametric: false,
+            sizeLink: false,
+            boundsLeft: 0,
+            boundsTop: 0,
+            boundsWidth: 100,
+            boundsHeight: 100
+        };
+
+        // Check for Rectangle or Ellipse (parametric shapes)
+        var rectPath = shapeGroup.property("ADBE Vector Shape - Rect");
+        var ellipsePath = shapeGroup.property("ADBE Vector Shape - Ellipse");
+
+        if (rectPath) {
+            result.shapeType = "Rectangle";
+            result.isParametric = true;
+            var size = rectPath.property("ADBE Vector Rect Size").value;
+            result.sizeW = size[0];
+            result.sizeH = size[1];
+            var pos = rectPath.property("ADBE Vector Rect Position").value;
+            result.boundsLeft = pos[0] - size[0] / 2;
+            result.boundsTop = pos[1] - size[1] / 2;
+            result.boundsWidth = size[0];
+            result.boundsHeight = size[1];
+            var roundness = rectPath.property("ADBE Vector Rect Roundness");
+            if (roundness) {
+                result.roundness = roundness.value;
+            }
+        } else if (ellipsePath) {
+            result.shapeType = "Ellipse";
+            result.isParametric = true;
+            var eSize = ellipsePath.property("ADBE Vector Ellipse Size").value;
+            result.sizeW = eSize[0];
+            result.sizeH = eSize[1];
+            var ePos = ellipsePath.property("ADBE Vector Ellipse Position").value;
+            result.boundsLeft = ePos[0] - eSize[0] / 2;
+            result.boundsTop = ePos[1] - eSize[1] / 2;
+            result.boundsWidth = eSize[0];
+            result.boundsHeight = eSize[1];
+        }
+
+        // Get Fill
+        var fill = shapeGroup.property("ADBE Vector Graphic - Fill");
+        if (fill) {
+            result.hasFill = true;
+            var fillColor = fill.property("ADBE Vector Fill Color");
+            if (fillColor) {
+                var fc = fillColor.value;
+                result.fillColor = [fc[0], fc[1], fc[2]];
+            }
+            var fillOpacity = fill.property("ADBE Vector Fill Opacity");
+            if (fillOpacity) {
+                result.opacity = fillOpacity.value;
+            }
+        }
+
+        // Get Stroke
+        var stroke = shapeGroup.property("ADBE Vector Graphic - Stroke");
+        if (stroke) {
+            result.hasStroke = true;
+            var strokeColor = stroke.property("ADBE Vector Stroke Color");
+            if (strokeColor) {
+                var sc = strokeColor.value;
+                result.strokeColor = [sc[0], sc[1], sc[2]];
+            }
+            var strokeWidth = stroke.property("ADBE Vector Stroke Width");
+            if (strokeWidth) {
+                result.strokeWidth = strokeWidth.value;
+            }
+        }
+
+        // Get Group Transform
+        var groupName = shapeGroup.name;
+        var groupTransform = shapeGroup.property("ADBE Vector Transform Group");
+        if (groupTransform) {
+            var anchor = groupTransform.property("ADBE Vector Anchor");
+            if (anchor) {
+                result.anchorX = anchor.value[0];
+                result.anchorY = anchor.value[1];
+            }
+        }
+
+        return JSON.stringify(result);
+
+    } catch (e) {
+        return "";
+    }
+}
+
+/**
+ * Set shape fill color
+ */
+function setShapeFillColor(r, g, b) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+        var fill = shapeGroup.property("ADBE Vector Graphic - Fill");
+
+        if (fill) {
+            app.beginUndoGroup("Set Shape Fill Color");
+            fill.property("ADBE Vector Fill Color").setValue([r, g, b, 1]);
+            app.endUndoGroup();
+            return "OK";
+        }
+        return "Error: No fill";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Set shape stroke color
+ */
+function setShapeStrokeColor(r, g, b) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+        var stroke = shapeGroup.property("ADBE Vector Graphic - Stroke");
+
+        if (stroke) {
+            app.beginUndoGroup("Set Shape Stroke Color");
+            stroke.property("ADBE Vector Stroke Color").setValue([r, g, b, 1]);
+            app.endUndoGroup();
+            return "OK";
+        }
+        return "Error: No stroke";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Set shape property value
+ * propName: "strokeWidth", "opacity", "sizeW", "sizeH", "roundness"
+ */
+function setShapePropertyValue(propName, value) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+
+        app.beginUndoGroup("Set Shape Property");
+
+        if (propName === "strokeWidth") {
+            var stroke = shapeGroup.property("ADBE Vector Graphic - Stroke");
+            if (stroke) {
+                stroke.property("ADBE Vector Stroke Width").setValue(value);
+            }
+        } else if (propName === "opacity") {
+            var fill = shapeGroup.property("ADBE Vector Graphic - Fill");
+            if (fill) {
+                fill.property("ADBE Vector Fill Opacity").setValue(value);
+            }
+        } else if (propName === "sizeW" || propName === "sizeH") {
+            var rectPath = shapeGroup.property("ADBE Vector Shape - Rect");
+            var ellipsePath = shapeGroup.property("ADBE Vector Shape - Ellipse");
+            if (rectPath) {
+                var size = rectPath.property("ADBE Vector Rect Size").value;
+                if (propName === "sizeW") size[0] = value;
+                else size[1] = value;
+                rectPath.property("ADBE Vector Rect Size").setValue(size);
+            } else if (ellipsePath) {
+                var eSize = ellipsePath.property("ADBE Vector Ellipse Size").value;
+                if (propName === "sizeW") eSize[0] = value;
+                else eSize[1] = value;
+                ellipsePath.property("ADBE Vector Ellipse Size").setValue(eSize);
+            }
+        } else if (propName === "roundness") {
+            var rectPath2 = shapeGroup.property("ADBE Vector Shape - Rect");
+            if (rectPath2) {
+                rectPath2.property("ADBE Vector Rect Roundness").setValue(value);
+            }
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Set shape size (both W and H)
+ */
+function setShapeSize(w, h) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+
+        app.beginUndoGroup("Set Shape Size");
+
+        var rectPath = shapeGroup.property("ADBE Vector Shape - Rect");
+        var ellipsePath = shapeGroup.property("ADBE Vector Shape - Ellipse");
+        if (rectPath) {
+            rectPath.property("ADBE Vector Rect Size").setValue([w, h]);
+        } else if (ellipsePath) {
+            ellipsePath.property("ADBE Vector Ellipse Size").setValue([w, h]);
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Set shape group anchor point
+ */
+function setShapeAnchor(x, y) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+
+        app.beginUndoGroup("Set Shape Anchor");
+
+        var groupTransform = shapeGroup.property("ADBE Vector Transform Group");
+        if (groupTransform) {
+            var anchor = groupTransform.property("ADBE Vector Anchor");
+            var position = groupTransform.property("ADBE Vector Position");
+
+            if (anchor && position) {
+                var oldAnchor = anchor.value;
+                var oldPos = position.value;
+
+                // Calculate delta
+                var dx = x - oldAnchor[0];
+                var dy = y - oldAnchor[1];
+
+                // Set new anchor
+                anchor.setValue([x, y]);
+
+                // Compensate position
+                position.setValue([oldPos[0] + dx, oldPos[1] + dy]);
+            }
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Add path operation to shape
+ * opType: 0=Trim, 1=Repeater, 2=Wiggle Path, 3=Wiggle Transform,
+ *         4=Offset, 5=Round Corners, 6=Zig Zag, 7=Twist, 8=Pucker & Bloat
+ */
+function addShapePathOperation(opType) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+
+        var opMatchNames = [
+            "ADBE Vector Filter - Trim",
+            "ADBE Vector Filter - Repeater",
+            "ADBE Vector Filter - Wiggler",
+            "ADBE Vector Filter - Wiggle Transform",
+            "ADBE Vector Filter - Offset",
+            "ADBE Vector Filter - RC",
+            "ADBE Vector Filter - Zigzag",
+            "ADBE Vector Filter - Twist",
+            "ADBE Vector Filter - PB"
+        ];
+
+        if (opType < 0 || opType >= opMatchNames.length) {
+            return "Error: Invalid operation type";
+        }
+
+        app.beginUndoGroup("Add Path Operation");
+
+        if (shapeGroup.canAddProperty(opMatchNames[opType])) {
+            shapeGroup.addProperty(opMatchNames[opType]);
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Toggle shape fill on/off
+ */
+function toggleShapeFill(enable) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+
+        app.beginUndoGroup("Toggle Shape Fill");
+
+        var fill = shapeGroup.property("ADBE Vector Graphic - Fill");
+        if (enable && !fill) {
+            // Add fill
+            shapeGroup.addProperty("ADBE Vector Graphic - Fill");
+        } else if (!enable && fill) {
+            // Remove fill
+            fill.remove();
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+
+/**
+ * Toggle shape stroke on/off
+ */
+function toggleShapeStroke(enable) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "Error: No comp";
+        var layer = comp.selectedLayers[0];
+        if (!(layer instanceof ShapeLayer)) return "Error: Not shape layer";
+
+        var contents = layer.property("ADBE Root Vectors Group");
+        var shapeGroup = contents.property(1);
+
+        app.beginUndoGroup("Toggle Shape Stroke");
+
+        var stroke = shapeGroup.property("ADBE Vector Graphic - Stroke");
+        if (enable && !stroke) {
+            // Add stroke
+            shapeGroup.addProperty("ADBE Vector Graphic - Stroke");
+        } else if (!enable && stroke) {
+            // Remove stroke
+            stroke.remove();
+        }
+
+        app.endUndoGroup();
+        return "OK";
+    } catch (e) {
+        return "Error: " + e.toString();
+    }
+}
+

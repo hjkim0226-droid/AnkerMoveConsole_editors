@@ -61,11 +61,12 @@ struct MenuItem {
 static const MenuItem MENU_ITEMS[] = {
     { L'A', L"Align", ACTION_ALIGN },
     { L'T', L"Text", ACTION_TEXT },
+    { L'S', L"Shape", ACTION_SHAPE },
     { L'K', L"Keyframe", ACTION_KEYFRAME },
     { L'C', L"Layer", ACTION_COMP },  // ACTION_COMP triggers Layer module
     { L'G', L"Settings", ACTION_SETTINGS }
 };
-static const int MENU_ITEM_COUNT = 5;
+static const int MENU_ITEM_COUNT = 6;
 
 // Global state
 static HWND g_hwnd = NULL;
@@ -358,6 +359,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case 'T':
         case 't':
             g_action = ACTION_TEXT;
+            HideMenu();
+            break;
+        case 'S':
+        case 's':
+            g_action = ACTION_SHAPE;
             HideMenu();
             break;
         case 'K':

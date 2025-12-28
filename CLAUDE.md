@@ -71,6 +71,9 @@ cep/                    # CEP Panel (Settings UI)
 - **GetAsyncKeyState**: 키 상태 조회 - AEGP에 대체 API 없음
 - **GetCursorPos**: 마우스 위치 조회 - AEGP에 대체 API 없음
 - **CreateWindowExW**: UI 윈도우 생성 - AEGP에 대체 API 없음
+- **GetGUIThreadInfo + GetClassName**: 텍스트 입력 필드 감지 (FX Console, CEP 패널 등)
+  - GetFocus()는 현재 스레드만 감지 → 다른 스레드의 플러그인 못 잡음
+  - GetGUIThreadInfo(0, ...)는 포그라운드 스레드 감지 → 모든 플러그인 가능
 
 ### 상세 문서
 → [docs/API_MAPPING.md](docs/API_MAPPING.md)

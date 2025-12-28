@@ -23,6 +23,7 @@ enum MenuAction {
     ACTION_TEXT,
     ACTION_KEYFRAME,
     ACTION_COMP,
+    ACTION_SHAPE,
     ACTION_SETTINGS
 };
 

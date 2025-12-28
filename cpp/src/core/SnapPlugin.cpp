@@ -12,6 +12,7 @@
 #include "KeyframeUI.h"
 #include "AlignUI.h"
 #include "TextUI.h"
+#include "ShapeUI.h"
 #include "CompUI.h"
 #include "DMenuUI.h"
 #include "CEPBridge.h"
@@ -75,6 +76,9 @@ static HWND g_aeMainHwnd = NULL;
 
 // Text module state
 static bool g_textVisible = false;
+
+// Shape module state (D → S)
+static bool g_shapeVisible = false;
 
 // Layer module state (D → C)
 static bool g_layerVisible = false;
@@ -271,6 +275,12 @@ void ApplyTextColorValue(bool stroke, float r, float g, float b) {}
 void ApplyTextJustificationValue(int just) {}
 void GetFontsList(wchar_t* outBuffer, size_t bufSize) { outBuffer[0] = L'\0'; }
 void ApplyTextFont(const char* postScriptName) {}
+// Shape module stubs
+void ApplyShapePropertyValue(const char* propName, float value) {}
+void ApplyShapeColorValue(bool stroke, float r, float g, float b) {}
+void ApplyShapeSizeValue(float w, float h) {}
+void ApplyShapeAnchorValue(float x, float y) {}
+void AddShapePathOperation(int opType) {}
 #endif
 
 /*****************************************************************************
@@ -419,6 +429,44 @@ void ApplyTextFont(const char* postScriptName) {
     "}catch(e){}"
     "})();",
     postScriptName);
+  ExecuteScript(script);
+}
+
+/*****************************************************************************
+ * Shape Module Functions
+ *****************************************************************************/
+
+void ApplyShapePropertyValue(const char* propName, float value) {
+  char script[256];
+  snprintf(script, sizeof(script), "setShapePropertyValue('%s', %f)", propName, value);
+  ExecuteScript(script);
+}
+
+void ApplyShapeColorValue(bool stroke, float r, float g, float b) {
+  char script[256];
+  if (stroke) {
+    snprintf(script, sizeof(script), "setShapeStrokeColor(%f, %f, %f)", r, g, b);
+  } else {
+    snprintf(script, sizeof(script), "setShapeFillColor(%f, %f, %f)", r, g, b);
+  }
+  ExecuteScript(script);
+}
+
+void ApplyShapeSizeValue(float w, float h) {
+  char script[256];
+  snprintf(script, sizeof(script), "setShapeSize(%f, %f)", w, h);
+  ExecuteScript(script);
+}
+
+void ApplyShapeAnchorValue(float x, float y) {
+  char script[256];
+  snprintf(script, sizeof(script), "setShapeAnchor(%f, %f)", x, y);
+  ExecuteScript(script);
+}
+
+void AddShapePathOperation(int opType) {
+  char script[256];
+  snprintf(script, sizeof(script), "addShapePathOperation(%d)", opType);
   ExecuteScript(script);
 }
 #endif
@@ -2294,6 +2342,25 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
       break;
     }
 
+    case DMenuUI::ACTION_SHAPE: {
+      // Get shape layer info if a shape layer is selected
+      const char* getShapeInfoScript = "getShapeInfo()";
+
+      char resultBuf[4096] = {0};
+      ExecuteScript(getShapeInfoScript, resultBuf, sizeof(resultBuf));
+
+      if (resultBuf[0] == '{') {
+        wchar_t wResult[4096];
+        MultiByteToWideChar(CP_UTF8, 0, resultBuf, -1, wResult, 4096);
+        ShapeUI::SetShapeInfo(wResult);
+      }
+
+      // Always open the panel (even without shape layer selected)
+      ShapeUI::ShowPanel(mouseX, mouseY);
+      g_shapeVisible = true;
+      break;
+    }
+
     case DMenuUI::ACTION_KEYFRAME:
       // Toggle keyframe panel (not hold mode)
       if (g_keyframeVisible) {
@@ -2987,6 +3054,7 @@ extern "C" DllExport A_Err EntryPointFunc(struct SPBasicSuite *pica_basicP,
     KeyframeUI::Initialize();
     AlignUI::Initialize();
     TextUI::Initialize();
+    ShapeUI::Initialize();
     CompUI::Initialize();
     DMenuUI::Initialize();
 
