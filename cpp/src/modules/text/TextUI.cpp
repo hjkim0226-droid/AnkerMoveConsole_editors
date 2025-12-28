@@ -1241,7 +1241,8 @@ static void HandleMouseDown(int x, int y) {
             WideCharToMultiByte(CP_UTF8, 0, psNameW, -1, psName, sizeof(psName), NULL, NULL);
             ApplyTextFont(psName);
 
-            g_textInfo = g_copiedStyle;
+            // Request refresh to get actual layer info (don't overwrite g_textInfo)
+            g_needsRefresh = true;
             InvalidateRect(g_hwnd, NULL, FALSE);
         }
         return;
@@ -1602,8 +1603,8 @@ static void HandleKeyDown(WPARAM key) {
             WideCharToMultiByte(CP_UTF8, 0, psNameW, -1, psName, sizeof(psName), NULL, NULL);
             ApplyTextFont(psName);
 
-            // Update current text info to reflect pasted style
-            g_textInfo = g_copiedStyle;
+            // Request refresh to get actual layer info (don't overwrite g_textInfo)
+            g_needsRefresh = true;
             g_result.applied = true;
             InvalidateRect(g_hwnd, NULL, FALSE);
         }
