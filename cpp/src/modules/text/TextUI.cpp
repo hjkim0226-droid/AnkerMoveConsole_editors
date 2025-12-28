@@ -807,7 +807,7 @@ static void DrawHeader(Graphics& g) {
     g.FillRectangle(&pasteBrush, g_pasteStyleRect.left, g_pasteStyleRect.top, btnSize, btnSize);
 
     // Paste icon (clipboard)
-    Pen pastePen(g_pasteStyleHover ? COLOR_TEXT : (g_hasStyleCopied ? COLOR_ACCENT : COLOR_TEXT_DIM), 1.0f);
+    Pen pastePen(g_pasteStyleHover ? COLOR_TEXT : (g_hasStyleCopied ? COLOR_ALIGN_ACTIVE : COLOR_TEXT_DIM), 1.0f);
     int ppx = g_pasteStyleRect.left + btnSize / 2;
     int ppy = g_pasteStyleRect.top + btnSize / 2;
     g.DrawRectangle(&pastePen, ppx - 4, ppy - 3, 8, 8);
