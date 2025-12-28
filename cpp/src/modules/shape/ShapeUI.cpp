@@ -14,6 +14,9 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <ShlObj.h>    // SHGetFolderPathW
 
 using namespace Gdiplus;
 
@@ -114,6 +117,31 @@ static const wchar_t* PATH_OP_NAMES[] = {
 };
 
 // ============================================================================
+// Preset System
+// ============================================================================
+
+struct ShapePreset {
+    std::wstring name;
+    float fillColor[3];
+    float strokeColor[3];
+    float strokeWidth;
+    float opacity;
+    float sizeW;
+    float sizeH;
+    float roundness;
+    bool hasFill;
+    bool hasStroke;
+};
+
+static std::vector<ShapePreset> g_shapePresets;
+static bool g_presetDropdownOpen = false;
+static int g_presetHoverIndex = -1;
+static int g_presetScrollOffset = 0;
+static RECT g_presetDropdownRect;
+static const int PRESET_ITEM_HEIGHT = 26;
+static const int PRESET_DROPDOWN_MAX_ITEMS = 5;
+
+// ============================================================================
 // Global State
 // ============================================================================
 
@@ -207,6 +235,19 @@ static float GetTargetValue(ValueTarget target);
 static void SetTargetValue(ValueTarget target, float value);
 static void UpdateLayout();
 
+// Preset system
+static std::wstring GetShapePresetFilePath();
+static void LoadShapePresets();
+static void SaveShapePresetsToFile();
+static void SaveShapePreset(const std::wstring& name);
+static void ApplyShapePreset(int index);
+static void DeleteShapePreset(int index);
+static void DrawPresetDropdown(Graphics& g);
+
+// Preset save mode
+static bool g_presetSaveMode = false;
+static std::wstring g_presetSaveName;
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -236,6 +277,9 @@ void Initialize() {
     wc.lpfnWndProc = AnchorGridWndProc;
     wc.lpszClassName = L"ShapeUIAnchorGrid";
     RegisterClassExW(&wc);
+
+    // Load presets from file
+    LoadShapePresets();
 }
 
 void Shutdown() {
@@ -532,6 +576,266 @@ static void UpdateLayout() {
 }
 
 // ============================================================================
+// Preset System Implementation
+// ============================================================================
+
+static std::wstring GetShapePresetFilePath() {
+    wchar_t appData[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData))) {
+        std::wstring path = appData;
+        path += L"\\SnapPlugin";
+        CreateDirectoryW(path.c_str(), NULL);
+        path += L"\\shape-presets.txt";
+        return path;
+    }
+    return L"";
+}
+
+static void LoadShapePresets() {
+    g_shapePresets.clear();
+
+    std::wstring filePath = GetShapePresetFilePath();
+    if (filePath.empty()) return;
+
+    std::wifstream file(filePath);
+    if (!file.is_open()) return;
+
+    std::wstring line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+
+        ShapePreset preset;
+        std::wistringstream ss(line);
+        std::wstring token;
+
+        // Format: name|fillR|fillG|fillB|strokeR|strokeG|strokeB|strokeWidth|opacity|sizeW|sizeH|roundness|hasFill|hasStroke
+        int fieldIndex = 0;
+        while (std::getline(ss, token, L'|')) {
+            switch (fieldIndex) {
+                case 0: preset.name = token; break;
+                case 1: preset.fillColor[0] = (float)_wtof(token.c_str()); break;
+                case 2: preset.fillColor[1] = (float)_wtof(token.c_str()); break;
+                case 3: preset.fillColor[2] = (float)_wtof(token.c_str()); break;
+                case 4: preset.strokeColor[0] = (float)_wtof(token.c_str()); break;
+                case 5: preset.strokeColor[1] = (float)_wtof(token.c_str()); break;
+                case 6: preset.strokeColor[2] = (float)_wtof(token.c_str()); break;
+                case 7: preset.strokeWidth = (float)_wtof(token.c_str()); break;
+                case 8: preset.opacity = (float)_wtof(token.c_str()); break;
+                case 9: preset.sizeW = (float)_wtof(token.c_str()); break;
+                case 10: preset.sizeH = (float)_wtof(token.c_str()); break;
+                case 11: preset.roundness = (float)_wtof(token.c_str()); break;
+                case 12: preset.hasFill = (token == L"1"); break;
+                case 13: preset.hasStroke = (token == L"1"); break;
+            }
+            fieldIndex++;
+        }
+
+        if (!preset.name.empty() && fieldIndex >= 14) {
+            g_shapePresets.push_back(preset);
+        }
+    }
+    file.close();
+}
+
+static void SaveShapePresetsToFile() {
+    std::wstring filePath = GetShapePresetFilePath();
+    if (filePath.empty()) return;
+
+    std::wofstream file(filePath);
+    if (!file.is_open()) return;
+
+    for (const auto& preset : g_shapePresets) {
+        file << preset.name << L"|"
+             << preset.fillColor[0] << L"|"
+             << preset.fillColor[1] << L"|"
+             << preset.fillColor[2] << L"|"
+             << preset.strokeColor[0] << L"|"
+             << preset.strokeColor[1] << L"|"
+             << preset.strokeColor[2] << L"|"
+             << preset.strokeWidth << L"|"
+             << preset.opacity << L"|"
+             << preset.sizeW << L"|"
+             << preset.sizeH << L"|"
+             << preset.roundness << L"|"
+             << (preset.hasFill ? L"1" : L"0") << L"|"
+             << (preset.hasStroke ? L"1" : L"0") << L"\n";
+    }
+    file.close();
+}
+
+static void SaveShapePreset(const std::wstring& name) {
+    ShapePreset preset;
+    preset.name = name;
+    preset.fillColor[0] = g_shapeInfo.fillColor[0];
+    preset.fillColor[1] = g_shapeInfo.fillColor[1];
+    preset.fillColor[2] = g_shapeInfo.fillColor[2];
+    preset.strokeColor[0] = g_shapeInfo.strokeColor[0];
+    preset.strokeColor[1] = g_shapeInfo.strokeColor[1];
+    preset.strokeColor[2] = g_shapeInfo.strokeColor[2];
+    preset.strokeWidth = g_shapeInfo.strokeWidth;
+    preset.opacity = g_shapeInfo.opacity;
+    preset.sizeW = g_shapeInfo.sizeW;
+    preset.sizeH = g_shapeInfo.sizeH;
+    preset.roundness = g_shapeInfo.roundness;
+    preset.hasFill = g_shapeInfo.hasFill;
+    preset.hasStroke = g_shapeInfo.hasStroke;
+
+    g_shapePresets.push_back(preset);
+    SaveShapePresetsToFile();
+}
+
+static void ApplyShapePreset(int index) {
+    if (index < 0 || index >= (int)g_shapePresets.size()) return;
+
+    const ShapePreset& preset = g_shapePresets[index];
+
+    // Apply colors
+    if (preset.hasFill) {
+        ApplyShapeColorValue(false, preset.fillColor[0], preset.fillColor[1], preset.fillColor[2]);
+        g_shapeInfo.fillColor[0] = preset.fillColor[0];
+        g_shapeInfo.fillColor[1] = preset.fillColor[1];
+        g_shapeInfo.fillColor[2] = preset.fillColor[2];
+    }
+    if (preset.hasStroke) {
+        ApplyShapeColorValue(true, preset.strokeColor[0], preset.strokeColor[1], preset.strokeColor[2]);
+        g_shapeInfo.strokeColor[0] = preset.strokeColor[0];
+        g_shapeInfo.strokeColor[1] = preset.strokeColor[1];
+        g_shapeInfo.strokeColor[2] = preset.strokeColor[2];
+        ApplyShapePropertyValue("strokeWidth", preset.strokeWidth);
+        g_shapeInfo.strokeWidth = preset.strokeWidth;
+    }
+
+    ApplyShapePropertyValue("opacity", preset.opacity);
+    g_shapeInfo.opacity = preset.opacity;
+
+    if (g_shapeInfo.isParametric) {
+        ApplyShapeSizeValue(preset.sizeW, preset.sizeH);
+        g_shapeInfo.sizeW = preset.sizeW;
+        g_shapeInfo.sizeH = preset.sizeH;
+        ApplyShapePropertyValue("roundness", preset.roundness);
+        g_shapeInfo.roundness = preset.roundness;
+    }
+
+    g_shapeInfo.hasFill = preset.hasFill;
+    g_shapeInfo.hasStroke = preset.hasStroke;
+
+    g_presetDropdownOpen = false;
+    InvalidateRect(g_hwnd, NULL, FALSE);
+}
+
+static void DeleteShapePreset(int index) {
+    if (index < 0 || index >= (int)g_shapePresets.size()) return;
+
+    g_shapePresets.erase(g_shapePresets.begin() + index);
+    SaveShapePresetsToFile();
+    InvalidateRect(g_hwnd, NULL, FALSE);
+}
+
+static void DrawPresetDropdown(Graphics& g) {
+    if (!g_presetDropdownOpen) return;
+
+    FontFamily fontFamily(L"Segoe UI");
+    Font itemFont(&fontFamily, 10, FontStyleRegular, UnitPixel);
+    Font smallFont(&fontFamily, 9, FontStyleRegular, UnitPixel);
+    SolidBrush textBrush(COLOR_TEXT);
+    SolidBrush dimBrush(COLOR_TEXT_DIM);
+
+    int dropdownWidth = 160;
+    int dropdownX = g_presetRect.left - dropdownWidth + PIN_BUTTON_SIZE;
+    int dropdownY = g_presetRect.bottom + 4;
+
+    // Calculate dropdown height
+    int itemCount = (int)g_shapePresets.size() + 1;  // +1 for "Save Current"
+    int visibleItems = (std::min)(itemCount, PRESET_DROPDOWN_MAX_ITEMS);
+    int dropdownHeight = visibleItems * PRESET_ITEM_HEIGHT + 4;
+
+    // Store dropdown rect for hit testing
+    g_presetDropdownRect = {dropdownX, dropdownY, dropdownX + dropdownWidth, dropdownY + dropdownHeight};
+
+    // Background
+    SolidBrush bgBrush(COLOR_HEADER_BG);
+    g.FillRectangle(&bgBrush, dropdownX, dropdownY, dropdownWidth, dropdownHeight);
+
+    // Border
+    Pen borderPen(COLOR_BORDER, 1);
+    g.DrawRectangle(&borderPen, dropdownX, dropdownY, dropdownWidth - 1, dropdownHeight - 1);
+
+    int itemY = dropdownY + 2;
+
+    // "Save Current" item
+    bool saveHovered = (g_presetHoverIndex == -2);
+    if (saveHovered) {
+        SolidBrush hoverBrush(COLOR_HOVER);
+        g.FillRectangle(&hoverBrush, dropdownX + 2, itemY, dropdownWidth - 4, PRESET_ITEM_HEIGHT);
+    }
+
+    if (g_presetSaveMode) {
+        // Draw text input for preset name
+        SolidBrush inputBrush(COLOR_VALUE_EDIT);
+        g.FillRectangle(&inputBrush, dropdownX + 4, itemY + 2, dropdownWidth - 8, PRESET_ITEM_HEIGHT - 4);
+        std::wstring displayText = g_presetSaveName + L"_";
+        g.DrawString(displayText.c_str(), -1, &itemFont,
+                     PointF((float)dropdownX + 8, (float)itemY + 4), &textBrush);
+    } else {
+        g.DrawString(L"+ Save Current Style", -1, &itemFont,
+                     PointF((float)dropdownX + 8, (float)itemY + 4),
+                     saveHovered ? &textBrush : &dimBrush);
+    }
+    itemY += PRESET_ITEM_HEIGHT;
+
+    // Preset items
+    for (int i = g_presetScrollOffset; i < (int)g_shapePresets.size() &&
+         i < g_presetScrollOffset + PRESET_DROPDOWN_MAX_ITEMS - 1; i++) {
+        const ShapePreset& preset = g_shapePresets[i];
+        bool hovered = (g_presetHoverIndex == i);
+
+        if (hovered) {
+            SolidBrush hoverBrush(COLOR_HOVER);
+            g.FillRectangle(&hoverBrush, dropdownX + 2, itemY, dropdownWidth - 4, PRESET_ITEM_HEIGHT);
+        }
+
+        // Color preview (small squares for fill and stroke)
+        int colorX = dropdownX + 8;
+        SolidBrush fillPreview(Color(255,
+            (BYTE)(preset.fillColor[0] * 255),
+            (BYTE)(preset.fillColor[1] * 255),
+            (BYTE)(preset.fillColor[2] * 255)));
+        if (preset.hasFill) {
+            g.FillRectangle(&fillPreview, colorX, itemY + 5, 12, 12);
+        }
+
+        SolidBrush strokePreview(Color(255,
+            (BYTE)(preset.strokeColor[0] * 255),
+            (BYTE)(preset.strokeColor[1] * 255),
+            (BYTE)(preset.strokeColor[2] * 255)));
+        if (preset.hasStroke) {
+            Pen strokePen(Color(255,
+                (BYTE)(preset.strokeColor[0] * 255),
+                (BYTE)(preset.strokeColor[1] * 255),
+                (BYTE)(preset.strokeColor[2] * 255)), 2.0f);
+            g.DrawRectangle(&strokePen, colorX + (preset.hasFill ? 14 : 0), itemY + 5, 12, 12);
+        }
+
+        // Preset name
+        int textX = colorX + 32;
+        g.DrawString(preset.name.c_str(), -1, &itemFont,
+                     PointF((float)textX, (float)itemY + 4), &textBrush);
+
+        // Delete button (X) on hover
+        if (hovered) {
+            int delX = dropdownX + dropdownWidth - 22;
+            SolidBrush delBrush(Color(180, 200, 80, 80));
+            g.FillRectangle(&delBrush, delX, itemY + 4, 16, 16);
+            Pen xPen(COLOR_TEXT, 1.5f);
+            g.DrawLine(&xPen, delX + 4, itemY + 8, delX + 12, itemY + 16);
+            g.DrawLine(&xPen, delX + 12, itemY + 8, delX + 4, itemY + 16);
+        }
+
+        itemY += PRESET_ITEM_HEIGHT;
+    }
+}
+
+// ============================================================================
 // Drawing
 // ============================================================================
 
@@ -572,23 +876,23 @@ static void Draw(HDC hdc) {
                         PointF((float)PADDING, (float)(HEADER_HEIGHT - 18) / 2 + 2),
                         &textBrush);
 
-    // Preset button (Copy/Paste Style)
+    // Preset button (opens dropdown)
     int presetX = logicalWidth - PADDING - PIN_BUTTON_SIZE * 2 - 6;
     int presetY = (HEADER_HEIGHT - PIN_BUTTON_SIZE) / 2;
     g_presetRect = {presetX, presetY, presetX + PIN_BUTTON_SIZE, presetY + PIN_BUTTON_SIZE};
 
     // Show different color based on state
-    Color presetColor = g_presetHover ? COLOR_HOVER :
-                        (g_hasStyleCopied ? Color(80, 74, 158, 255) : COLOR_SECTION_BG);
+    Color presetColor = g_presetDropdownOpen ? COLOR_ACCENT :
+                        (g_presetHover ? COLOR_HOVER : COLOR_SECTION_BG);
     SolidBrush presetBrush(presetColor);
     graphics.FillRectangle(&presetBrush, presetX, presetY, PIN_BUTTON_SIZE, PIN_BUTTON_SIZE);
 
-    // Preset icon (two overlapping squares for copy, or clipboard for paste mode)
-    Pen presetPen(g_hasStyleCopied ? COLOR_ACCENT : COLOR_TEXT_DIM, 1.0f);
+    // Preset icon (grid/layers icon)
+    Pen presetPen(g_presetDropdownOpen ? Color(255, 40, 40, 40) : COLOR_TEXT_DIM, 1.0f);
     int ppx = presetX + PIN_BUTTON_SIZE / 2;
     int ppy = presetY + PIN_BUTTON_SIZE / 2;
-    graphics.DrawRectangle(&presetPen, ppx - 4, ppy - 2, 5, 5);
-    graphics.DrawRectangle(&presetPen, ppx - 1, ppy - 5, 5, 5);
+    graphics.DrawRectangle(&presetPen, ppx - 5, ppy - 4, 10, 3);
+    graphics.DrawRectangle(&presetPen, ppx - 5, ppy, 10, 3);
 
     // Pin button
     int pinX = logicalWidth - PADDING - PIN_BUTTON_SIZE;
@@ -615,6 +919,9 @@ static void Draw(HDC hdc) {
     // Border
     Pen borderPen(COLOR_BORDER, 1);
     graphics.DrawRectangle(&borderPen, 0, 0, logicalWidth - 1, logicalHeight - 1);
+
+    // Draw preset dropdown on top
+    DrawPresetDropdown(graphics);
 }
 
 static void DrawSection(Graphics& g, Section section, int& y) {
@@ -891,7 +1198,37 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
 
     case WM_KEYDOWN:
+        // Preset save mode keyboard handling
+        if (g_presetSaveMode) {
+            if (wParam == VK_ESCAPE) {
+                g_presetSaveMode = false;
+                g_presetSaveName.clear();
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                return 0;
+            }
+            if (wParam == VK_RETURN) {
+                if (!g_presetSaveName.empty()) {
+                    SaveShapePreset(g_presetSaveName);
+                    g_presetSaveName.clear();
+                }
+                g_presetSaveMode = false;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                return 0;
+            }
+            if (wParam == VK_BACK && !g_presetSaveName.empty()) {
+                g_presetSaveName.pop_back();
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                return 0;
+            }
+            break;
+        }
+
         if (wParam == VK_ESCAPE) {
+            if (g_presetDropdownOpen) {
+                g_presetDropdownOpen = false;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                return 0;
+            }
             g_result.cancelled = true;
             HidePanel();
             return 0;
@@ -901,6 +1238,19 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             POINT pt;
             GetCursorPos(&pt);
             ShowAnchorGrid(pt.x, pt.y);
+            return 0;
+        }
+        break;
+
+    case WM_CHAR:
+        // Handle character input for preset name
+        if (g_presetSaveMode) {
+            wchar_t ch = (wchar_t)wParam;
+            // Only allow printable characters
+            if (ch >= 32 && ch != 127 && g_presetSaveName.length() < 30) {
+                g_presetSaveName += ch;
+                InvalidateRect(g_hwnd, NULL, FALSE);
+            }
             return 0;
         }
         break;
@@ -930,6 +1280,55 @@ static bool PointInRect(int x, int y, const RECT& r) {
 }
 
 static void HandleMouseDown(int x, int y) {
+    // Handle preset dropdown clicks first (when open)
+    if (g_presetDropdownOpen) {
+        if (PointInRect(x, y, g_presetDropdownRect)) {
+            int itemY = g_presetDropdownRect.top + 2;
+            int dropdownWidth = g_presetDropdownRect.right - g_presetDropdownRect.left;
+
+            // Check "Save Current" item
+            if (y >= itemY && y < itemY + PRESET_ITEM_HEIGHT) {
+                if (g_presetSaveMode) {
+                    // Save with current name
+                    if (!g_presetSaveName.empty()) {
+                        SaveShapePreset(g_presetSaveName);
+                        g_presetSaveName.clear();
+                    }
+                    g_presetSaveMode = false;
+                } else {
+                    // Enter save mode
+                    g_presetSaveMode = true;
+                    g_presetSaveName = L"Preset " + std::to_wstring(g_shapePresets.size() + 1);
+                }
+                InvalidateRect(g_hwnd, NULL, FALSE);
+                return;
+            }
+            itemY += PRESET_ITEM_HEIGHT;
+
+            // Check preset items
+            for (int i = g_presetScrollOffset; i < (int)g_shapePresets.size() &&
+                 i < g_presetScrollOffset + PRESET_DROPDOWN_MAX_ITEMS - 1; i++) {
+                if (y >= itemY && y < itemY + PRESET_ITEM_HEIGHT) {
+                    // Check if delete button clicked (right side)
+                    int delX = g_presetDropdownRect.right - 22;
+                    if (x >= delX) {
+                        DeleteShapePreset(i);
+                    } else {
+                        ApplyShapePreset(i);
+                    }
+                    return;
+                }
+                itemY += PRESET_ITEM_HEIGHT;
+            }
+            return;
+        } else {
+            // Click outside dropdown - close it
+            g_presetDropdownOpen = false;
+            g_presetSaveMode = false;
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        }
+    }
+
     // Pin button
     if (PointInRect(x, y, g_pinRect)) {
         g_keepPanelOpen = !g_keepPanelOpen;
@@ -937,31 +1336,11 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
-    // Preset button (Copy/Paste Style)
+    // Preset button (toggle dropdown)
     if (PointInRect(x, y, g_presetRect)) {
-        if (!g_hasStyleCopied) {
-            // Copy current style
-            g_copiedStyle = g_shapeInfo;
-            g_hasStyleCopied = true;
-        } else {
-            // Paste copied style
-            if (g_copiedStyle.hasFill) {
-                ApplyShapeColorValue(false, g_copiedStyle.fillColor[0],
-                                     g_copiedStyle.fillColor[1], g_copiedStyle.fillColor[2]);
-            }
-            if (g_copiedStyle.hasStroke) {
-                ApplyShapeColorValue(true, g_copiedStyle.strokeColor[0],
-                                     g_copiedStyle.strokeColor[1], g_copiedStyle.strokeColor[2]);
-                ApplyShapePropertyValue("strokeWidth", g_copiedStyle.strokeWidth);
-            }
-            ApplyShapePropertyValue("opacity", g_copiedStyle.opacity);
-            if (g_copiedStyle.isParametric) {
-                ApplyShapeSizeValue(g_copiedStyle.sizeW, g_copiedStyle.sizeH);
-                ApplyShapePropertyValue("roundness", g_copiedStyle.roundness);
-            }
-            g_shapeInfo = g_copiedStyle;
-            g_hasStyleCopied = false;  // Reset after paste
-        }
+        g_presetDropdownOpen = !g_presetDropdownOpen;
+        g_presetSaveMode = false;
+        g_presetHoverIndex = -1;
         InvalidateRect(g_hwnd, NULL, FALSE);
         return;
     }
@@ -1093,6 +1472,37 @@ static void HandleMouseMove(int x, int y) {
         }
 
         InvalidateRect(g_hwnd, NULL, FALSE);
+        return;
+    }
+
+    // Preset dropdown hover detection
+    if (g_presetDropdownOpen) {
+        int oldPresetHoverIndex = g_presetHoverIndex;
+        g_presetHoverIndex = -1;
+
+        if (PointInRect(x, y, g_presetDropdownRect)) {
+            int itemY = g_presetDropdownRect.top + 2;
+
+            // Check "Save Current" item
+            if (y >= itemY && y < itemY + PRESET_ITEM_HEIGHT) {
+                g_presetHoverIndex = -2;  // Special value for "Save Current"
+            }
+            itemY += PRESET_ITEM_HEIGHT;
+
+            // Check preset items
+            for (int i = g_presetScrollOffset; i < (int)g_shapePresets.size() &&
+                 i < g_presetScrollOffset + PRESET_DROPDOWN_MAX_ITEMS - 1; i++) {
+                if (y >= itemY && y < itemY + PRESET_ITEM_HEIGHT) {
+                    g_presetHoverIndex = i;
+                    break;
+                }
+                itemY += PRESET_ITEM_HEIGHT;
+            }
+        }
+
+        if (g_presetHoverIndex != oldPresetHoverIndex) {
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        }
         return;
     }
 

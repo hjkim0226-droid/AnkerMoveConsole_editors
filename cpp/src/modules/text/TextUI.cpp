@@ -12,6 +12,9 @@
 #include <windowsx.h>  // GET_X_LPARAM, GET_Y_LPARAM
 #include <string>
 #include <cmath>
+#include <fstream>
+#include <sstream>
+#include <ShlObj.h>    // SHGetFolderPathW
 
 using namespace Gdiplus;
 
@@ -307,6 +310,9 @@ void Initialize() {
     wcPicker.hbrBackground = NULL;
     wcPicker.lpszClassName = L"TextUIColorPicker";
     RegisterClassExW(&wcPicker);
+
+    // Load saved presets
+    LoadPresets();
 }
 
 /*****************************************************************************
@@ -2108,13 +2114,89 @@ static void DeletePreset(int index) {
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
 
+// Helper: Get preset file path (%APPDATA%/SnapPlugin/text-presets.txt)
+static std::wstring GetPresetFilePath() {
+    wchar_t appData[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData))) {
+        std::wstring path = appData;
+        path += L"\\SnapPlugin";
+        CreateDirectoryW(path.c_str(), NULL);  // Create if not exists
+        path += L"\\text-presets.txt";
+        return path;
+    }
+    return L"";
+}
+
 static void LoadPresets() {
-    // TODO: Load from file ~/.ae-anchor/text-presets.json
     g_textPresets.clear();
+
+    std::wstring filePath = GetPresetFilePath();
+    if (filePath.empty()) return;
+
+    std::wifstream file(filePath);
+    if (!file.is_open()) return;
+
+    std::wstring line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == L'#') continue;
+
+        // Format: name|font|fontSize|tracking|leading|strokeWidth|fillR|fillG|fillB|strokeR|strokeG|strokeB|applyFill|applyStroke|justify
+        TextPreset preset;
+        std::wistringstream ss(line);
+        std::wstring token;
+        int fieldIdx = 0;
+
+        while (std::getline(ss, token, L'|')) {
+            switch (fieldIdx) {
+                case 0: preset.name = token; break;
+                case 1: preset.font = token; break;
+                case 2: preset.fontSize = std::stof(token); break;
+                case 3: preset.tracking = std::stof(token); break;
+                case 4: preset.leading = std::stof(token); break;
+                case 5: preset.strokeWidth = std::stof(token); break;
+                case 6: preset.fillColor[0] = std::stof(token); break;
+                case 7: preset.fillColor[1] = std::stof(token); break;
+                case 8: preset.fillColor[2] = std::stof(token); break;
+                case 9: preset.strokeColor[0] = std::stof(token); break;
+                case 10: preset.strokeColor[1] = std::stof(token); break;
+                case 11: preset.strokeColor[2] = std::stof(token); break;
+                case 12: preset.applyFill = (token == L"1"); break;
+                case 13: preset.applyStroke = (token == L"1"); break;
+                case 14: preset.justify = std::stoi(token); break;
+            }
+            fieldIdx++;
+        }
+
+        if (fieldIdx >= 15) {
+            g_textPresets.push_back(preset);
+        }
+    }
+    file.close();
 }
 
 static void SavePresetsToFile() {
-    // TODO: Save to file ~/.ae-anchor/text-presets.json
+    std::wstring filePath = GetPresetFilePath();
+    if (filePath.empty()) return;
+
+    std::wofstream file(filePath);
+    if (!file.is_open()) return;
+
+    file << L"# SnapPlugin Text Presets\n";
+
+    for (const auto& p : g_textPresets) {
+        file << p.name << L"|"
+             << p.font << L"|"
+             << p.fontSize << L"|"
+             << p.tracking << L"|"
+             << p.leading << L"|"
+             << p.strokeWidth << L"|"
+             << p.fillColor[0] << L"|" << p.fillColor[1] << L"|" << p.fillColor[2] << L"|"
+             << p.strokeColor[0] << L"|" << p.strokeColor[1] << L"|" << p.strokeColor[2] << L"|"
+             << (p.applyFill ? L"1" : L"0") << L"|"
+             << (p.applyStroke ? L"1" : L"0") << L"|"
+             << p.justify << L"\n";
+    }
+    file.close();
 }
 
 static void SavePreset(const std::wstring& name) {
