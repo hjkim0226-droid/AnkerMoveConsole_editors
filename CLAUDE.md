@@ -37,7 +37,13 @@ cpp/
 │   ├── core/           # 공통 모듈 (SnapPlugin, KeyboardMonitor, CEPBridge)
 │   └── modules/
 │       ├── grid/       # Y key - Anchor Grid
-│       └── control/    # E key - Effect Search
+│       ├── control/    # Shift+E - Effect Search
+│       ├── keyframe/   # K key - Keyframe Tools
+│       ├── align/      # A key - Align Tools
+│       ├── text/       # T key - Text Properties
+│       ├── shape/      # S key - Shape Properties
+│       ├── comp/       # C key - Comp Settings
+│       └── dmenu/      # D key - Quick Menu
 ├── include/AE_SDK/     # After Effects SDK
 └── resources/          # PiPL, RC files
 
@@ -51,8 +57,9 @@ cep/                    # CEP Panel (Settings UI)
   - Mode 2: Layer effects list (when Effect Controls focused)
 
 ## Install Paths (Windows)
-- Plugin: `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorSnap.aex`
+- Plugin: `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\SnapPlugin.aex`
 - CEP: `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\com.anchor.snap\`
+- Presets: `%APPDATA%\SnapPlugin\` (text-presets.txt, shape-presets.txt)
 
 ## Language
 - 한국어로 대화
@@ -451,3 +458,80 @@ if (v && v.type == ViewerType.VIEWER_EFFECT_CONTROLS) {
 - [Adobe CEP Resources](https://github.com/Adobe-CEP/CEP-Resources)
 - [Adobe CEP Samples](https://github.com/Adobe-CEP/Samples)
 - [After Effects Panel Sample](https://github.com/Adobe-CEP/Samples/tree/master/AfterEffectsPanel)
+
+---
+
+## Preset System (프리셋 시스템)
+
+### 파일 형식
+파이프(`|`) 구분 텍스트 파일 - JSON보다 단순하고 빠름
+
+```
+# text-presets.txt
+PresetName|fontFamily|fontSize|tracking|leading|strokeWidth|fillR|fillG|fillB|strokeR|strokeG|strokeB|applyFill|applyStroke|justify
+
+# shape-presets.txt
+PresetName|fillR|fillG|fillB|strokeR|strokeG|strokeB|strokeWidth|opacity|sizeW|sizeH|roundness|hasFill|hasStroke
+```
+
+### 저장 경로
+`%APPDATA%\SnapPlugin\` (Windows)
+- `SHGetFolderPathW(CSIDL_APPDATA)` 사용
+- 폴더 없으면 `CreateDirectoryW` 자동 생성
+
+### 모듈별 구현
+| 모듈 | Copy/Paste | 프리셋 저장 | 드롭다운 UI |
+|------|------------|-------------|-------------|
+| Text | ✅ 버튼 | ✅ | ✅ |
+| Shape | ❌ (프리셋으로 통합) | ✅ | ✅ (이름 입력 지원) |
+
+---
+
+## Known Issues (알려진 버그) - 2024-12
+
+### Critical (수정 필요)
+
+| # | 파일 | 라인 | 문제 | 상태 |
+|---|------|------|------|------|
+| 1 | TextUI.cpp | 2206 | UB: `wcscpy_s((wchar_t*)preset.font.c_str(), ...)` - std::wstring 내부 버퍼 쓰기 | ⏳ |
+| 2 | ShapeUI.cpp | 1459 | Division by Zero: `sizeW / sizeH` (sizeH=0일 때) | ⏳ |
+| 3 | TextUI.cpp | 2150 | `std::stof()` 예외 처리 없음 → 잘못된 프리셋 파일 시 크래시 | ⏳ |
+| 4 | TextUI.cpp | Shutdown() | GDI 비트맵 누수: `g_svBitmap`, `g_hueBitmap` 미해제 | ⏳ |
+
+### Important
+
+| # | 파일 | 문제 |
+|---|------|------|
+| 5 | 양쪽 | JSON 파싱 `while (json[pos] == L' ')` 경계 검사 없음 |
+| 6 | TextUI.cpp | Close 버튼 있음 (CLAUDE.md 가이드라인 위반) |
+| 7 | TextUI.cpp | Paste 로직 중복 (버튼 클릭 / Ctrl+V) |
+| 8 | TextUI.cpp | `std::stof` 사용 (ShapeUI는 `_wtof` 사용) - 불일치 |
+
+### 수정 완료
+
+| 날짜 | 문제 | 해결 |
+|------|------|------|
+| 2024-12-28 | Paste 후 두 번째 Copy 안 됨 | `g_textInfo = g_copiedStyle` → `g_needsRefresh = true` |
+
+---
+
+## Rust 바인딩 고려사항
+
+### 현재 결론: C++ 유지 (2024-12)
+
+**이유**:
+- 분리 대상 코드 ~230줄 vs FFI 설정 오버헤드
+- Adobe SDK가 C++ 전용 - bindgen 바인딩 작업 1-2주
+- AE 플러그인 Rust 사례 거의 없음 (레퍼런스 부족)
+
+**Rust 고려 타이밍**:
+- 새 플러그인 프로젝트 시작 시
+- 복잡한 이미지 프로세싱 모듈 추가 시
+- 크로스플랫폼 로직 분리 시
+
+**하이브리드 구조 (미래)**:
+```
+C++ (유지): Win32/GDI+ UI, AEGP SDK
+    ↓ FFI
+Rust (새로 작성): 프리셋 파싱, 데이터 처리
+```
