@@ -1,0 +1,19 @@
+# Rust 빌드 결과물
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# 로그
+*.log
+
+# 빌드 캐시
+*.pdb
+*.exp
+*.lib

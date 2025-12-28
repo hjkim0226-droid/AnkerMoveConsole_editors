@@ -1,0 +1,65 @@
+[package]
+name = "snap-plugin-rust"
+version = "0.1.0"
+edition = "2021"
+description = "Rust PoC for SnapPlugin - After Effects AEGP plugin"
+authors = ["Kim Hyunjoong"]
+
+# AE 플러그인은 동적 라이브러리로 빌드
+[lib]
+crate-type = ["cdylib"]
+name = "snap_plugin_rust"
+
+[dependencies]
+# After Effects SDK 바인딩
+after-effects = "0.2"
+
+# 크로스플랫폼 UI
+egui = "0.28"
+egui-winit = "0.28"
+egui-glow = "0.28"
+
+# 윈도우 생성
+winit = "0.29"
+
+# OpenGL 바인딩 (egui 렌더링용)
+glow = "0.13"
+
+# 에러 처리
+thiserror = "1.0"
+anyhow = "1.0"
+
+# 로깅
+log = "0.4"
+env_logger = "0.11"
+
+# 직렬화 (프리셋 저장용)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 플랫폼별 의존성
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+]}
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+objc = "0.2"
+
+[build-dependencies]
+# PiPL 리소스 생성
+pipl = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[features]
+default = []
+# GPU 렌더링 테스트용
+gpu-test = []
