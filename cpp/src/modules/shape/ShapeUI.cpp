@@ -581,7 +581,7 @@ static void Draw(HDC hdc) {
     Pen pinPen(g_keepPanelOpen ? Color(255, 40, 40, 40) : COLOR_TEXT_DIM, 1.5f);
     float pcx = pinX + PIN_BUTTON_SIZE / 2.0f;
     float pcy = pinY + PIN_BUTTON_SIZE / 2.0f;
-    graphics.DrawEllipse(&pinPen, pcx - 3, pcy - 4, 6, 6);
+    graphics.DrawEllipse(&pinPen, pcx - 3.0f, pcy - 4.0f, 6.0f, 6.0f);
     graphics.DrawLine(&pinPen, pcx, pcy + 2, pcx, pcy + 6);
 
     // Draw sections
@@ -755,7 +755,7 @@ static void DrawTransformSection(Graphics& g, int y) {
     int linkX = valueX + 64;
     SolidBrush linkBrush(g_shapeInfo.sizeLinkEnabled ? COLOR_ACCENT : COLOR_VALUE_BG);
     g.FillRectangle(&linkBrush, linkX, rowY + 2, 18, 18);
-    g.DrawString(L"\x1F517", -1, &labelFont, PointF((float)linkX + 2, (float)rowY + 4), &textBrush);
+    g.DrawString(L"=", -1, &labelFont, PointF((float)linkX + 4, (float)rowY + 3), &textBrush);
     g_sizeLinkRect = {linkX, rowY + 2, linkX + 18, rowY + 20};
 
     // Height
@@ -1023,7 +1023,7 @@ static void HandleMouseMove(int x, int y) {
         int dx = x - g_dragStartX;
         const DragConfig& cfg = DRAG_CONFIGS[g_dragTarget];
         float newValue = g_dragStartValue + dx * cfg.sensitivity;
-        newValue = std::max(cfg.minValue, std::min(cfg.maxValue, newValue));
+        newValue = (std::max)(cfg.minValue, (std::min)(cfg.maxValue, newValue));
 
         // Size link
         if (g_shapeInfo.sizeLinkEnabled &&
@@ -1216,7 +1216,7 @@ static LRESULT CALLBACK AnchorGridWndProc(HWND hwnd, UINT msg, WPARAM wParam, LP
                 float dotX = cx + cellSize / 2.0f;
                 float dotY = cy + cellSize / 2.0f;
                 SolidBrush dotBrush(hovered ? COLOR_ACCENT : COLOR_TEXT_DIM);
-                graphics.FillEllipse(&dotBrush, dotX - 4, dotY - 4, 8, 8);
+                graphics.FillEllipse(&dotBrush, dotX - 4.0f, dotY - 4.0f, 8.0f, 8.0f);
             }
         }
 
