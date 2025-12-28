@@ -126,12 +126,15 @@ static ULONG_PTR g_gdiplusToken = 0;
 static ShapeInfo g_shapeInfo = {};
 static ShapeResult g_result;
 static bool g_keepPanelOpen = false;
+static ShapeInfo g_copiedStyle = {};
+static bool g_hasStyleCopied = false;
 
 // Section state (accordion)
 static bool g_sectionExpanded[SECTION_COUNT] = {true, false, false};
 
 // Hit test rectangles
 static RECT g_pinRect;
+static RECT g_presetRect;
 static RECT g_fillColorRect;
 static RECT g_strokeColorRect;
 static RECT g_fillToggleRect;
@@ -150,6 +153,7 @@ static ValueTarget g_hoverTarget = TARGET_NONE;
 static int g_hoverSection = -1;
 static int g_hoverPathOp = -1;
 static bool g_pinHover = false;
+static bool g_presetHover = false;
 static bool g_fillColorHover = false;
 static bool g_strokeColorHover = false;
 static bool g_fillToggleHover = false;
@@ -568,6 +572,24 @@ static void Draw(HDC hdc) {
                         PointF((float)PADDING, (float)(HEADER_HEIGHT - 18) / 2 + 2),
                         &textBrush);
 
+    // Preset button (Copy/Paste Style)
+    int presetX = logicalWidth - PADDING - PIN_BUTTON_SIZE * 2 - 6;
+    int presetY = (HEADER_HEIGHT - PIN_BUTTON_SIZE) / 2;
+    g_presetRect = {presetX, presetY, presetX + PIN_BUTTON_SIZE, presetY + PIN_BUTTON_SIZE};
+
+    // Show different color based on state
+    Color presetColor = g_presetHover ? COLOR_HOVER :
+                        (g_hasStyleCopied ? Color(80, 74, 158, 255) : COLOR_SECTION_BG);
+    SolidBrush presetBrush(presetColor);
+    graphics.FillRectangle(&presetBrush, presetX, presetY, PIN_BUTTON_SIZE, PIN_BUTTON_SIZE);
+
+    // Preset icon (two overlapping squares for copy, or clipboard for paste mode)
+    Pen presetPen(g_hasStyleCopied ? COLOR_ACCENT : COLOR_TEXT_DIM, 1.0f);
+    int ppx = presetX + PIN_BUTTON_SIZE / 2;
+    int ppy = presetY + PIN_BUTTON_SIZE / 2;
+    graphics.DrawRectangle(&presetPen, ppx - 4, ppy - 2, 5, 5);
+    graphics.DrawRectangle(&presetPen, ppx - 1, ppy - 5, 5, 5);
+
     // Pin button
     int pinX = logicalWidth - PADDING - PIN_BUTTON_SIZE;
     int pinY = (HEADER_HEIGHT - PIN_BUTTON_SIZE) / 2;
@@ -575,7 +597,7 @@ static void Draw(HDC hdc) {
 
     SolidBrush pinBrush(g_keepPanelOpen ? COLOR_PIN_ACTIVE :
                         (g_pinHover ? COLOR_HOVER : COLOR_SECTION_BG));
-    graphics.FillEllipse(&pinBrush, pinX, pinY, PIN_BUTTON_SIZE, PIN_BUTTON_SIZE);
+    graphics.FillEllipse(&pinBrush, (REAL)pinX, (REAL)pinY, (REAL)PIN_BUTTON_SIZE, (REAL)PIN_BUTTON_SIZE);
 
     // Pin icon
     Pen pinPen(g_keepPanelOpen ? Color(255, 40, 40, 40) : COLOR_TEXT_DIM, 1.5f);
@@ -915,6 +937,35 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
+    // Preset button (Copy/Paste Style)
+    if (PointInRect(x, y, g_presetRect)) {
+        if (!g_hasStyleCopied) {
+            // Copy current style
+            g_copiedStyle = g_shapeInfo;
+            g_hasStyleCopied = true;
+        } else {
+            // Paste copied style
+            if (g_copiedStyle.hasFill) {
+                ApplyShapeColorValue(false, g_copiedStyle.fillColor[0],
+                                     g_copiedStyle.fillColor[1], g_copiedStyle.fillColor[2]);
+            }
+            if (g_copiedStyle.hasStroke) {
+                ApplyShapeColorValue(true, g_copiedStyle.strokeColor[0],
+                                     g_copiedStyle.strokeColor[1], g_copiedStyle.strokeColor[2]);
+                ApplyShapePropertyValue("strokeWidth", g_copiedStyle.strokeWidth);
+            }
+            ApplyShapePropertyValue("opacity", g_copiedStyle.opacity);
+            if (g_copiedStyle.isParametric) {
+                ApplyShapeSizeValue(g_copiedStyle.sizeW, g_copiedStyle.sizeH);
+                ApplyShapePropertyValue("roundness", g_copiedStyle.roundness);
+            }
+            g_shapeInfo = g_copiedStyle;
+            g_hasStyleCopied = false;  // Reset after paste
+        }
+        InvalidateRect(g_hwnd, NULL, FALSE);
+        return;
+    }
+
     // Section headers (accordion)
     for (int s = 0; s < SECTION_COUNT; s++) {
         if (PointInRect(x, y, g_sectionHeaderRects[s])) {
@@ -1050,6 +1101,7 @@ static void HandleMouseMove(int x, int y) {
     int oldSection = g_hoverSection;
     int oldPathOp = g_hoverPathOp;
     bool oldPin = g_pinHover;
+    bool oldPreset = g_presetHover;
     bool oldFillColor = g_fillColorHover;
     bool oldStrokeColor = g_strokeColorHover;
 
@@ -1057,10 +1109,12 @@ static void HandleMouseMove(int x, int y) {
     g_hoverSection = -1;
     g_hoverPathOp = -1;
     g_pinHover = false;
+    g_presetHover = false;
     g_fillColorHover = false;
     g_strokeColorHover = false;
 
     if (PointInRect(x, y, g_pinRect)) g_pinHover = true;
+    else if (PointInRect(x, y, g_presetRect)) g_presetHover = true;
     else if (PointInRect(x, y, g_fillColorRect)) g_fillColorHover = true;
     else if (PointInRect(x, y, g_strokeColorRect)) g_strokeColorHover = true;
     else if (PointInRect(x, y, g_strokeWidthRect)) g_hoverTarget = TARGET_STROKE_WIDTH;
@@ -1084,7 +1138,7 @@ static void HandleMouseMove(int x, int y) {
     }
 
     if (g_hoverTarget != oldHover || g_hoverSection != oldSection ||
-        g_hoverPathOp != oldPathOp || g_pinHover != oldPin ||
+        g_hoverPathOp != oldPathOp || g_pinHover != oldPin || g_presetHover != oldPreset ||
         g_fillColorHover != oldFillColor || g_strokeColorHover != oldStrokeColor) {
         InvalidateRect(g_hwnd, NULL, FALSE);
     }
