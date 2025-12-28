@@ -126,12 +126,16 @@ static RECT g_strokeColorRect;
 static RECT g_alignRects[7];
 static RECT g_pinRect;
 static RECT g_closeRect;
+static RECT g_copyStyleRect;
+static RECT g_pasteStyleRect;
 
 // Hover state
 static ValueTarget g_hoverTarget = TARGET_NONE;
 static int g_hoverAlign = -1;
 static bool g_pinHover = false;
 static bool g_closeHover = false;
+static bool g_copyStyleHover = false;
+static bool g_pasteStyleHover = false;
 static bool g_fillColorHover = false;
 static bool g_strokeColorHover = false;
 
@@ -434,12 +438,17 @@ void UpdateHover(int mouseX, int mouseY) {
         needsRepaint = true;
     }
 
-    // Check pin/close
+    // Check pin/close/copy/paste
     bool newPinHover = PtInRect(&g_pinRect, pt);
     bool newCloseHover = PtInRect(&g_closeRect, pt);
-    if (newPinHover != g_pinHover || newCloseHover != g_closeHover) {
+    bool newCopyHover = PtInRect(&g_copyStyleRect, pt);
+    bool newPasteHover = PtInRect(&g_pasteStyleRect, pt);
+    if (newPinHover != g_pinHover || newCloseHover != g_closeHover ||
+        newCopyHover != g_copyStyleHover || newPasteHover != g_pasteStyleHover) {
         g_pinHover = newPinHover;
         g_closeHover = newCloseHover;
+        g_copyStyleHover = newCopyHover;
+        g_pasteStyleHover = newPasteHover;
         needsRepaint = true;
     }
 
@@ -776,6 +785,33 @@ static void DrawHeader(Graphics& g) {
 
     int btnSize = 18;
     int btnY = (HEADER_HEIGHT - btnSize) / 2;
+
+    // Copy Style button
+    g_copyStyleRect = {WINDOW_WIDTH - 120, btnY, WINDOW_WIDTH - 120 + btnSize, btnY + btnSize};
+    Color copyColor = g_copyStyleHover ? COLOR_ALIGN_HOVER : Color(0, 0, 0, 0);
+    SolidBrush copyBrush(copyColor);
+    g.FillRectangle(&copyBrush, g_copyStyleRect.left, g_copyStyleRect.top, btnSize, btnSize);
+
+    // Copy icon (two overlapping squares)
+    Pen copyPen(g_copyStyleHover ? COLOR_TEXT : COLOR_TEXT_DIM, 1.0f);
+    int cpx = g_copyStyleRect.left + btnSize / 2;
+    int cpy = g_copyStyleRect.top + btnSize / 2;
+    g.DrawRectangle(&copyPen, cpx - 4, cpy - 2, 5, 6);
+    g.DrawRectangle(&copyPen, cpx - 1, cpy - 5, 5, 6);
+
+    // Paste Style button
+    g_pasteStyleRect = {WINDOW_WIDTH - 96, btnY, WINDOW_WIDTH - 96 + btnSize, btnY + btnSize};
+    Color pasteColor = g_pasteStyleHover ? COLOR_ALIGN_HOVER :
+                       (g_hasStyleCopied ? Color(60, 74, 158, 255) : Color(0, 0, 0, 0));
+    SolidBrush pasteBrush(pasteColor);
+    g.FillRectangle(&pasteBrush, g_pasteStyleRect.left, g_pasteStyleRect.top, btnSize, btnSize);
+
+    // Paste icon (clipboard)
+    Pen pastePen(g_pasteStyleHover ? COLOR_TEXT : (g_hasStyleCopied ? COLOR_ACCENT : COLOR_TEXT_DIM), 1.0f);
+    int ppx = g_pasteStyleRect.left + btnSize / 2;
+    int ppy = g_pasteStyleRect.top + btnSize / 2;
+    g.DrawRectangle(&pastePen, ppx - 4, ppy - 3, 8, 8);
+    g.DrawLine(&pastePen, ppx - 2, ppy - 5, ppx + 2, ppy - 5);
 
     // Preset button (star) - moved to header
     g_presetButtonRect = {WINDOW_WIDTH - 72, btnY, WINDOW_WIDTH - 72 + btnSize, btnY + btnSize};
@@ -1155,8 +1191,58 @@ static void HandleMouseDown(int x, int y) {
         return;
     }
 
+    // Copy Style button
+    if (PtInRect(&g_copyStyleRect, pt)) {
+        g_copiedStyle = g_textInfo;
+        g_hasStyleCopied = true;
+        InvalidateRect(g_hwnd, NULL, FALSE);
+        return;
+    }
+
+    // Paste Style button
+    if (PtInRect(&g_pasteStyleRect, pt)) {
+        if (g_hasStyleCopied) {
+            ApplyTextPropertyValue("fontSize", g_copiedStyle.fontSize);
+            ApplyTextPropertyValue("tracking", g_copiedStyle.tracking);
+            if (g_copiedStyle.leading > 0) {
+                ApplyTextPropertyValue("leading", g_copiedStyle.leading);
+            }
+            ApplyTextPropertyValue("strokeWidth", g_copiedStyle.strokeWidth);
+
+            if (g_copiedStyle.applyFill) {
+                ApplyTextColorValue(false, g_copiedStyle.fillColor[0],
+                                    g_copiedStyle.fillColor[1], g_copiedStyle.fillColor[2]);
+            }
+            if (g_copiedStyle.applyStroke) {
+                ApplyTextColorValue(true, g_copiedStyle.strokeColor[0],
+                                    g_copiedStyle.strokeColor[1], g_copiedStyle.strokeColor[2]);
+            }
+
+            ApplyTextJustificationValue((int)g_copiedStyle.justify);
+
+            // Apply font
+            const wchar_t* psNameW = g_copiedStyle.font;
+            for (const auto& fi : g_allFonts) {
+                if (_wcsicmp(fi.familyName.c_str(), g_copiedStyle.font) == 0) {
+                    if (g_copiedStyle.fontStyle[0] != L'\0' &&
+                        _wcsicmp(fi.styleName.c_str(), g_copiedStyle.fontStyle) == 0) {
+                        psNameW = fi.postScriptName.c_str();
+                        break;
+                    }
+                }
+            }
+            char psName[256];
+            WideCharToMultiByte(CP_UTF8, 0, psNameW, -1, psName, sizeof(psName), NULL, NULL);
+            ApplyTextFont(psName);
+
+            g_textInfo = g_copiedStyle;
+            InvalidateRect(g_hwnd, NULL, FALSE);
+        }
+        return;
+    }
+
     // Header area (excluding buttons) - start window dragging
-    if (y < HEADER_HEIGHT && x < g_pinRect.left) {
+    if (y < HEADER_HEIGHT && x < g_copyStyleRect.left) {
         g_windowDragging = true;
         POINT cursorPos;
         GetCursorPos(&cursorPos);
