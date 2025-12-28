@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AnchorSnap VERSION 1.0.0 LANGUAGES CXX)
+project(SnapPlugin VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -147,8 +147,8 @@ if(WIN32)
     # ========================================================================
     # PiPL Resource Generation
     # ========================================================================
-    set(PIPL_R_FILE "${CMAKE_SOURCE_DIR}/resources/AnchorSnap_PiPL.r")
-    set(PIPL_TEMP_RC "${CMAKE_SOURCE_DIR}/resources/win/AnchorSnap_PiPL_temp.rc")
+    set(PIPL_R_FILE "${CMAKE_SOURCE_DIR}/resources/SnapPlugin_PiPL.r")
+    set(PIPL_TEMP_RC "${CMAKE_SOURCE_DIR}/resources/win/SnapPlugin_PiPL_temp.rc")
     set(PIPL_TOOL "${CMAKE_SOURCE_DIR}/resources/PiPLtool.exe")
 
     # Generate PiPL temp.rc from .r file using PiPLtool
@@ -166,8 +166,8 @@ if(WIN32)
 
     # Add resource file (PiPL) and Module Definition file (.def)
     target_sources(${PROJECT_NAME} PRIVATE
-        resources/win/AnchorSnap.rc
-        resources/win/AnchorSnap.def
+        resources/win/SnapPlugin.rc
+        resources/win/SnapPlugin.def
     )
 
     # AE Plugins need to be linked with specific flags on Windows

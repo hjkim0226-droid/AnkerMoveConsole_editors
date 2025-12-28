@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo ==========================================
-echo Installing Anchor Snap Plugin
+echo Installing Snap Plugin
 echo ==========================================
 
 :: Check for Administrator privileges
@@ -35,13 +35,22 @@ if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
     echo - Removing old com.anchor.grid extension...
     rmdir /s /q "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.grid"
 )
-:: Clean current AnchorSnap (both locations)
+:: Clean current SnapPlugin (both locations)
+if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\SnapPlugin.aex" (
+    echo - Removing existing SnapPlugin from MediaCore...
+    del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\SnapPlugin.aex"
+)
+if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\SnapPlugin.aex" (
+    echo - Removing existing SnapPlugin from After Effects...
+    del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\SnapPlugin.aex"
+)
+:: Clean old AnchorSnap (migration)
 if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorSnap.aex" (
-    echo - Removing existing AnchorSnap plugin from MediaCore...
+    echo - Removing old AnchorSnap plugin from MediaCore...
     del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\AnchorSnap.aex"
 )
 if exist "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\AnchorSnap.aex" (
-    echo - Removing existing AnchorSnap plugin from After Effects...
+    echo - Removing old AnchorSnap plugin from After Effects...
     del /f /q "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\After Effects\AnchorSnap.aex"
 )
 if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.snap" (
@@ -50,15 +59,15 @@ if exist "%PROGRAMFILES(X86)%\Common Files\Adobe\CEP\extensions\com.anchor.snap"
 )
 
 echo 2. Installing Plugin (.aex)...
-if not exist "plugin\AnchorSnap.aex" (
-    echo ERROR: Source file 'plugin\AnchorSnap.aex' not found!
+if not exist "plugin\SnapPlugin.aex" (
+    echo ERROR: Source file 'plugin\SnapPlugin.aex' not found!
     echo Please extract the ZIP file completely before running this script.
     pause
     exit /b
 )
 
 mkdir "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore" 2>nul
-copy /Y plugin\AnchorSnap.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
+copy /Y plugin\SnapPlugin.aex "%PROGRAMFILES%\Adobe\Common\Plug-ins\7.0\MediaCore\"
 
 echo 3. Installing CEP Panel...
 if not exist "cep" (
@@ -80,7 +89,7 @@ echo Installation Complete!
 echo ==========================================
 echo.
 echo Installed:
-echo   - AnchorSnap.aex (Plugin)
+echo   - SnapPlugin.aex (Plugin)
 echo   - com.anchor.snap (CEP Panel)
 echo.
 echo Usage:

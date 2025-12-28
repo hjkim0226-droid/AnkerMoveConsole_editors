@@ -59,27 +59,27 @@ jobs:
     - name: Create installer package
       run: |
         # Create package directory structure
-        mkdir AnchorSnap-Installer
-        mkdir AnchorSnap-Installer\plugin
-        mkdir AnchorSnap-Installer\cep
+        mkdir SnapPlugin-Installer
+        mkdir SnapPlugin-Installer\plugin
+        mkdir SnapPlugin-Installer\cep
 
         # Copy plugin
         $plugin = Get-ChildItem -Path cpp/build -Recurse -Filter "*.aex" | Select-Object -First 1
-        Copy-Item $plugin.FullName -Destination AnchorSnap-Installer\plugin\AnchorSnap.aex
+        Copy-Item $plugin.FullName -Destination SnapPlugin-Installer\plugin\SnapPlugin.aex
 
         # Copy CEP panel
-        Copy-Item -Path cep\* -Destination AnchorSnap-Installer\cep -Recurse
+        Copy-Item -Path cep\* -Destination SnapPlugin-Installer\cep -Recurse
 
         # Copy install script
-        Copy-Item install_windows.bat -Destination AnchorSnap-Installer\
+        Copy-Item install_windows.bat -Destination SnapPlugin-Installer\
 
         Write-Host "Package contents:"
-        Get-ChildItem -Path AnchorSnap-Installer -Recurse | ForEach-Object { Write-Host $_.FullName }
+        Get-ChildItem -Path SnapPlugin-Installer -Recurse | ForEach-Object { Write-Host $_.FullName }
       shell: pwsh
 
     - name: Upload installer package
       uses: actions/upload-artifact@v4
       with:
-        name: AnchorSnap-Build${{ github.run_number }}
-        path: AnchorSnap-Installer/
+        name: SnapPlugin-Build${{ github.run_number }}
+        path: SnapPlugin-Installer/
         if-no-files-found: error
