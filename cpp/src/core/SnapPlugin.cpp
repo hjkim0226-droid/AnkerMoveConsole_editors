@@ -1514,18 +1514,77 @@ static bool IsInPanelActivationWindow() {
 }
 
 /**
+ * HasFocusedTextInput
+ * Check if the currently focused control is a text input field
+ *
+ * Windows API: GetGUIThreadInfo(), GetClassName()
+ * 용도: FX Console 등 다른 플러그인의 텍스트 입력 필드 감지
+ *
+ * 왜 GetGUIThreadInfo를 사용하나?
+ * - GetFocus()는 현재 스레드의 포커스만 반환
+ * - FX Console 같은 플러그인이 별도 스레드에서 동작하면 GetFocus()로 못 잡음
+ * - GetGUIThreadInfo(0, ...)는 포그라운드 스레드의 포커스를 반환
+ *
+ * 체크하는 클래스:
+ * - "Edit", "RichEdit": Windows 표준 텍스트 입력
+ * - "Scintilla": 코드 에디터 (일부 플러그인)
+ * - "Chrome_*", "Cef*": CEP 패널 (Chromium 기반)
+ */
+static bool HasFocusedTextInput() {
+  // Use GetGUIThreadInfo to get focus from foreground thread (not just current thread)
+  // This is critical because plugins like FX Console may run in different threads
+  // GetFocus() only returns focus for the calling thread!
+  GUITHREADINFO gti;
+  gti.cbSize = sizeof(GUITHREADINFO);
+
+  // 0 = get info for foreground thread (the thread user is interacting with)
+  if (!GetGUIThreadInfo(0, &gti)) {
+    return false;
+  }
+
+  HWND focusWnd = gti.hwndFocus;
+  if (!focusWnd) return false;
+
+  wchar_t className[256] = {0};
+  if (GetClassNameW(focusWnd, className, 256) > 0) {
+    // Check for common text input control classes
+    // Native Windows controls (FX Console, ScriptUI, etc.)
+    if (wcsstr(className, L"Edit") != NULL ||
+        wcsstr(className, L"EDIT") != NULL ||
+        wcsstr(className, L"RichEdit") != NULL ||
+        wcsstr(className, L"RICHEDIT") != NULL ||
+        wcsstr(className, L"Scintilla") != NULL ||
+        wcsstr(className, L"TextField") != NULL) {
+      return true;
+    }
+    // CEP panels use Chromium - when focused, assume text input possible
+    // Chrome_RenderWidgetHostHWND: Render area where text inputs live
+    if (wcsstr(className, L"Chrome_") != NULL ||
+        wcsstr(className, L"Cef") != NULL) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * IsKeyInputAllowed
  * Combined check for key input permission
  *
  * 조건:
  * 1. AE가 포그라운드 (IsAEForeground)
- * 2. 최근 UpdateMenuHook 호출 (IsMenuHookRecent) OR 패널 활성화 윈도우 내 (IsInPanelActivationWindow)
+ * 2. 텍스트 입력 필드에 포커스 없음 (HasFocusedTextInput)
+ * 3. 최근 UpdateMenuHook 호출 (IsMenuHookRecent) OR 패널 활성화 윈도우 내 (IsInPanelActivationWindow)
  *
  * 사용 위치: IdleHook에서 각 모듈 키 트리거 전에 호출
  */
 static bool IsKeyInputAllowed() {
   // First, check if AE is the foreground window
   if (!IsAEForeground()) {
+    return false;
+  }
+  // Check if a text input field has focus (e.g., FX Console search)
+  if (HasFocusedTextInput()) {
     return false;
   }
   // Then check the timing conditions
@@ -2183,16 +2242,17 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         "}"
         "if(!textLayer)return '';"
         "var txt=textLayer.text.sourceText.value;"
-        "var font=txt.font||'Arial';"
-        "var fontStyle=txt.fontStyle||'Regular';"
-        "var fontSize=txt.fontSize||72;"
-        "var tracking=txt.tracking||0;"
-        "var leading=txt.leading||0;"
-        "var strokeWidth=txt.strokeWidth||0;"
-        "var fill=txt.fillColor||[1,1,1];"
-        "var stroke=txt.strokeColor||[0,0,0];"
-        "var applyFill=txt.applyFill!==false;"
-        "var applyStroke=txt.applyStroke||false;"
+        "if(!txt)return '';"
+        "var font=(txt.font!=null)?txt.font:'Arial';"
+        "var fontStyle=(txt.fontStyle!=null)?txt.fontStyle:'Regular';"
+        "var fontSize=(txt.fontSize!=null)?txt.fontSize:72;"
+        "var tracking=(txt.tracking!=null)?txt.tracking:0;"
+        "var leading=(txt.leading!=null)?txt.leading:0;"
+        "var strokeWidth=(txt.strokeWidth!=null)?txt.strokeWidth:0;"
+        "var applyFill=(txt.applyFill!==false);"
+        "var applyStroke=(txt.applyStroke===true);"
+        "var fill=(applyFill&&txt.fillColor&&txt.fillColor.length>=3)?txt.fillColor:[1,1,1];"
+        "var stroke=(applyStroke&&txt.strokeColor&&txt.strokeColor.length>=3)?txt.strokeColor:[0,0,0];"
         "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
         "var justNum=0;"
         "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
@@ -2203,8 +2263,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
         "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
         "return '{'+"
-        "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
-        "'\"fontStyle\":\"'+fontStyle.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"font\":\"'+String(font).replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"fontStyle\":\"'+String(fontStyle).replace(/\"/g,'\\\\\"')+'\",'+"
         "'\"fontSize\":'+fontSize+','+"
         "'\"tracking\":'+tracking+','+"
         "'\"leading\":'+leading+','+"
@@ -2575,15 +2635,17 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         "}"
         "if(!textLayer)return '';"
         "var txt=textLayer.text.sourceText.value;"
-        "var font=txt.font||'Arial';"
-        "var fontSize=txt.fontSize||72;"
-        "var tracking=txt.tracking||0;"
-        "var leading=txt.leading||0;"
-        "var strokeWidth=txt.strokeWidth||0;"
-        "var fill=txt.fillColor||[1,1,1];"
-        "var stroke=txt.strokeColor||[0,0,0];"
-        "var applyFill=txt.applyFill!==false;"
-        "var applyStroke=txt.applyStroke||false;"
+        "if(!txt)return '';"
+        "var font=(txt.font!=null)?txt.font:'Arial';"
+        "var fontStyle=(txt.fontStyle!=null)?txt.fontStyle:'Regular';"
+        "var fontSize=(txt.fontSize!=null)?txt.fontSize:72;"
+        "var tracking=(txt.tracking!=null)?txt.tracking:0;"
+        "var leading=(txt.leading!=null)?txt.leading:0;"
+        "var strokeWidth=(txt.strokeWidth!=null)?txt.strokeWidth:0;"
+        "var applyFill=(txt.applyFill!==false);"
+        "var applyStroke=(txt.applyStroke===true);"
+        "var fill=(applyFill&&txt.fillColor&&txt.fillColor.length>=3)?txt.fillColor:[1,1,1];"
+        "var stroke=(applyStroke&&txt.strokeColor&&txt.strokeColor.length>=3)?txt.strokeColor:[0,0,0];"
         "var just=txt.justification||ParagraphJustification.LEFT_JUSTIFY;"
         "var justNum=0;"
         "if(just==ParagraphJustification.LEFT_JUSTIFY)justNum=0;"
@@ -2594,7 +2656,8 @@ A_Err IdleHook(AEGP_GlobalRefcon plugin_refconP, AEGP_IdleRefcon refconP,
         "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_RIGHT)justNum=5;"
         "else if(just==ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL)justNum=6;"
         "return '{'+"
-        "'\"font\":\"'+font.replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"font\":\"'+String(font).replace(/\"/g,'\\\\\"')+'\",'+"
+        "'\"fontStyle\":\"'+String(fontStyle).replace(/\"/g,'\\\\\"')+'\",'+"
         "'\"fontSize\":'+fontSize+','+"
         "'\"tracking\":'+tracking+','+"
         "'\"leading\":'+leading+','+"
